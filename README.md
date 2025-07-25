@@ -271,7 +271,7 @@ crashlens scan --help
 
 ## 📝 Logging Helper
 
-To make log analysis seamless, you can use our [`crashlens-logger`](https://github.com/your-org/crashlens-logger) package to emit logs in the correct structure for CrashLens. This ensures compatibility and reduces manual formatting.
+To make log analysis seamless, you can use our [`crashlens-logger`](https://github.com/Crashlens/logger) package to emit logs in the correct structure for CrashLens. This ensures compatibility and reduces manual formatting.
 
 **Example usage:**
 ```sh
