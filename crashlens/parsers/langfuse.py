@@ -35,13 +35,9 @@ class LangfuseParser:
         return self._parse_lines(sys.stdin)
 
     def _extract_fields(self, record: dict) -> 'Optional[dict]':
-        # Only process if type == 'generation'
-        if record.get('type') != 'generation':
-            return None
-        # Required fields (with fallback for missing nested fields)
+        # No type check; accept all records
         return {
             'traceId': record.get('traceId'),
-            'type': record.get('type'),
             'startTime': record.get('startTime'),
             'endTime': record.get('endTime'),
             'level': record.get('level'),

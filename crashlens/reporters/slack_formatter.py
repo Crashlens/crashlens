@@ -72,8 +72,8 @@ class SlackFormatter:
         sorted_detectors = sorted(aggregated.items(), key=lambda x: x[1]['total_waste_cost'], reverse=True)
         
         for det_type, group_data in sorted_detectors:
-            emoji = self.detector_emojis.get(group_data['type'], '❓')
-            detector_name = group_data['type'].replace('_', ' ').title()
+            emoji = self.detector_emojis.get(group_data['detector'], '❓')
+            detector_name = group_data['detector'].replace('_', ' ').title()
             waste_str = f"${group_data['total_waste_cost']:.4f}" if group_data['total_waste_cost'] < 0.01 else f"${group_data['total_waste_cost']:.2f}"
             
             # More specific fix suggestions
@@ -165,23 +165,16 @@ class SlackFormatter:
             output.append("")
 
     def _aggregate_detections(self, detections: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """Aggregate detections by type and model"""
+        """Aggregate detections by detector name and model"""
         aggregated = {}
-        
         for detection in detections:
-            det_type = detection['type']
+            detector = detection.get('detector', 'unknown')
             model_used = detection.get('model_used', 'unknown')
             suggested_model = detection.get('suggested_model', 'unknown')
-            
-            # Only aggregate 'expensive_model_short' for expensive model waste
-            if det_type == 'expensive_model_short':
-                key = f"{det_type}_{model_used}_{suggested_model}"
-            else:
-                key = det_type
-            
+            key = f"{detector}_{model_used}_{suggested_model}"
             if key not in aggregated:
                 aggregated[key] = {
-                    'type': det_type,
+                    'detector': detector,
                     'count': 0,
                     'total_waste_cost': 0.0,
                     'total_waste_tokens': 0,
@@ -191,40 +184,31 @@ class SlackFormatter:
                     'severity': detection.get('severity', 'medium'),
                     'detections': []
                 }
-            
             group = aggregated[key]
             group['count'] += 1
             group['total_waste_cost'] += detection.get('waste_cost', 0)
             group['total_waste_tokens'] += detection.get('waste_tokens', 0)
             group['detections'].append(detection)
-            
-            # Collect sample prompts (up to 3 unique ones)
             sample_prompt = detection.get('sample_prompt', '')
             if sample_prompt and sample_prompt not in group['sample_prompts'] and len(group['sample_prompts']) < 3:
                 group['sample_prompts'].append(sample_prompt)
-        
         return aggregated
 
     def _get_specific_fix_suggestion(self, group_data: Dict[str, Any]) -> str:
         """Generate specific, actionable fix suggestions based on detection data"""
-        det_type = group_data['type']
-        
-        if det_type == 'expensive_model_short':
+        detector = group_data.get('detector', 'unknown').lower()
+        if detector == 'overkillmodeldetector':
             model_used = group_data.get('model_used', 'expensive model')
             suggested_model = group_data.get('suggested_model', 'cheaper model')
             return f"route short prompts from {model_used} → {suggested_model}"
-        
-        elif det_type == 'retry_loop':
-            # Get specific retry patterns from sample data
+        elif detector == 'retryloopdetector':
             retry_counts = [d.get('retry_count', 0) for d in group_data['detections']]
             max_retries = max(retry_counts) if retry_counts else 0
             if max_retries > 5:
                 return f"implement exponential backoff (saw {max_retries} retries)"
             else:
                 return "add circuit breakers and retry limits"
-        
-        elif det_type == 'fallback_storm':
-            # Look for model sequences
+        elif detector == 'fallbackstormdetector':
             sequences = []
             for d in group_data['detections']:
                 seq = d.get('models_sequence', [])
@@ -234,9 +218,7 @@ class SlackFormatter:
                 return f"fix cascade: {sequences[0]}"
             else:
                 return "optimize model selection logic"
-        
-        elif det_type == 'fallback_failure':
-            # Get specific model pairs
+        elif detector == 'fallbackfailuredetector':
             pairs = []
             for d in group_data['detections']:
                 primary = d.get('primary_model', '')
@@ -247,9 +229,8 @@ class SlackFormatter:
                 return f"remove redundant fallback: {pairs[0]}"
             else:
                 return "remove unnecessary fallback calls"
-        
         else:
-            return self.detector_fixes.get(det_type, 'optimize usage')
+            return self.detector_fixes.get(detector, 'optimize usage')
 
     def _add_json_footer(self, output: List[str], detections: List[Dict[str, Any]], traces: Dict[str, List[Dict[str, Any]]], total_spend: float, total_savings: float):
         """Add machine-readable JSON footer for automation"""

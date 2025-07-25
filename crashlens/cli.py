@@ -424,6 +424,14 @@ def scan(logfile: Optional[Path] = None, include_suppressed: bool = False, confi
     # Get suppression summary
     summary = suppression_engine.get_suppression_summary()
     
+    # Generate Markdown report and write to report.md
+    formatter = MarkdownFormatter()
+    md_report = formatter.format(all_active_detections, traces, pricing_config.get('models', {}), summary_only=False)
+    report_path = Path.cwd() / "report.md"
+    with open(report_path, 'w', encoding='utf-8') as f:
+        f.write(md_report)
+    click.echo(f"✅ Markdown report written to {report_path}")
+
     # Generate output with transparency
     output = _generate_transparent_output(all_active_detections, suppression_engine, summary)
     

@@ -74,8 +74,9 @@ class MarkdownFormatter:
             output.append("")
         
         # Format aggregated detections
-        for det_type, group_data in aggregated.items():
-            type_name = group_data['type'].replace('_', ' ').title()
+        for key, group_data in aggregated.items():
+            detector_name = group_data.get('detector', 'Unknown Detector')
+            type_name = detector_name.replace('_', ' ').title()
             output.append(f"## {type_name} ({group_data['count']} issues)")
             output.append("")
             
@@ -101,23 +102,18 @@ class MarkdownFormatter:
         return "\n".join(output)
     
     def _aggregate_detections(self, detections: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """Aggregate detections by type and model"""
+        """Aggregate detections by detector name and model"""
         aggregated = {}
         
         for detection in detections:
-            det_type = detection['type']
+            detector = detection.get('detector', 'unknown')
             model_used = detection.get('model_used', 'unknown')
             suggested_model = detection.get('suggested_model', 'unknown')
-            
-            # Only aggregate 'expensive_model_short' for expensive model waste
-            if det_type == 'expensive_model_short':
-                key = f"{det_type}_{model_used}_{suggested_model}"
-            else:
-                key = det_type
-            
+            # Use detector+model as key
+            key = f"{detector}_{model_used}_{suggested_model}"
             if key not in aggregated:
                 aggregated[key] = {
-                    'type': det_type,
+                    'detector': detector,
                     'count': 0,
                     'total_waste_cost': 0.0,
                     'total_waste_tokens': 0,
@@ -127,56 +123,38 @@ class MarkdownFormatter:
                     'severity': detection.get('severity', 'medium'),
                     'detections': []
                 }
-            
             group = aggregated[key]
             group['count'] += 1
             group['total_waste_cost'] += detection.get('waste_cost', 0)
             group['total_waste_tokens'] += detection.get('waste_tokens', 0)
             group['detections'].append(detection)
-            
             # Collect sample prompts (up to 3 unique ones)
             sample_prompt = detection.get('sample_prompt', '')
             if sample_prompt and sample_prompt not in group['sample_prompts'] and len(group['sample_prompts']) < 3:
                 group['sample_prompts'].append(sample_prompt)
-        
         return aggregated
-    
+
     def _format_aggregated_detection(self, group_data: Dict[str, Any], summary_only: bool = False) -> str:
         """Format an aggregated detection group in Markdown"""
         lines = []
-        
-        # Main description
-        if group_data['type'] == 'expensive_model_short':
-            model_used = group_data['model_used'].upper()
-            suggested_model = group_data['suggested_model']
-            lines.append(f"**Issue**: {group_data['count']} traces used {model_used} instead of {suggested_model}")
-        elif group_data['type'] == 'retry_loop':
-            lines.append(f"**Issue**: {group_data['count']} traces with excessive retries")
-        elif group_data['type'] == 'fallback_storm':
-            lines.append(f"**Issue**: {group_data['count']} traces with model fallback storms")
-        elif group_data['type'] == 'fallback_failure':
-            lines.append(f"**Issue**: {group_data['count']} traces with unnecessary fallback calls")
-        else:
-            lines.append(f"**Issue**: {group_data['count']} traces affected")
+        detector = group_data.get('detector', 'unknown').replace('_', ' ').title()
+        lines.append(f"**Issue**: {group_data['count']} traces flagged by {detector}")
         lines.append("")
-        
         # Sample prompts (suppress in summary_only)
         if group_data['sample_prompts'] and not summary_only:
             lines.append("**Sample Prompts**:")
             for i, prompt in enumerate(group_data['sample_prompts'], 1):
                 lines.append(f"{i}. `{prompt[:50]}{'...' if len(prompt) > 50 else ''}`")
             lines.append("")
-        
-        # Suggested fix
-        if group_data['type'] == 'expensive_model_short':
+        # Suggested fix (optional, can be improved per detector)
+        if detector.lower() == 'overkillmodeldetector':
             lines.append(f"**Suggested Fix**: Route short prompts to `{group_data['suggested_model']}`")
-        elif group_data['type'] == 'retry_loop':
+        elif detector.lower() == 'retryloopdetector':
             lines.append("**Suggested Fix**: Implement exponential backoff and circuit breakers")
-        elif group_data['type'] == 'fallback_storm':
+        elif detector.lower() == 'fallbackstormdetector':
             lines.append("**Suggested Fix**: Optimize model selection logic")
-        elif group_data['type'] == 'fallback_failure':
+        elif detector.lower() == 'fallbackfailuredetector':
             lines.append("**Suggested Fix**: Remove redundant fallback calls after successful cheaper model calls")
-        
         return "\n".join(lines)
 
     def _format_detection(self, detection: Dict[str, Any], index: int, summary_only: bool = False) -> str:
