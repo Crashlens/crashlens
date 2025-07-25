@@ -1,12 +1,35 @@
-# CrashLens
+## 🧠 What is CrashLens?
 
-_For devs using OpenAI or Claude APIs who want to cut token waste fast—without Grafana, LangSmith, or tracing setups. Works out-of-the-box with LangChain JSONL, OpenAI api.log, LlamaIndex, and custom logs._
+CrashLens is a developer tool to **analyze GPT API logs** and uncover hidden **token waste**, retry loops, and overkill model usage. It helps you **optimize your OpenAI, Anthropic, or Langfuse API usage** by generating a cost breakdown and **suggesting cost-saving actions**.
+
+#### 🔍 Use it when you want to:
+
+- Understand how your GPT API budget is being spent
+- Reduce unnecessary model calls or retries
+- Audit logs for fallback logic inefficiencies
+- Analyze Langfuse/OpenAI JSONL logs locally, with full privacy
+
+🧾 Supports: OpenAI, Anthropic, Langfuse JSONL logs  
+💻 Platform: 100% CLI, 100% local
 
 ---
 
-## ⚠️ Python Requirement
+### 💡 Why use CrashLens?
 
-CrashLens requires **Python 3.12 or higher**. [Download Python 3.12+ here.](https://www.python.org/downloads/)
+> "You can't optimize what you can't see."
+> CrashLens gives you visibility into how you're *actually* using LLMs — and how much it's costing you.
+
+---
+
+## 👨‍💻 Use Cases
+
+- Track and reduce monthly OpenAI bills
+- Debug retry loops and fallback logic in LangChain or custom agents
+- Detect inefficient prompt-to-model usage (e.g., using GPT-4 for 3-token completions)
+- Generate token audit logs for compliance or team analysis
+- CLI tool to audit GPT usage and optimize OpenAI API costs
+- Analyze GPT token usage and efficiency in LLM logs
+- Reduce LLM spending with actionable insights
 
 ---
 
@@ -14,9 +37,15 @@ CrashLens requires **Python 3.12 or higher**. [Download Python 3.12+ here.](http
 
 ```sh
 pip install crashlens
-crashlens scan your-logs.jsonl
+crashlens scan path/to/your-logs.jsonl
 # Generates report.md with per-trace waste, cost, and suggestions
 ```
+
+---
+
+## ⚠️ Python Requirement
+
+CrashLens requires **Python 3.12 or higher**. [Download Python 3.12+ here.](https://www.python.org/downloads/)
 
 ---
 
@@ -45,32 +74,92 @@ Now you can run `crashlens` from any folder.
 
 ## 📝 Example CrashLens Report
 
-```markdown
+Below is a sample of what the actual `report.md` looks like after running CrashLens:
+
+```
+🔒 CrashLens runs 100% locally. No data leaves your system.
+
 # CrashLens Token Waste Report
 
-🧾 **Total AI Spend**: $0.123456
-💰 **Total Potential Savings**: $0.045678
-🎯 **Wasted Tokens**: 1,200
-📊 **Issues Found**: 3
+**Analysis Date:** 2025-07-25 17:03:57  
 
-| Trace ID   | Model           | Prompt                        | Completion Length | Cost     | Waste Type   |
-|-----------|-----------------|-------------------------------|------------------|----------|-------------|
-| trace_9   | gpt-3.5-turbo   | How do solar panels work?...  | 110              | $0.00018 | Overkill     |
-| trace_10  | gpt-4           | Write a poem about AI...      | 20               | $0.00210 | Overkill     |
-| trace_11  | gpt-4           | Summarize this text...        | 15               | $0.00180 | Retry Loop   |
+**Traces Analyzed:** 156  
 
-## Overkill Model Usage (2 issues)
-- **trace_9**: Used gpt-3.5-turbo for a short completion (110 tokens). Consider using a cheaper model.
-- **trace_10**: Used gpt-4 for a very short completion (20 tokens). Consider using gpt-3.5-turbo.
 
-## Retry Loops (1 issue)
-- **trace_11**: Multiple retries detected for the same prompt within a short time window.
+## Summary
 
----
+| Metric | Value |
+|--------|-------|
+| Total AI Spend | $1.18 |
+| Total Potential Savings | $0.8388 |
+| Wasted Tokens | 68 |
+| Issues Found | 87 |
+| Traces Analyzed | 156 |
 
-**Suggestions:**
-- Route short prompts to cheaper models to save costs.
-- Implement retry backoff to avoid unnecessary repeated calls.
+## Top Expensive Traces
+
+| Rank | Trace ID | Model | Cost |
+|------|----------|-------|------|
+| 1 | trace_norm_76 | gpt-4 | $0.09 |
+| 2 | trace_norm_65 | gpt-4 | $0.07 |
+| 3 | trace_norm_38 | gpt-4 | $0.06 |
+
+## Cost by Model
+
+| Model | Cost | Percentage |
+|-------|------|------------|
+| gpt-4 | $1.16 | 98% |
+| gpt-3.5-turbo | $0.02 | 2% |
+
+
+## Unknown (9 issues)
+
+| Metric | Value |
+|--------|-------|
+| Total Waste Cost | $0.0001 |
+| Total Waste Tokens | 68 |
+
+**Issue**: 9 traces flagged by Unknown
+
+**Sample Prompts**:
+1. `What is the current time in Tokyo?`
+2. `What is the capital of India?`
+
+
+## Fallback Storm (5 issues)
+
+| Metric | Value |
+|--------|-------|
+| Total Waste Cost | $0.0669 |
+| Total Waste Tokens | 0 |
+
+**Issue**: 5 traces flagged by Fallback Storm
+
+**Sample Prompts**:
+1. `Write a Python script to analyze sentiment from a ...`
+2. `Create a function in Go to reverse a string, make ...`
+3. `Summarize the key arguments in the philosophical t...`
+
+
+## Unknown (73 issues)
+
+| Metric | Value |
+|--------|-------|
+| Total Waste Cost | $0.7717 |
+| Total Waste Tokens | 0 |
+
+**Issue**: 73 traces flagged by Unknown
+
+**Sample Prompts**:
+1. `What is 2+2?`
+2. `Draft a comprehensive business plan for a new e-co...`
+3. `Generate a complex SQL query to find users who hav...`
+
+
+## Monthly Projection
+
+Based on current patterns, potential monthly savings: **$25.16**
+
 ```
 
 ---
@@ -80,13 +169,14 @@ Now you can run `crashlens` from any folder.
 - 🔁 **grep + spreadsheet**: Too manual, error-prone, no cost context
 - 💸 **LangSmith**: Powerful but complex, requires full tracing/observability stack
 - 🔍 **Logging without cost visibility**: You miss $ waste and optimization opportunities
+- 🔒 **CrashLens runs 100% locally—no data leaves your machine.**
 
 ---
 
 ## Features (Ultra-Specific)
 
 - ✅ Detects retry-loop storms across trace IDs
-- ✅ Flags gpt-4 usage where gpt-3.5 gives same output
+- ✅ Flags gpt-4, Claude, Gemini, and other expensive model usage where a cheaper model (e.g., gpt-3.5, Claude Instant) would suffice
 - ✅ Scans stdin logs from LangChain, LlamaIndex, custom logging
 - ✅ Generates Markdown cost reports with per-trace waste
 
@@ -94,7 +184,6 @@ Now you can run `crashlens` from any folder.
 
 ## What Makes CrashLens Different?
 
-- 🧩 **Pluggable rules** (custom analyzers—extend for your org)
 - 💵 **Model pricing fallback** (auto-detects/corrects missing cost info)
 - 🔒 **Security-by-design** (runs 100% locally, no API calls, no data leaves your machine)
 - 🚦 **Coming soon**: Policy enforcement, live CLI firewall, more integrations
@@ -122,7 +211,7 @@ Now you can run `crashlens` from any folder.
 - `cost` (float): Cost of the API call
 - `name`, `startTime`, etc.: Any other metadata
 
-💡 CrashLens expects JSONL with per-call metrics (model, tokens, cost). Works with LangChain logs, OpenAI api.log, etc.
+💡 CrashLens expects JSONL with per-call metrics (model, tokens, cost). Works with LangChain logs, OpenAI api.log, Claude, Gemini, and more.
 
 ---
 
@@ -148,7 +237,13 @@ cat path/to/your-logs.jsonl | crashlens scan --stdin
 ```
 - Reads logs from standard input (useful for pipelines or quick tests).
 
-### 4. **Get help**
+### 4. **Paste logs interactively**
+```sh
+crashlens scan --paste
+```
+- Allows you to paste log lines directly into the terminal (end input with Ctrl+D).
+
+### 5. **Get help**
 ```sh
 crashlens --help
 crashlens scan --help
@@ -166,11 +261,38 @@ crashlens scan --help
    ```
 2. **Scan your logs:**
    ```sh
-   crashlens scan my-logs.jsonl
+   crashlens scan path/to/your-logs.jsonl
    # OR
-   python -m crashlens scan my-logs.jsonl
+   python -m crashlens scan path/to/your-logs.jsonl
    ```
 3. **Open `report.md`** in your favorite Markdown viewer or editor to review the findings and suggestions.
+
+---
+
+## 📝 Logging Helper
+
+To make log analysis seamless, you can use our [`crashlens-logger`](https://github.com/your-org/crashlens-logger) package to emit logs in the correct structure for CrashLens. This ensures compatibility and reduces manual formatting.
+
+**Example usage:**
+```sh
+pip install --upgrade crashlens_logger
+```
+```python
+from crashlens_logger import CrashLensLogger
+
+logger = CrashLensLogger()
+logger.log_event(
+    traceId=trace_id,
+    startTime=start_time,
+    endTime=end_time,
+    input={"model": model, "prompt": prompt},
+    usage=usage
+    # Optionally add: type, level, metadata, name, etc.
+)
+```
+
+- The logger writes each call as a JSONL line in the required format.
+- See the [`crashlens-logger` repo](https://github.com/Crashlens/logger) for full docs and advanced usage.
 
 ---
 
