@@ -73,3 +73,5 @@ Desktop.ini
 # IDEs
 .idea/
 *.iml 
+
+report.md
