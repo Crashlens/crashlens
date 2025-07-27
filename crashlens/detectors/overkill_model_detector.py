@@ -114,6 +114,17 @@ class OverkillModelDetector:
         suggested_model = self.routing_suggestions.get(model, "gpt-3.5-turbo")
         potential_savings = self._calculate_potential_savings(record, model, suggested_model, model_pricing)
         
+        # Calculate total tokens used
+        # Handle both flattened (from parser) and nested (original) structures
+        if 'usage' in record:
+            usage = record.get('usage', {})
+            prompt_tokens_actual = usage.get('prompt_tokens', 0)
+            completion_tokens = usage.get('completion_tokens', 0)
+        else:
+            prompt_tokens_actual = record.get('prompt_tokens', 0)
+            completion_tokens = record.get('completion_tokens', 0)
+        total_tokens = prompt_tokens_actual + completion_tokens
+        
         # 💡 CLI OUTPUT: Return enhanced detection metadata with cost and routing info
         return {
             'type': 'overkill_model',
@@ -130,6 +141,7 @@ class OverkillModelDetector:
             'overkill_detected': True,
             'description': f"Overkill: {model} used for simple task ({simple_reason})",
             'waste_cost': estimated_cost * 0.7,  # Assume 70% could be saved with cheaper model
+            'waste_tokens': total_tokens,
             'sample_prompt': prompt[:100] + '...' if len(prompt) > 100 else prompt
         }
     

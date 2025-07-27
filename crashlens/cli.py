@@ -44,9 +44,8 @@ class SuppressionEngine:
     Ensures one "owner" per trace for accurate root cause attribution.
     """
     
-    def __init__(self, suppression_config: Optional[Dict[str, Any]] = None, include_suppressed: bool = False):
+    def __init__(self, suppression_config: Optional[Dict[str, Any]] = None):
         self.suppression_config = suppression_config or {}
-        self.include_suppressed = include_suppressed
         
         # 🧠 2. Trace-Level Ownership: {trace_id: claimed_by_detector}
         self.trace_ownership: Dict[str, str] = {}
@@ -213,28 +212,70 @@ def load_pricing_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         return {}
 
 
-def _generate_transparent_output(active_detections: List[Dict[str, Any]], 
-                                suppression_engine: SuppressionEngine, 
-                                summary: Dict[str, Any]) -> str:
-    """📊 5. Generate human-centric output with transparency"""
+
+
+
+def _format_human_readable(active_detections: List[Dict[str, Any]], total_waste_cost: float, traces: Dict[str, List[Dict[str, Any]]] = None, model_pricing: Dict[str, Any] = None) -> str:
+    """📊 Generate comprehensive human-centric output with detailed information"""
     
-    formatter = SummaryFormatter()
-    
-    # Calculate totals
-    total_waste_cost = sum(d.get('waste_cost', 0) for d in active_detections)
+    # Calculate additional metrics
+    total_traces = len(traces) if traces else 0
     total_waste_tokens = sum(d.get('waste_tokens', 0) for d in active_detections)
     
-    # Build report
+    # Calculate model breakdown
+    model_costs = {}
+    if traces and model_pricing:
+        for trace_id, records in traces.items():
+            for record in records:
+                model = record.get('model') or record.get('input', {}).get('model', 'unknown')
+                if 'usage' in record:
+                    usage = record.get('usage', {})
+                    prompt_tokens = usage.get('prompt_tokens', 0)
+                    completion_tokens = usage.get('completion_tokens', 0)
+                else:
+                    prompt_tokens = record.get('prompt_tokens', 0)
+                    completion_tokens = record.get('completion_tokens', 0)
+                
+                if model in model_pricing:
+                    model_config = model_pricing[model]
+                    input_cost_per_1k = model_config.get('input_cost_per_1k', 0)
+                    output_cost_per_1k = model_config.get('output_cost_per_1k', 0)
+                    input_cost_per_1m = model_config.get('input_cost_per_1m', 0)
+                    output_cost_per_1m = model_config.get('output_cost_per_1m', 0)
+                    
+                    if input_cost_per_1k > 0:
+                        input_cost = input_cost_per_1k / 1000
+                    else:
+                        input_cost = input_cost_per_1m / 1000000
+                        
+                    if output_cost_per_1k > 0:
+                        output_cost = output_cost_per_1k / 1000
+                    else:
+                        output_cost = output_cost_per_1m / 1000000
+                    
+                    cost = (prompt_tokens * input_cost) + (completion_tokens * output_cost)
+                    model_costs[model] = model_costs.get(model, 0) + cost
+    
     lines = [
         "🚨 **CrashLens Token Waste Report**",
-        "=" * 50,
+        "=" * 60,
         f"📅 **Analysis Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"🔍 **Traces Analyzed**: {summary['total_traces_analyzed']}",
-        f"🧾 **Total AI Spend**: ${total_waste_cost:.2f}",
-        f"💰 **Total Potential Savings**: ${total_waste_cost:.4f}",
-        f"🎯 **Wasted Tokens**: {total_waste_tokens}",
-        f"📊 **Issues Found**: {summary['active_issues']}"
+        f"🔍 **Traces Analyzed**: {total_traces:,}",
+        f"💰 **Total AI Spend**: ${sum(model_costs.values()):.4f}",
+        f"💸 **Total Potential Savings**: ${total_waste_cost:.4f}",
+        f"📊 **Issues Found**: {len(active_detections)}",
+        f"🎯 **Wasted Tokens**: {total_waste_tokens:,}",
+        ""
     ]
+    
+    # Add model breakdown
+    if model_costs:
+        lines.append("📈 **Cost by Model**:")
+        sorted_models = sorted(model_costs.items(), key=lambda x: x[1], reverse=True)
+        for model, cost in sorted_models[:5]:  # Top 5 models
+            percentage = (cost / sum(model_costs.values())) * 100
+            lines.append(f"  • {model}: ${cost:.4f} ({percentage:.1f}%)")
+        lines.append("")
     
     # Group detections by type for reporting
     detections_by_type = {}
@@ -245,6 +286,7 @@ def _generate_transparent_output(active_detections: List[Dict[str, Any]],
         detections_by_type[detector_name].append(detection)
     
     # Add detection details
+    lines.append("🔍 **Issue Breakdown**:")
     for detector_type, detections in detections_by_type.items():
         if not detections:
             continue
@@ -252,36 +294,40 @@ def _generate_transparent_output(active_detections: List[Dict[str, Any]],
         display_name = DETECTOR_DISPLAY_NAMES.get(detector_type + 'Detector', detector_type.title())
         icon = {"retry_loop": "🔄", "fallback_storm": "⚡", "fallback_failure": "📢", "overkill_model": "❓"}.get(detector_type, "⚠️")
         
-        lines.append(f"{icon} **{display_name}** ({len(detections)} issues)")
-        
-        sample_prompts = [d.get('sample_prompt', '')[:30] + '...' for d in detections[:2] if d.get('sample_prompt')]
-        if sample_prompts:
-            lines.append(f"  • Sample prompts: {', '.join(sample_prompts)}")
-        
         waste_cost = sum(d.get('waste_cost', 0) for d in detections)
-        if waste_cost > 0:
-            lines.append(f"  • Est. waste: ${waste_cost:.4f}")
-    
-    # ✅ Bonus: Show suppression summary for transparency
-    if summary['suppressed_issues'] > 0:
-        lines.append("")
-        lines.append("🛑 **Suppression Summary**")
-        lines.append(f"  • {summary['suppressed_issues']} issues suppressed by higher-priority detectors")
+        waste_tokens = sum(d.get('waste_tokens', 0) for d in detections)
         
-        # Show suppressed detections if requested
-        if suppression_engine.include_suppressed:
-            lines.append("")
-            lines.append("📋 **Suppressed Detections** (for transparency)")
-            for detection in suppression_engine.suppressed_detections:
-                trace_id = detection.get('trace_id', 'unknown')
-                reason = detection.get('suppression_reason', 'unknown')
-                detector = detection.get('detector', 'unknown')
-                lines.append(f"  ⚠️ {DETECTOR_DISPLAY_NAMES.get(detector, detector)} suppressed for trace {trace_id}")
-                lines.append(f"     Reason: {reason.replace('_', ' ').replace(':', ' by ')}")
+        lines.append(f"{icon} **{display_name}** ({len(detections)} issues)")
+        lines.append(f"  💰 Waste Cost: ${waste_cost:.4f}")
+        lines.append(f"  🎯 Waste Tokens: {waste_tokens:,}")
+        
+        # Add sample prompts
+        sample_prompts = [d.get('sample_prompt', '')[:50] + '...' for d in detections[:3] if d.get('sample_prompt')]
+        if sample_prompts:
+            lines.append(f"  📝 Sample prompts: {', '.join(sample_prompts)}")
+        
+        # Add trace IDs for first few
+        trace_ids = [d.get('trace_id', '') for d in detections[:5] if d.get('trace_id')]
+        if trace_ids:
+            lines.append(f"  🔗 Sample traces: {', '.join(trace_ids)}")
+        
+        lines.append("")
     
-    # Monthly projection
+    # Add recommendations
+    lines.append("💡 **Recommendations**:")
+    if detections_by_type.get('overkill_model'):
+        lines.append("  • Consider using cheaper models for simple tasks")
+    if detections_by_type.get('retry_loop'):
+        lines.append("  • Implement exponential backoff for retries")
+    if detections_by_type.get('fallback_storm'):
+        lines.append("  • Optimize model selection strategy")
+    if detections_by_type.get('fallback_failure'):
+        lines.append("  • Remove unnecessary fallbacks")
+    
+    lines.append("")
+    lines.append("📊 **Monthly Projection**:")
     monthly_savings = total_waste_cost * 30
-    lines.append(f"📈 **Monthly Projection**: ${monthly_savings:.2f} potential savings")
+    lines.append(f"  💰 Potential monthly savings: ${monthly_savings:.2f}")
     
     return "\n".join(lines)
 
@@ -294,33 +340,43 @@ def cli():
 
 
 @click.command()
-@click.option('--include-suppressed', is_flag=True, help='✅ Include suppressed detections in output for transparency')
-@click.option('--config', type=click.Path(path_type=Path), help='Path to configuration file')
-@click.option('--demo', is_flag=True, help='🎬 Run analysis on built-in demo data (no file required)')
-@click.option('--stdin', is_flag=True, help='📥 Read JSONL data from standard input')
 @click.argument('logfile', type=click.Path(path_type=Path), required=False)
-def scan(logfile: Optional[Path] = None, include_suppressed: bool = False, config: Optional[Path] = None, 
-         demo: bool = False, stdin: bool = False) -> str:
-    """
-    🎯 Scan logs for token waste patterns with production-grade suppression logic
-    
-    We don't double count waste. We trace root causes — not symptoms.
-    
+@click.option('--format', '-f', 'output_format', 
+              type=click.Choice(['slack', 'markdown', 'json', 'human'], case_sensitive=False),
+              default='slack', help='Output format')
+@click.option('--config', '-c', type=click.Path(path_type=Path),
+              help='Custom pricing config file path')
+@click.option('--demo', is_flag=True, help='Use built-in demo data')
+@click.option('--stdin', is_flag=True, help='Read from standard input')
+@click.option('--paste', is_flag=True, help='Read JSONL data from clipboard')
+@click.option('--summary', is_flag=True, help='Show cost summary with breakdown')
+@click.option('--summary-only', is_flag=True, help='Summary without trace IDs')
+def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
+         demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
+         summary_only: bool = False) -> str:
+    """🎯 Scan logs for token waste patterns with production-grade suppression logic
+
     Examples:
       crashlens scan logs.jsonl              # Scan a specific file
-      crashlens scan --demo                  # Use built-in demo data
-      cat logs.jsonl | crashlens scan --stdin  # Read from pipe
-    """
+      crashlens scan --demo                              # Use built-in demo data
+      cat logs.jsonl | crashlens scan --stdin            # Read from pipe
+      crashlens scan --paste                             # Read from clipboard"""
     
     # Validate input options
-    input_count = sum([bool(logfile), demo, stdin])
+    input_count = sum([bool(logfile), demo, stdin, paste])
     if input_count == 0:
-        click.echo("❌ Error: Must specify input source: file path, --demo, or --stdin")
+        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, or --paste")
         click.echo("💡 Try: crashlens scan --help")
         sys.exit(1)
     elif input_count > 1:
         click.echo("❌ Error: Cannot use multiple input sources simultaneously")
-        click.echo("💡 Choose one: file path, --demo, or --stdin")
+        click.echo("💡 Choose one: file path, --demo, --stdin, or --paste")
+        sys.exit(1)
+    
+    # Validate summary options
+    if summary and summary_only:
+        click.echo("❌ Error: Cannot use --summary and --summary-only together")
+        click.echo("💡 Choose one: --summary OR --summary-only")
         sys.exit(1)
 
     # File existence check for logfile
@@ -333,7 +389,7 @@ def scan(logfile: Optional[Path] = None, include_suppressed: bool = False, confi
     suppression_config = load_suppression_config(config)
     
     # Initialize suppression engine
-    suppression_engine = SuppressionEngine(suppression_config, include_suppressed)
+    suppression_engine = SuppressionEngine(suppression_config)
     
     # Initialize parser and load logs based on input source
     parser = LangfuseParser()
@@ -358,6 +414,43 @@ def scan(logfile: Optional[Path] = None, include_suppressed: bool = False, confi
                 click.echo("\n⚠️  Input cancelled by user")
                 sys.exit(1)
         
+        elif paste:
+            # Clipboard paste mode - automatically read from clipboard
+            try:
+                import pyperclip
+                click.echo("📋 Reading JSONL data from clipboard...")
+                
+                # Get data from clipboard
+                clipboard_text = pyperclip.paste()
+                
+                if not clipboard_text.strip():
+                    click.echo("❌ Error: Clipboard is empty or contains no data")
+                    click.echo("💡 Copy some JSONL data to your clipboard first, then run this command")
+                    sys.exit(1)
+                
+                # Split into lines and filter empty lines
+                lines = [line.strip() for line in clipboard_text.splitlines() if line.strip()]
+                
+                if not lines:
+                    click.echo("❌ Error: No valid JSONL lines found in clipboard")
+                    click.echo("💡 Make sure your clipboard contains JSONL data (one JSON object per line)")
+                    sys.exit(1)
+                
+                click.echo(f"📊 Processing {len(lines)} lines from clipboard...")
+                
+                # Join lines and parse as string
+                jsonl_text = '\n'.join(lines)
+                traces = parser.parse_string(jsonl_text)
+                
+            except ImportError:
+                click.echo("❌ Error: pyperclip library not available")
+                click.echo("💡 Install with: pip install pyperclip")
+                sys.exit(1)
+            except Exception as e:
+                click.echo(f"❌ Error reading from clipboard: {e}", err=True)
+                click.echo("💡 Make sure your clipboard contains valid JSONL data")
+                sys.exit(1)
+        
         elif logfile:
             # Read from specified file
             traces = parser.parse_file(logfile)
@@ -367,10 +460,74 @@ def scan(logfile: Optional[Path] = None, include_suppressed: bool = False, confi
         sys.exit(1)
     
     if not traces:
-        click.echo("⚠️  No traces found in input")
+        source = "demo data" if demo else "standard input" if stdin else "pasted data" if paste else "log file"
+        click.echo(f"⚠️  No traces found in {source}")
         return ""
     
     click.echo("🔒 CrashLens runs 100% locally. No data leaves your system.")
+    
+    # Handle summary modes
+    if summary or summary_only:
+        # Run detectors to get waste analysis
+        all_active_detections = []
+        
+        # Load thresholds from pricing config
+        thresholds = pricing_config.get('thresholds', {})
+        
+        # Run detectors in priority order
+        detector_configs = [
+            ('RetryLoopDetector', RetryLoopDetector(
+                max_retries=thresholds.get('retry_loop', {}).get('max_retries', 3),
+                time_window_minutes=thresholds.get('retry_loop', {}).get('time_window_minutes', 5),
+                max_retry_interval_minutes=thresholds.get('retry_loop', {}).get('max_retry_interval_minutes', 2)
+            )),
+            ('FallbackStormDetector', FallbackStormDetector(
+                min_calls=thresholds.get('fallback_storm', {}).get('min_calls', 3),
+                min_models=thresholds.get('fallback_storm', {}).get('min_models', 2),
+                max_trace_window_minutes=thresholds.get('fallback_storm', {}).get('max_trace_window_minutes', 3)
+            )),
+            ('FallbackFailureDetector', FallbackFailureDetector(
+                time_window_seconds=thresholds.get('fallback_failure', {}).get('time_window_seconds', 300)
+            )),
+            ('OverkillModelDetector', OverkillModelDetector(
+                max_prompt_tokens=thresholds.get('overkill_model', {}).get('max_prompt_tokens', 20),
+                max_prompt_chars=thresholds.get('overkill_model', {}).get('max_prompt_chars', 150)
+            ))
+        ]
+        
+        # Process each detector
+        for detector_name, detector in detector_configs:
+            try:
+                if hasattr(detector, 'detect'):
+                    if 'already_flagged_ids' in detector.detect.__code__.co_varnames:
+                        already_flagged = set(suppression_engine.trace_ownership.keys())
+                        raw_detections = detector.detect(traces, pricing_config.get('models', {}), already_flagged)
+                    else:
+                        raw_detections = detector.detect(traces, pricing_config.get('models', {}))
+                else:
+                    raw_detections = []
+                
+                # Process through suppression engine
+                active_detections = suppression_engine.process_detections(detector_name, raw_detections)
+                all_active_detections.extend(active_detections)
+                
+            except Exception as e:
+                click.echo(f"⚠️  Warning: {detector_name} failed: {e}", err=True)
+                continue
+        
+        # Use SummaryFormatter for cost breakdown with waste analysis
+        summary_formatter = SummaryFormatter()
+        output = summary_formatter.format(traces, pricing_config.get('models', {}), summary_only, all_active_detections)
+        
+        # Write to report.md
+        report_path = Path.cwd() / "report.md"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        
+        summary_type = "Summary-only" if summary_only else "Summary"
+        click.echo(f"✅ {summary_type} report written to {report_path}")
+        click.echo(output)
+        return output
     
     # Load thresholds from pricing config
     thresholds = pricing_config.get('thresholds', {})
@@ -424,19 +581,58 @@ def scan(logfile: Optional[Path] = None, include_suppressed: bool = False, confi
     # Get suppression summary
     summary = suppression_engine.get_suppression_summary()
     
-    # Generate Markdown report and write to report.md
-    formatter = MarkdownFormatter()
-    md_report = formatter.format(all_active_detections, traces, pricing_config.get('models', {}), summary_only=False)
+    # Generate report based on format and write to report.md
     report_path = Path.cwd() / "report.md"
-    with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(md_report)
-    click.echo(f"✅ Markdown report written to {report_path}")
-
-    # Generate output with transparency
-    output = _generate_transparent_output(all_active_detections, suppression_engine, summary)
     
-    click.echo(output)
-    return output
+    if output_format == 'json':
+        # Machine-readable JSON output
+        import json
+        json_output = []
+        for detection in all_active_detections:
+            json_detection = {
+                'type': detection.get('type'),
+                'severity': detection.get('severity'),
+                'description': detection.get('description'),
+                'waste_cost': f"{detection.get('waste_cost', 0):.6f}",
+                'suppression_notes': detection.get('suppression_notes', {})
+            }
+            if 'trace_id' in detection:
+                json_detection['trace_id'] = detection['trace_id']
+            json_output.append(json_detection)
+        
+        output = json.dumps(json_output, indent=2)
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ JSON report written to {report_path}")
+        click.echo(output)
+        return output
+    elif output_format == 'human':
+        # Human-readable terminal output
+        total_waste_cost = sum(d.get('waste_cost', 0) for d in all_active_detections)
+        output = _format_human_readable(all_active_detections, total_waste_cost, traces, pricing_config.get('models', {}))
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ Human-readable report written to {report_path}")
+        click.echo(output)
+        return output
+    elif output_format == 'markdown':
+        # Markdown format
+        formatter = MarkdownFormatter()
+        output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}), summary_only=False)
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ Markdown report written to {report_path}")
+        click.echo(output)
+        return output
+    else:
+        # Default Slack format
+        formatter = SlackFormatter()
+        output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}))
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ Slack report written to {report_path}")
+        click.echo(output)
+        return output
 
 
 # Add the scan command to CLI

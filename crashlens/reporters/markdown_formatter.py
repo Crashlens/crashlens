@@ -74,10 +74,8 @@ class MarkdownFormatter:
             output.append("")
         
         # Format aggregated detections
-        for key, group_data in aggregated.items():
-            detector_name = group_data.get('detector', 'Unknown Detector')
-            type_name = detector_name.replace('_', ' ').title()
-            output.append(f"## {type_name} ({group_data['count']} issues)")
+        for detector_name, group_data in aggregated.items():
+            output.append(f"## {group_data['detector']} ({group_data['count']} issues)")
             output.append("")
             
             # Type summary table
@@ -86,6 +84,15 @@ class MarkdownFormatter:
             output.append(f"| Total Waste Cost | ${group_data['total_waste_cost']:.4f} |")
             output.append(f"| Total Waste Tokens | {group_data['total_waste_tokens']:,} |")
             output.append("")
+            
+            # Add trace IDs array
+            if group_data['trace_ids'] and not summary_only:
+                output.append("**Trace IDs**:")
+                trace_list = ', '.join(group_data['trace_ids'][:10])  # Show first 10
+                if len(group_data['trace_ids']) > 10:
+                    trace_list += f", +{len(group_data['trace_ids']) - 10} more"
+                output.append(f"`{trace_list}`")
+                output.append("")
             
             # Aggregated details
             output.append(self._format_aggregated_detection(group_data, summary_only))
@@ -102,36 +109,56 @@ class MarkdownFormatter:
         return "\n".join(output)
     
     def _aggregate_detections(self, detections: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """Aggregate detections by detector name and model"""
+        """Aggregate detections by detector type"""
         aggregated = {}
         
         for detection in detections:
-            detector = detection.get('detector', 'unknown')
-            model_used = detection.get('model_used', 'unknown')
-            suggested_model = detection.get('suggested_model', 'unknown')
-            # Use detector+model as key
-            key = f"{detector}_{model_used}_{suggested_model}"
-            if key not in aggregated:
-                aggregated[key] = {
+            # Get the proper detector name from the detection
+            detector = detection.get('type', 'unknown')  # Use 'type' field instead of 'detector'
+            if detector == 'unknown':
+                # Fallback to detector field if type is not available
+                detector = detection.get('detector', 'unknown')
+            
+            # Clean up detector name
+            if detector == 'overkill_model':
+                detector = 'Overkill Model'
+            elif detector == 'retry_loop':
+                detector = 'Retry Loop'
+            elif detector == 'fallback_storm':
+                detector = 'Fallback Storm'
+            elif detector == 'fallback_failure':
+                detector = 'Fallback Failure'
+            else:
+                detector = detector.replace('_', ' ').title()
+            
+            if detector not in aggregated:
+                aggregated[detector] = {
                     'detector': detector,
                     'count': 0,
                     'total_waste_cost': 0.0,
                     'total_waste_tokens': 0,
                     'sample_prompts': [],
-                    'model_used': model_used,
-                    'suggested_model': suggested_model,
+                    'trace_ids': [],
                     'severity': detection.get('severity', 'medium'),
                     'detections': []
                 }
-            group = aggregated[key]
+            
+            group = aggregated[detector]
             group['count'] += 1
             group['total_waste_cost'] += detection.get('waste_cost', 0)
             group['total_waste_tokens'] += detection.get('waste_tokens', 0)
             group['detections'].append(detection)
+            
+            # Add trace ID to the list
+            trace_id = detection.get('trace_id')
+            if trace_id and trace_id not in group['trace_ids']:
+                group['trace_ids'].append(trace_id)
+            
             # Collect sample prompts (up to 3 unique ones)
             sample_prompt = detection.get('sample_prompt', '')
             if sample_prompt and sample_prompt not in group['sample_prompts'] and len(group['sample_prompts']) < 3:
                 group['sample_prompts'].append(sample_prompt)
+        
         return aggregated
 
     def _format_aggregated_detection(self, group_data: Dict[str, Any], summary_only: bool = False) -> str:

@@ -64,7 +64,17 @@ class RetryLoopDetector:
                     if not self._is_valid_retry_loop(group):
                         continue
                     
-                    total_tokens = sum(r.get('completion_tokens', 0) for r in group)
+                    total_tokens = 0
+                    for r in group:
+                        # Handle both flattened (from parser) and nested (original) structures
+                        if 'usage' in r:
+                            usage = r.get('usage', {})
+                            prompt_tokens = usage.get('prompt_tokens', 0)
+                            completion_tokens = usage.get('completion_tokens', 0)
+                        else:
+                            prompt_tokens = r.get('prompt_tokens', 0)
+                            completion_tokens = r.get('completion_tokens', 0)
+                        total_tokens += prompt_tokens + completion_tokens
                     total_cost = sum(self._calculate_record_cost(r, model_pricing) for r in group)
                     
                     # The first record in the group is a good sample.

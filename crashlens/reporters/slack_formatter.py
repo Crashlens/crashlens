@@ -62,8 +62,12 @@ class SlackFormatter:
             output.append("📝 Summary-only mode: Prompts, sample inputs, and trace IDs are suppressed for safe internal sharing.")
             output.append("")
         
-        # Compact header with key metrics
-        output.append(f"� CrashLens Report – {timestamp} | Traces: {len(traces)} | Spend: {spend_str} | Savings: {savings_str}")
+        # Enhanced header with more emojis
+        output.append(f"🚨 **CrashLens Token Waste Report** 🚨")
+        output.append(f"📊 Analysis Date: {timestamp}")
+        output.append(f"🔍 Traces Analyzed: {len(traces):,}")
+        output.append(f"💰 Total AI Spend: {spend_str}")
+        output.append(f"💸 Potential Savings: {savings_str}")
         output.append("")
         
         # Detector summaries - sorted by waste amount
@@ -72,33 +76,42 @@ class SlackFormatter:
         sorted_detectors = sorted(aggregated.items(), key=lambda x: x[1]['total_waste_cost'], reverse=True)
         
         for det_type, group_data in sorted_detectors:
-            emoji = self.detector_emojis.get(group_data['detector'], '❓')
+            # Enhanced emoji mapping
+            emoji_map = {
+                'retry_loop': '🔄',
+                'fallback_storm': '⚡',
+                'fallback_failure': '📢',
+                'overkill_model': '❓'
+            }
+            emoji = emoji_map.get(group_data['detector'], '❓')
             detector_name = group_data['detector'].replace('_', ' ').title()
             waste_str = f"${group_data['total_waste_cost']:.4f}" if group_data['total_waste_cost'] < 0.01 else f"${group_data['total_waste_cost']:.2f}"
             
             # More specific fix suggestions
             fix_hint = self._get_specific_fix_suggestion(group_data)
             
-            output.append(f"{emoji} {detector_name} | {group_data['count']} traces | {waste_str} wasted | Fix: {fix_hint}")
+            output.append(f"{emoji} **{detector_name}** | {group_data['count']} traces | {waste_str} wasted | Fix: {fix_hint}")
             
-            # Add essential debugging details
+            # Add essential debugging details with more emojis
             if group_data['total_waste_tokens'] > 0:
-                output.append(f"   🎯 Wasted tokens: {group_data['total_waste_tokens']:,}")
+                output.append(f"   🎯 **Wasted tokens**: {group_data['total_waste_tokens']:,}")
             
             # Show affected trace IDs (critical for debugging)
             if not summary_only:
-                trace_ids = [d.get('trace_id', 'unknown') for d in group_data['detections'] if d.get('trace_id')]
+                trace_ids = group_data.get('trace_ids', [])
                 if trace_ids:
                     trace_count = len(trace_ids)
                     trace_list = ', '.join(trace_ids[:5])  # Show up to 5 trace IDs
                     if len(trace_ids) > 5:
                         trace_list += f", +{len(trace_ids) - 5} more"
-                    output.append(f"   🔗 Traces ({trace_count}): {trace_list}")
+                    output.append(f"   🔗 **Traces** ({trace_count}): {trace_list}")
             
             # Show sample prompts (vital for debugging routing logic)
             if group_data['sample_prompts'] and not summary_only:
                 sample_str = ', '.join(f'"{p[:30]}..."' for p in group_data['sample_prompts'][:2])
-                output.append(f"   📄 Samples: {sample_str}")
+                output.append(f"   📄 **Samples**: {sample_str}")
+            
+            output.append("")  # Add spacing between detector groups
         
         output.append("")
         
@@ -137,7 +150,7 @@ class SlackFormatter:
                     model = first_record.get('input', {}).get('model', first_record.get('model', 'unknown'))
                     trace_lines.append(f"{i}. {trace_id} → {model} → {cost_str}")
             
-            output.append(f"� Top {len(trace_lines)} Expensive Traces: " + " | ".join(trace_lines))
+            output.append(f"💡 Top {len(trace_lines)} Expensive Traces: " + " | ".join(trace_lines))
     
     def _add_model_breakdown(self, output: List[str], traces: Dict[str, List[Dict[str, Any]]]):
         """Add compact model cost breakdown"""
@@ -161,37 +174,57 @@ class SlackFormatter:
                 percentage = (cost / total_cost * 100) if total_cost > 0 else 0
                 model_parts.append(f"{model}: {cost_str} ({percentage:.0f}%)")
             
-            output.append(f"📊 Model Breakdown: {' | '.join(model_parts)}")
+            output.append(f"📊 **Model Breakdown**: {' | '.join(model_parts)}")
             output.append("")
 
     def _aggregate_detections(self, detections: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """Aggregate detections by detector name and model"""
+        """Aggregate detections by detector type"""
         aggregated = {}
+        
         for detection in detections:
-            detector = detection.get('detector', 'unknown')
-            model_used = detection.get('model_used', 'unknown')
-            suggested_model = detection.get('suggested_model', 'unknown')
-            key = f"{detector}_{model_used}_{suggested_model}"
-            if key not in aggregated:
-                aggregated[key] = {
+            # Get the proper detector name from the detection
+            detector = detection.get('type', 'unknown')  # Use 'type' field instead of 'detector'
+            if detector == 'unknown':
+                # Fallback to detector field if type is not available
+                detector = detection.get('detector', 'unknown')
+            
+            # Clean up detector name
+            if detector == 'overkill_model':
+                detector = 'overkill_model'
+            elif detector == 'retry_loop':
+                detector = 'retry_loop'
+            elif detector == 'fallback_storm':
+                detector = 'fallback_storm'
+            elif detector == 'fallback_failure':
+                detector = 'fallback_failure'
+            
+            if detector not in aggregated:
+                aggregated[detector] = {
                     'detector': detector,
                     'count': 0,
                     'total_waste_cost': 0.0,
                     'total_waste_tokens': 0,
                     'sample_prompts': [],
-                    'model_used': model_used,
-                    'suggested_model': suggested_model,
-                    'severity': detection.get('severity', 'medium'),
+                    'trace_ids': [],
                     'detections': []
                 }
-            group = aggregated[key]
+            
+            group = aggregated[detector]
             group['count'] += 1
             group['total_waste_cost'] += detection.get('waste_cost', 0)
             group['total_waste_tokens'] += detection.get('waste_tokens', 0)
             group['detections'].append(detection)
+            
+            # Add trace ID to the list
+            trace_id = detection.get('trace_id')
+            if trace_id and trace_id not in group['trace_ids']:
+                group['trace_ids'].append(trace_id)
+            
+            # Collect sample prompts (up to 3 unique ones)
             sample_prompt = detection.get('sample_prompt', '')
             if sample_prompt and sample_prompt not in group['sample_prompts'] and len(group['sample_prompts']) < 3:
                 group['sample_prompts'].append(sample_prompt)
+        
         return aggregated
 
     def _get_specific_fix_suggestion(self, group_data: Dict[str, Any]) -> str:

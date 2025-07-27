@@ -69,8 +69,8 @@ class FallbackFailureDetector:
     def _is_fallback_failure(self, first_record: Dict[str, Any], second_record: Dict[str, Any]) -> bool:
         """Check if two records represent a fallback failure pattern"""
         # Extract key fields
-        first_model = first_record.get('model', '')
-        second_model = second_record.get('model', '')
+        first_model = first_record.get('model') or first_record.get('input', {}).get('model', '')
+        second_model = second_record.get('model') or second_record.get('input', {}).get('model', '')
         first_prompt = first_record.get('prompt', '')
         second_prompt = second_record.get('prompt', '')
         first_time = first_record.get('startTime', '')
@@ -143,28 +143,45 @@ class FallbackFailureDetector:
     
     def _create_failure_detection(self, first_record: Dict[str, Any], second_record: Dict[str, Any], model_pricing: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """Create a fallback failure detection object"""
-        first_model = first_record.get('model', '')
-        second_model = second_record.get('model', '')
+        first_model = first_record.get('model') or first_record.get('input', {}).get('model', '')
+        second_model = second_record.get('model') or second_record.get('input', {}).get('model', '')
         first_prompt = first_record.get('prompt', '')
         second_prompt = second_record.get('prompt', '')
         
         # Calculate waste metrics
-        fallback_tokens = (
-            second_record.get('usage', {}).get('prompt_tokens', 0) + 
-            second_record.get('usage', {}).get('completion_tokens', 0)
-        )
+        # Handle both flattened (from parser) and nested (original) structures
+        if 'usage' in second_record:
+            usage = second_record.get('usage', {})
+            fallback_prompt_tokens = usage.get('prompt_tokens', 0)
+            fallback_completion_tokens = usage.get('completion_tokens', 0)
+        else:
+            fallback_prompt_tokens = second_record.get('prompt_tokens', 0)
+            fallback_completion_tokens = second_record.get('completion_tokens', 0)
+        
+        fallback_tokens = fallback_prompt_tokens + fallback_completion_tokens
         
         # Calculate cost if pricing is available
         fallback_cost = 0.0
         if model_pricing and second_model in model_pricing:
             model_config = model_pricing[second_model]
-            input_cost = model_config.get('input_cost_per_1k', 0) / 1000
-            output_cost = model_config.get('output_cost_per_1k', 0) / 1000
+            # Handle both per_1k and per_1m pricing formats
+            input_cost_per_1k = model_config.get('input_cost_per_1k', 0)
+            output_cost_per_1k = model_config.get('output_cost_per_1k', 0)
+            input_cost_per_1m = model_config.get('input_cost_per_1m', 0)
+            output_cost_per_1m = model_config.get('output_cost_per_1m', 0)
             
-            prompt_tokens = second_record.get('usage', {}).get('prompt_tokens', 0)
-            completion_tokens = second_record.get('usage', {}).get('completion_tokens', 0)
+            # Use per_1k if available, otherwise convert from per_1m
+            if input_cost_per_1k > 0:
+                input_cost = input_cost_per_1k / 1000
+            else:
+                input_cost = input_cost_per_1m / 1000000
+                
+            if output_cost_per_1k > 0:
+                output_cost = output_cost_per_1k / 1000
+            else:
+                output_cost = output_cost_per_1m / 1000000
             
-            fallback_cost = (prompt_tokens * input_cost) + (completion_tokens * output_cost)
+            fallback_cost = (fallback_prompt_tokens * input_cost) + (fallback_completion_tokens * output_cost)
         
         # Get timestamps
         first_time = first_record.get('startTime', '')
@@ -193,8 +210,8 @@ class FallbackFailureDetector:
             'fallback_prompt': second_prompt[:200] + '...' if len(second_prompt) > 200 else second_prompt,
             'time_between_calls': time_diff,
             'primary_tokens': (
-                first_record.get('usage', {}).get('prompt_tokens', 0) + 
-                first_record.get('usage', {}).get('completion_tokens', 0)
+                first_record.get('prompt_tokens', 0) + 
+                first_record.get('completion_tokens', 0)
             ),
             'fallback_tokens': fallback_tokens,
             'records': [first_record, second_record]

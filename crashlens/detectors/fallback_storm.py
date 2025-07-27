@@ -66,7 +66,11 @@ class FallbackStormDetector:
             return None
         
         # 🔍 CHECKLIST 3: 2 or more distinct models used
-        models_used = [r.get('model', '').lower() for r in sorted_records if r.get('model')]
+        models_used = []
+        for r in sorted_records:
+            model = r.get('model') or r.get('input', {}).get('model')
+            if model:
+                models_used.append(model.lower())
         unique_models = list(dict.fromkeys(models_used))  # Preserve order, remove duplicates
         
         if len(unique_models) < self.min_models:
@@ -74,6 +78,19 @@ class FallbackStormDetector:
         
         # Calculate estimated waste
         estimated_waste = self._calculate_estimated_waste(sorted_records, model_pricing)
+        
+        # Calculate total tokens used in the storm
+        total_tokens = 0
+        for record in sorted_records:
+            # Handle both flattened (from parser) and nested (original) structures
+            if 'usage' in record:
+                usage = record.get('usage', {})
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                completion_tokens = usage.get('completion_tokens', 0)
+            else:
+                prompt_tokens = record.get('prompt_tokens', 0)
+                completion_tokens = record.get('completion_tokens', 0)
+            total_tokens += prompt_tokens + completion_tokens
         
         # 🖨️ CLI OUTPUT FORMAT: Return detection according to specification
         return {
@@ -86,6 +103,7 @@ class FallbackStormDetector:
             'num_calls': len(sorted_records),
             'estimated_waste_usd': estimated_waste,
             'waste_cost': estimated_waste,
+            'waste_tokens': total_tokens,
             'suppressed_by': None,
             'time_span': self._get_time_span_seconds(sorted_records),
             'sample_prompt': sorted_records[0].get('prompt', '')[:100] + '...' if len(sorted_records[0].get('prompt', '')) > 100 else sorted_records[0].get('prompt', '')
