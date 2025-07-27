@@ -1,5 +1,6 @@
 🔒 CrashLens runs 100% locally. No data leaves your system.
 
+
 # CrashLens Token Waste Report
 
 **Analysis Date:** 2025-07-25 17:03:57  
@@ -80,3 +81,6 @@
 ## Monthly Projection
 
 Based on current patterns, potential monthly savings: **$25.16**
+
+**No token waste patterns detected! Your GPT usage looks efficient.**
+
