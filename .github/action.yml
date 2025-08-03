@@ -1,0 +1,116 @@
+name: 'CrashLens: LLM Log Contract Validation'
+description: '🛡️ Block bad LLM logs from production. Validate Langfuse logs against schema contracts in CI/CD pipelines. Prevent prompt waste and ensure data quality.'
+author: 'CrashLens'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  log-paths:
+    description: 'Glob pattern for log files to validate'
+    required: false
+    default: '**/*.jsonl'
+  log-format:
+    description: 'Log format version to validate against'
+    required: false
+    default: 'langfuse-v1'
+  fail-on-violations:
+    description: 'Whether to fail the action on schema violations'
+    required: false
+    default: 'true'
+  working-directory:
+    description: 'Working directory to run validation from'
+    required: false
+    default: '.'
+
+outputs:
+  violations-found:
+    description: 'Whether schema violations were found'
+    value: ${{ steps.validate.outputs.violations-found }}
+  violations-count:
+    description: 'Number of schema violations found'
+    value: ${{ steps.validate.outputs.violations-count }}
+  validation-summary:
+    description: 'JSON summary of validation results'
+    value: ${{ steps.validate.outputs.validation-summary }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install CrashLens
+      shell: bash
+      run: |
+        pip install crashlens
+        
+    - name: Find log files
+      id: find-logs
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        files=$(find . -name "${{ inputs.log-paths }}" -type f | head -20)
+        if [ -z "$files" ]; then
+          echo "No log files found matching pattern: ${{ inputs.log-paths }}"
+          echo "files-found=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "Found log files:"
+        echo "$files"
+        echo "files-found=true" >> $GITHUB_OUTPUT
+        echo "log-files<<EOF" >> $GITHUB_OUTPUT
+        echo "$files" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Validate log contracts
+      id: validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ "${{ steps.find-logs.outputs.files-found }}" = "false" ]; then
+          echo "No files to validate"
+          echo "violations-found=false" >> $GITHUB_OUTPUT
+          echo "violations-count=0" >> $GITHUB_OUTPUT
+          echo "validation-summary={\"status\":\"success\",\"message\":\"No files found\"}" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        total_violations=0
+        violations_found=false
+        failed_files=""
+        
+        while IFS= read -r file; do
+          if [ -n "$file" ]; then
+            echo "Validating: $file"
+            
+            if crashlens scan --contract-check "$file" --log-format "${{ inputs.log-format }}"; then
+              echo "✅ $file: PASSED"
+            else
+              echo "❌ $file: FAILED"
+              violations_found=true
+              failed_files="$failed_files$file "
+              violation_count=$(crashlens scan --contract-check "$file" --log-format "${{ inputs.log-format }}" 2>&1 | grep -c "Missing required field\|incorrect type" || echo "1")
+              total_violations=$((total_violations + violation_count))
+            fi
+            echo "---"
+          fi
+        done <<< "${{ steps.find-logs.outputs.log-files }}"
+        
+        echo "violations-found=$violations_found" >> $GITHUB_OUTPUT
+        echo "violations-count=$total_violations" >> $GITHUB_OUTPUT
+        
+        if [ "$violations_found" = "true" ]; then
+          summary="{\"status\":\"failed\",\"violations_count\":$total_violations,\"failed_files\":\"$failed_files\",\"format\":\"${{ inputs.log-format }}\"}"
+        else
+          summary="{\"status\":\"success\",\"violations_count\":0,\"format\":\"${{ inputs.log-format }}\"}"
+        fi
+        echo "validation-summary=$summary" >> $GITHUB_OUTPUT
+        
+        if [ "$violations_found" = "true" ] && [ "${{ inputs.fail-on-violations }}" = "true" ]; then
+          echo "Schema violations found! Failing action as requested."
+          exit 1
+        fi

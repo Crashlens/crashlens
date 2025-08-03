@@ -1,0 +1,5 @@
+{"startTime": "2024-01-01T10:00:00Z", "input": {"model": "gpt-4"}}
+{"traceId": "trace_456", "startTime": 1704110400, "input": {"model": "gpt-4"}}
+{"traceId": "trace_789", "startTime": "2024-01-01T10:00:00Z"}
+{"traceId": "trace_missing_model", "startTime": "2024-01-01T10:00:00Z", "input": {}}
+{"traceId": "trace_wrong_cost", "startTime": "2024-01-01T10:00:00Z", "input": {"model": "gpt-4"}, "cost": "expensive"}

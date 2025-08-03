@@ -1,0 +1,23 @@
+name: Langfuse Log Validation
+
+on:
+  push:
+    paths: ["**/*.jsonl"]
+  pull_request:
+    paths: ["**/*.jsonl"]
+
+jobs:
+  validate-logs:
+    name: Validate Langfuse Logs
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate log schema contracts
+        uses: crashlens/contract-check@v1
+        with:
+          log-paths: "**/*.jsonl"
+          log-format: "langfuse-v1"
+          fail-on-violations: true

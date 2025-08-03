@@ -1,0 +1,7 @@
+{"traceId":"valid_entry_01","startTime":"2025-08-03T10:30:00.000000Z","endTime":"2025-08-03T10:30:02.500000Z","input":{"model":"gpt-4","prompt":"What is AI?"},"usage":{"prompt_tokens":10,"completion_tokens":25,"total_tokens":35},"cost":0.001,"output":"AI is artificial intelligence."}
+{"startTime":"2025-08-03T10:31:00.000000Z","endTime":"2025-08-03T10:31:03.000000Z","input":{"prompt":"Missing model field"},"usage":{"prompt_tokens":15,"completion_tokens":30},"cost":0.002,"output":"This entry is missing traceId and model"}
+{"traceId":"missing_model_02","startTime":"2025-08-03T10:32:00.000000Z","input":{"prompt":"This entry has no model"},"usage":{"prompt_tokens":12},"cost":0.001}
+{"traceId":"missing_starttime_03","input":{"model":"gpt-3.5-turbo","prompt":"This entry has no startTime"},"usage":{"prompt_tokens":20,"completion_tokens":15},"cost":0.0015}
+{"input":{"model":"claude-3","prompt":"This entry is missing both traceId and startTime"},"usage":{"prompt_tokens":25,"completion_tokens":40},"cost":0.003}
+{"traceId":"type_error_04","startTime":1691234567,"input":{"model":"gpt-4","prompt":"startTime should be string not number"},"usage":{"prompt_tokens":18,"completion_tokens":22},"cost":0.0018}
+{"traceId":"nested_missing_05","startTime":"2025-08-03T10:35:00.000000Z","input":{"prompt":"input.model is completely missing"},"usage":{"prompt_tokens":16,"completion_tokens":28},"cost":0.0016}

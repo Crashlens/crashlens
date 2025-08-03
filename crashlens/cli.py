@@ -408,34 +408,67 @@ def cli():
 @click.option('--detailed', is_flag=True, help='Generate detailed per-trace JSON reports')
 @click.option('--detailed-dir', type=click.Path(path_type=Path), default='detailed_output', 
               help='Directory for detailed reports (default: detailed_output)')
+@click.option('--contract-check', is_flag=True, help='Validate logs against schema contract and exit')
+@click.option('--contract-info', is_flag=True, help='Show schema contract information and exit')
+@click.option('--output', type=click.Choice(['text', 'json'], case_sensitive=False), 
+              default='text', help='Output format for contract validation results')
 def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
          log_format: str = 'langfuse-v1', demo: bool = False, stdin: bool = False, paste: bool = False, 
          summary: bool = False, summary_only: bool = False, detailed: bool = False, 
-         detailed_dir: Path = Path('detailed_output')) -> str:
-    """🎯 Scan logs for token waste patterns with production-grade suppression logic
+         detailed_dir: Path = Path('detailed_output'), contract_check: bool = False, 
+         contract_info: bool = False, output: str = 'text') -> str:
+    """Scan logs for token waste patterns with production-grade suppression logic
 
-    📦 Examples:
+    Examples:
 
   crashlens scan logs.jsonl                    # Scan a specific log file
   crashlens scan --demo                        # Run on built-in sample logs
   cat logs.jsonl | crashlens scan --stdin      # Pipe logs via stdin
-  crashlens scan --paste                                 # Read logs from clipboard
+  crashlens scan --paste                       # Read logs from clipboard
   crashlens scan --detailed                    # Generate traces JSON reports
   crashlens scan --summary                     # Cost summary with categories
-  crashlens scan --summary-only                # Show summary only 
+  crashlens scan --summary-only                # Show summary only
+  
+  Schema Contract Validation:
+  crashlens scan --contract-check logs.jsonl   # Validate schema contracts
+  crashlens scan --contract-info               # Show contract requirements
+  crashlens scan --contract-check --output json logs.jsonl  # JSON output format
+  cat logs.jsonl | crashlens scan --contract-check --stdin  # Validate via stdin
 
     """
     
-    # Validate input options
-    input_count = sum([bool(logfile), demo, stdin, paste])
-    if input_count == 0:
-        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, or --paste")
-        click.echo("💡 Try: crashlens scan --help")
-        sys.exit(1)
-    elif input_count > 1:
-        click.echo("❌ Error: Cannot use multiple input sources simultaneously")
-        click.echo("💡 Choose one: file path, --demo, --stdin, or --paste")
-        sys.exit(1)
+    # Validate input options (skip for contract-info which doesn't need input)
+    if not contract_info:
+        input_count = sum([bool(logfile), demo, stdin, paste])
+        if input_count == 0:
+            click.echo("Error: Must specify input source: file path, --demo, --stdin, or --paste")
+            click.echo("Try: crashlens scan --help")
+            sys.exit(1)
+        elif input_count > 1:
+            click.echo("Error: Cannot use multiple input sources simultaneously")
+            click.echo("💡 Choose one: file path, --demo, --stdin, or --paste")
+            sys.exit(1)
+    
+    # Handle contract check mode - exit early if requested
+    if contract_check or contract_info:
+        from .cli_runner import run_contract_check_cli
+        
+        # Determine verbose mode from any existing verbose flags (future-proofing)
+        verbose_mode = False  # Can be enhanced later with explicit --verbose flag
+        
+        # Map input sources for contract check
+        source_file = str(logfile) if logfile else None
+        
+        exit_code = run_contract_check_cli(
+            logfile=source_file,
+            log_format=log_format,
+            stdin_mode=stdin,
+            paste_mode=paste,
+            verbose=verbose_mode,
+            show_info=contract_info,
+            output_format=output
+        )
+        sys.exit(exit_code)
     
     # Validate summary options
     if summary and summary_only:
@@ -509,7 +542,7 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                     click.echo("💡 Make sure your clipboard contains JSONL data (one JSON object per line)")
                     sys.exit(1)
                 
-                click.echo(f"📊 Processing {len(lines)} lines from clipboard...")
+                click.echo(f"Processing {len(lines)} lines from clipboard...")
                 
                 # Join lines and parse as string
                 jsonl_text = '\n'.join(lines)
