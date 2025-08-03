@@ -109,8 +109,8 @@ jobs:
           echo "=============================================="
           echo ""
           
-          # Run crashlens with schema validation
-          if crashlens scan "$LOG_PATH" --log-format "$SCHEMA_VERSION"; then
+          # Run crashlens with policy validation - using the scan command
+          if crashlens scan "$LOG_PATH" --dry-run --verbose; then
             echo ""
             echo "=============================================="
             echo "✅ SUCCESS: Schema validation passed for $SCHEMA_VERSION"

@@ -1,33 +1,25 @@
-# CrashLens Modern Policy Configuration
-# Compatible with the new YAML Policy Engine (Phase 1)
+# CrashLens Complete Policy Configuration
+# Replaces ALL legacy detectors with YAML-driven policy rules
 
 rules:
-  # Retry Loop Detection - Critical Issue
-  - id: retry_loop_detection
-    description: "Detect excessive retry patterns that indicate system instability"
-    match:
-      retry_count: ">3"
-    action: fail
-    severity: critical
-    suggestion: "Review retry logic and implement exponential backoff with circuit breakers"
-    requires_license: false
-    
+  # === COST OPTIMIZATION RULES ===
+  
   # High Cost Per Request
   - id: high_cost_request
-    description: "Flag requests with unusually high cost"
+    description: "Flag requests with unusually high cost"  
     match:
-      cost: ">0.5"
+      cost: ">0.01"  # Lower threshold for demo
     action: warn
     severity: high
     suggestion: "Consider using a more cost-effective model or optimizing prompt length"
     requires_license: false
     
-  # Expensive Model for Simple Tasks (Overkill)
+  # Expensive Model for Simple Tasks (replaces overkill_model_detector.py)
   - id: overkill_expensive_model
     description: "Detect expensive models used for simple tasks"
     match:
-      model: ["gpt-4", "claude-3-opus"]
-      usage.prompt_tokens: "<100"
+      input.model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
+      usage.prompt_tokens: "<20"  # Very simple tasks
     action: warn
     severity: medium
     suggestion: "Consider using gpt-3.5-turbo or gpt-4o-mini for simple tasks"
@@ -37,32 +29,91 @@ rules:
   - id: excessive_tokens
     description: "Flag requests with excessive token usage"
     match:
-      usage.total_tokens: ">5000"
+      usage.total_tokens: ">1000"  # Lower threshold for demo
     action: warn
     severity: medium
     suggestion: "Break down large requests into smaller chunks or use summarization"
     requires_license: false
     
-  # Premium Rule: Advanced Fallback Analysis
-  - id: fallback_cascade_analysis
-    description: "Advanced analysis of fallback patterns and cost optimization"
+  # === PRODUCTION SAFETY RULES ===
+  
+  # Unauthorized Model Usage
+  - id: unauthorized_model_usage
+    description: "Block usage of non-approved models in production"
     match:
-      model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
-      retry_count: ">1"
+      input.model: "not in:['gpt-3.5-turbo', 'gpt-4', 'gpt-4o-mini', 'claude-3-haiku']"
     action: fail
+    severity: critical
+    suggestion: "Use only approved models from the whitelist"
+    requires_license: false
+    
+  # === RETRY & FALLBACK PATTERNS (for logs with retry info) ===
+  
+  # Retry Loop Detection - Critical Issue (if retry_count exists)
+  - id: retry_loop_detection
+    description: "Detect excessive retry patterns that indicate system instability"
+    match:
+      retry_count: ">3"
+    action: fail
+    severity: critical
+    suggestion: "Review retry logic and implement exponential backoff with circuit breakers"
+    requires_license: false
+    
+  # Fallback Failure Detection (if retry info exists)
+  - id: fallback_failure_expensive
+    description: "Detect unnecessary fallbacks to expensive models after cheaper success"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus", "claude-3-sonnet"]
+      retry_count: ">0"
+    action: warn
     severity: high
-    suggestion: "Implement smarter fallback logic to avoid expensive retry cascades"
+    suggestion: "Avoid fallback to expensive models; improve error handling for cheaper models"
+    requires_license: false
+    
+  # === PREMIUM ADVANCED PATTERNS ===
+  
+  # Premium Rule: Advanced Cost Analysis
+  - id: premium_cost_analysis
+    description: "Advanced cost analysis and optimization recommendations"
+    match:
+      cost: ">0.005"  
+      input.model: ["gpt-4", "claude-3-opus"]
+    action: warn
+    severity: medium
+    suggestion: "Premium feature: Advanced cost optimization available with license"
+    requires_license: true
+    
+  # Premium Rule: Model Efficiency Analysis
+  - id: model_efficiency_analysis
+    description: "Advanced analysis of model efficiency and routing optimization"
+    match:
+      usage.prompt_tokens: ">100"
+      input.model: "regex:gpt-4.*"
+    action: warn
+    severity: medium
+    suggestion: "Consider prompt optimization or model downgrade for large inputs"
     requires_license: true
     
   # Premium Rule: Cross-Request Pattern Detection
   - id: cross_request_patterns
     description: "Detect patterns across multiple requests that indicate systemic issues"
     match:
-      cost: ">0.1"
-      usage.total_tokens: ">1000"
+      cost: ">0.001"
+      usage.total_tokens: ">50"
     action: warn
-    severity: medium
+    severity: low
     suggestion: "Pattern detected across requests - consider architectural review"
+    requires_license: true
+    
+  # Premium Rule: Fallback Storm Detection 
+  - id: fallback_storm_detection
+    description: "Detect chaotic model switching patterns indicating poor routing logic"
+    match:
+      retry_count: ">2"
+      input.model: ["gpt-4", "claude-3-opus"]
+    action: fail
+    severity: high
+    suggestion: "Implement stable model routing to prevent chaotic fallback patterns"  
     requires_license: true
 
 # Global Configuration
@@ -73,7 +124,7 @@ global:
   
 # Cost Thresholds (USD)
 cost_thresholds:
-  warning_threshold: 0.10
-  critical_threshold: 0.50
-  daily_budget: 100.00
-  monthly_budget: 1000.00
+  warning_threshold: 0.005  # Lower for demo
+  critical_threshold: 0.02  # Lower for demo  
+  daily_budget: 10.00
+  monthly_budget: 100.00

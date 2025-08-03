@@ -34,10 +34,13 @@ rules:
 
 ```bash
 # Test your logs against the policy
-crashlens policy-check policies/budget.yaml logs/*.jsonl
+crashlens scan logs/*.jsonl --policy policies/budget.yaml
 
 # See detailed JSON output
-crashlens policy-check policies/budget.yaml logs/*.jsonl --output-format json
+crashlens scan logs/*.jsonl --policy policies/budget.yaml --format json
+
+# Dry run to see what would be detected
+crashlens scan logs/*.jsonl --policy policies/budget.yaml --dry-run
 ```
 
 ## 📊 Example Results
@@ -101,7 +104,7 @@ crashlens policy-check policies/budget.yaml logs/*.jsonl --output-format json
 
 ```yaml
 - name: Policy Check
-  run: crashlens policy-check policies/budget.yaml **/*.jsonl
+  run: crashlens scan **/*.jsonl --policy policies/budget.yaml
 ```
 
 ### With JSON Report Generation
@@ -109,8 +112,8 @@ crashlens policy-check policies/budget.yaml logs/*.jsonl --output-format json
 ```yaml
 - name: Generate Report
   run: |
-    crashlens policy-check policies/budget.yaml **/*.jsonl \
-      --output-format json > policy-report.json
+    crashlens scan **/*.jsonl --policy policies/budget.yaml \
+      --format json > policy-report.json
 ```
 
 ### With PR Comments
@@ -160,7 +163,10 @@ python -c "import yaml; yaml.safe_load(open('policies/budget.yaml'))"
 head -n 1 logs/your-file.jsonl | jq .
 
 # Test a single rule
-crashlens policy-check policies/budget.yaml logs/your-file.jsonl
+crashlens scan logs/your-file.jsonl --policy policies/budget.yaml --dry-run
+
+# Validate policy syntax
+crashlens validate-policy --policy policies/budget.yaml
 ```
 
 ### Workflow not triggering

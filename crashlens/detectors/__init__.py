@@ -1,3 +1,3 @@
-from .retry_loops import RetryLoopDetector
-from .fallback_storm import FallbackStormDetector 
-from .retry_fallback_detector import RetryFallbackDetector 
+# Legacy detector modules have been removed
+# All detection logic is now YAML-driven through crashlens/policy/engine.py
+# This directory is maintained for backwards compatibility only 
