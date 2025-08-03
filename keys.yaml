@@ -1,0 +1,32 @@
+# CrashLens License Keys Whitelist
+# For development and testing of paid features
+
+valid_keys:
+  # Trial keys for testing
+  - "FREE-TRIAL-123"
+  - "TRIAL-ABC-456" 
+  - "DEMO-KEY-789"
+  
+  # Student/Education keys
+  - "STUDENT-DEV-456"
+  - "EDU-LICENSE-123"
+  
+  # Development keys  
+  - "DEV-LOCAL-789"
+  - "DEV-TEST-999"
+  - "LOCAL-DEV-001"
+  
+  # Enterprise trial keys
+  - "ENTERPRISE-TRIAL"
+  - "CORP-EVAL-123"
+  
+# TODO: Add expiry field for key expiration
+# TODO: Add feature flags per key type
+# Format for future:
+# valid_keys:
+#   - key: "TRIAL-123"
+#     expires: "2025-12-31"
+#     features: ["advanced_policy", "fallback_blocking"]
+#   - key: "STUDENT-456" 
+#     expires: "2026-06-30"
+#     features: ["advanced_policy"]

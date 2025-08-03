@@ -1,0 +1,79 @@
+# CrashLens Modern Policy Configuration
+# Compatible with the new YAML Policy Engine (Phase 1)
+
+rules:
+  # Retry Loop Detection - Critical Issue
+  - id: retry_loop_detection
+    description: "Detect excessive retry patterns that indicate system instability"
+    match:
+      retry_count: ">3"
+    action: fail
+    severity: critical
+    suggestion: "Review retry logic and implement exponential backoff with circuit breakers"
+    requires_license: false
+    
+  # High Cost Per Request
+  - id: high_cost_request
+    description: "Flag requests with unusually high cost"
+    match:
+      cost: ">0.5"
+    action: warn
+    severity: high
+    suggestion: "Consider using a more cost-effective model or optimizing prompt length"
+    requires_license: false
+    
+  # Expensive Model for Simple Tasks (Overkill)
+  - id: overkill_expensive_model
+    description: "Detect expensive models used for simple tasks"
+    match:
+      model: ["gpt-4", "claude-3-opus"]
+      usage.prompt_tokens: "<100"
+    action: warn
+    severity: medium
+    suggestion: "Consider using gpt-3.5-turbo or gpt-4o-mini for simple tasks"
+    requires_license: false
+    
+  # Token Limit Violations
+  - id: excessive_tokens
+    description: "Flag requests with excessive token usage"
+    match:
+      usage.total_tokens: ">5000"
+    action: warn
+    severity: medium
+    suggestion: "Break down large requests into smaller chunks or use summarization"
+    requires_license: false
+    
+  # Premium Rule: Advanced Fallback Analysis
+  - id: fallback_cascade_analysis
+    description: "Advanced analysis of fallback patterns and cost optimization"
+    match:
+      model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
+      retry_count: ">1"
+    action: fail
+    severity: high
+    suggestion: "Implement smarter fallback logic to avoid expensive retry cascades"
+    requires_license: true
+    
+  # Premium Rule: Cross-Request Pattern Detection
+  - id: cross_request_patterns
+    description: "Detect patterns across multiple requests that indicate systemic issues"
+    match:
+      cost: ">0.1"
+      usage.total_tokens: ">1000"
+    action: warn
+    severity: medium
+    suggestion: "Pattern detected across requests - consider architectural review"
+    requires_license: true
+
+# Global Configuration
+global:
+  max_violations_per_rule: 100
+  enable_cost_estimation: true
+  enable_pattern_detection: true
+  
+# Cost Thresholds (USD)
+cost_thresholds:
+  warning_threshold: 0.10
+  critical_threshold: 0.50
+  daily_budget: 100.00
+  monthly_budget: 1000.00

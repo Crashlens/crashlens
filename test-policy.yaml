@@ -1,0 +1,35 @@
+# Test policy file for license gating testing
+rules:
+  - id: "high-cost-model-usage"
+    description: "Detect expensive model usage"
+    severity: "high"
+    action: "warn"
+    match:
+      "input.model": "gpt-4"
+    suggestion: "Consider using gpt-3.5-turbo for simpler tasks"
+  
+  - id: "large-token-usage"
+    description: "Detect large token consumption"
+    severity: "medium"
+    action: "warn"
+    match:
+      "usage.prompt_tokens >": 1000
+    suggestion: "Consider breaking down large prompts into smaller chunks"
+    
+  - id: "fallback-pattern-premium"
+    description: "Premium fallback pattern detection"
+    severity: "critical"
+    action: "block"
+    match:
+      "usage.total_tokens >": 5000
+    suggestion: "Review and fix fallback logic to prevent excessive API calls"
+    requires_license: true
+    
+  - id: "cost-optimization-premium"
+    description: "Advanced cost optimization analysis"
+    severity: "high"
+    action: "warn"
+    match:
+      "cost >": 0.10
+    suggestion: "Enable premium cost optimization features"
+    requires_license: true

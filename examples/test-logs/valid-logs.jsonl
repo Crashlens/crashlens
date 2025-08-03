@@ -1,0 +1,2 @@
+{"traceId": "trace_001", "startTime": "2024-01-01T10:00:00Z", "input": {"model": "gpt-4"}}
+{"traceId": "trace_002", "startTime": "2024-01-01T10:01:00Z", "input": {"model": "gpt-3.5-turbo"}}

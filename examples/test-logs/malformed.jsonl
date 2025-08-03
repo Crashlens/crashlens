@@ -1,0 +1,3 @@
+{"traceId": "valid", "startTime": "2024-01-01T10:00:00Z", "input": {"model": "gpt-4"}}
+{"malformed": json, "missing": "quotes"}
+{"traceId": "valid2", "startTime": "2024-01-01T10:01:00Z", "input": {"model": "gpt-3.5-turbo"}}

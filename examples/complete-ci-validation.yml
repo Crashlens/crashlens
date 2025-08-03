@@ -1,14 +1,14 @@
-name: Langfuse Log Validation
+name: Complete CrashLens CI Validation
 
 on:
   push:
-    paths: ["**/*.jsonl"]
+    paths: ["**/*.jsonl", "**/*.yaml"]
   pull_request:
-    paths: ["**/*.jsonl"]
+    paths: ["**/*.jsonl", "**/*.yaml"]
 
 jobs:
   validate-logs:
-    name: Validate Langfuse Logs
+    name: Validate Logs & Policies
     runs-on: ubuntu-latest
     
     steps:
@@ -23,22 +23,32 @@ jobs:
       - name: Install CrashLens
         run: pip install crashlens
         
-      - name: Validate log schema contracts
+      - name: Contract Validation
         run: |
           echo "## 📋 Schema Contract Validation" >> $GITHUB_STEP_SUMMARY
-          crashlens scan **/*.jsonl \
+          crashlens scan logs/*.jsonl \
             --contract-check \
             --log-format langfuse-v1 \
             --output markdown >> $GITHUB_STEP_SUMMARY
         continue-on-error: true
         
-      - name: Policy enforcement check
+      - name: Policy Enforcement
         run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🚨 Policy Violations" >> $GITHUB_STEP_SUMMARY
-          crashlens scan **/*.jsonl \
+          crashlens scan logs/*.jsonl \
             --policy policies/budget.yaml \
             --log-format langfuse-v1 \
             --output markdown \
             --summary-only \
             --fail-on-policy >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+        
+      - name: Token Waste Analysis
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 💰 Token Waste Analysis" >> $GITHUB_STEP_SUMMARY
+          crashlens scan logs/*.jsonl \
+            --log-format langfuse-v1 \
+            --summary-only >> $GITHUB_STEP_SUMMARY
         continue-on-error: true

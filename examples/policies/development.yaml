@@ -1,0 +1,24 @@
+# Development Environment Policy - More permissive for testing
+
+metadata:
+  name: "Development Policy"
+  version: "1.0"
+  description: "Relaxed policies for development and testing"
+
+rules:
+  - id: "dev-token-warning"
+    description: "Warn about high token usage in development"
+    match:
+      usage.total_tokens: ">5000"
+    action: "warn"
+    severity: "low"
+    suggestion: "Consider optimizing prompts to reduce development costs"
+
+  - id: "dev-model-recommendation"
+    description: "Recommend cost-effective models for development"
+    match:
+      model: ["gpt-4", "claude-3-opus"]
+      environment: "development"
+    action: "warn"
+    severity: "medium"
+    suggestion: "Consider using GPT-3.5-turbo for faster development iteration"

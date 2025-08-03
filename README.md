@@ -385,6 +385,115 @@ crashlens scan --help
 
 ---
 
+## ✅ GitHub Actions Integration (CI)
+
+CrashLens can validate logs during CI to prevent bad traces from entering production.
+
+### Example Workflow (`.github/workflows/log-check.yml`)
+```yaml
+name: Check Langfuse Logs
+
+on:
+  push:
+    paths:
+      - logs/**
+  workflow_dispatch:
+
+jobs:
+  validate-logs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CrashLens
+        run: pip install crashlens
+
+      # Schema Contract Validation
+      - name: Contract Check
+        run: |
+          echo "## 📋 Schema Validation" >> $GITHUB_STEP_SUMMARY
+          crashlens scan logs/*.jsonl \
+            --contract-check \
+            --log-format langfuse-v1 \
+            --output markdown >> $GITHUB_STEP_SUMMARY
+            
+      # Policy Enforcement  
+      - name: Policy Check
+        run: |
+          echo "## 🚨 Policy Violations" >> $GITHUB_STEP_SUMMARY
+          crashlens scan logs/*.jsonl \
+            --policy policies/budget.yaml \
+            --log-format langfuse-v1 \
+            --output markdown \
+            --summary-only \
+            --fail-on-policy >> $GITHUB_STEP_SUMMARY
+            
+      # Token Waste Analysis
+      - name: Waste Analysis
+        run: |
+          echo "## 💰 Cost Analysis" >> $GITHUB_STEP_SUMMARY
+          crashlens scan logs/*.jsonl \
+            --log-format langfuse-v1 \
+            --summary-only >> $GITHUB_STEP_SUMMARY
+```
+
+This comprehensive workflow validates schema contracts, enforces policies, and analyzes token waste!
+
+### CI Integration Features
+
+- **📋 Contract Validation**: Enforce schema contracts with `--contract-check`
+- **🚨 Policy Enforcement**: Custom YAML policies with `--policy` and `--fail-on-policy`
+- **📊 Markdown Output**: CI-friendly tables with `--output markdown`
+- **🔄 Exit Codes**: Proper CI failure handling with non-zero exit codes
+- **📈 GitHub Summary**: Rich markdown reports in `$GITHUB_STEP_SUMMARY`
+
+### Schema Contract Validation
+```bash
+# Basic schema validation
+crashlens scan logs.jsonl --contract-check
+
+# Markdown table output for CI
+crashlens scan logs.jsonl --contract-check --output markdown
+
+# JSON output for automation
+crashlens scan logs.jsonl --contract-check --output json
+```
+
+### Policy Enforcement
+```bash
+# Basic policy check
+crashlens scan logs.jsonl --policy policies/budget.yaml
+
+# Fail CI on policy violations
+crashlens scan logs.jsonl --policy policies/budget.yaml --fail-on-policy
+
+# Markdown output for CI summaries
+crashlens scan logs.jsonl --policy policies/budget.yaml --output markdown --summary-only
+```
+
+### Example CI Outputs
+
+**Contract Violations:**
+```markdown
+❌ **Contract Check Failed**
+| Line | Rule ID | Error Message |
+|------|---------|---------------|
+| 2 | missing-field | Missing required field 'traceId' |
+| 3 | invalid-type | Field 'startTime' has incorrect type |
+**Found 2 violation(s) across 3 log entries.**
+```
+
+**Policy Violations:**
+```markdown
+❌ **Policy Violations Found**
+| Rule ID | Severity | Action | Reason | Suggestion |
+|---------|----------|--------|--------|------------|
+| excessive-retries | high | fail | retry_count=6 (rule: >=5) | Implement circuit breaker |
+| token-limit-exceeded | medium | warn | usage.total_tokens=15000 | Break down large prompts |
+**Found 2 policy violation(s).**
+```
+
+---
+
 ## 🧩 Example Workflow
 
 1. **Install CrashLens:**

@@ -1,0 +1,4 @@
+{"traceId": "valid-trace", "startTime": "2024-01-01T10:00:00Z", "input": {"model": "gpt-4"}}
+{"startTime": "2024-01-01T10:01:00Z", "input": {"model": "gpt-3.5-turbo"}}
+{"traceId": "invalid-trace", "input": {}}
+{"traceId": "another-invalid", "startTime": 12345, "input": {"model": "gpt-4"}}

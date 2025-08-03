@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrashLens Policy Schema",
+  "description": "Schema for CrashLens YAML policy files",
+  "type": "object",
+  "required": ["rules"],
+  "properties": {
+    "rules": {
+      "type": "array",
+      "description": "List of policy rules to enforce",
+      "items": {
+        "$ref": "#/definitions/PolicyRule"
+      }
+    },
+    "global": {
+      "type": "object",
+      "description": "Global policy configuration",
+      "properties": {
+        "max_violations_per_rule": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 100
+        },
+        "enable_cost_estimation": {
+          "type": "boolean",
+          "default": true
+        },
+        "enable_pattern_detection": {
+          "type": "boolean", 
+          "default": true
+        }
+      }
+    },
+    "cost_thresholds": {
+      "type": "object",
+      "description": "Cost threshold configuration",
+      "properties": {
+        "warning_threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "critical_threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "daily_budget": {
+          "type": "number",
+          "minimum": 0
+        },
+        "monthly_budget": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "definitions": {
+    "PolicyRule": {
+      "type": "object",
+      "required": ["id", "description", "match", "action", "severity", "suggestion"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the rule",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what the rule detects"
+        },
+        "match": {
+          "type": "object",
+          "description": "Conditions that trigger this rule",
+          "additionalProperties": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "number"},
+              {"type": "boolean"},
+              {"type": "array"},
+              {"type": "object"}
+            ]
+          }
+        },
+        "action": {
+          "type": "string",
+          "enum": ["warn", "fail", "block"],
+          "description": "Action to take when rule is violated"
+        },
+        "severity": {
+          "type": "string", 
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Severity level of the violation"
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Actionable suggestion for fixing the violation"
+        },
+        "requires_license": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this rule requires a CrashLens Pro license"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "rules": [
+        {
+          "id": "high_cost_detection",
+          "description": "Flag requests with unusually high cost",
+          "match": {
+            "cost": ">0.5"
+          },
+          "action": "warn",
+          "severity": "high", 
+          "suggestion": "Consider using a more cost-effective model",
+          "requires_license": false
+        }
+      ],
+      "global": {
+        "max_violations_per_rule": 50,
+        "enable_cost_estimation": true
+      }
+    }
+  ]
+}

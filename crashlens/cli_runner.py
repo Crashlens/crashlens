@@ -88,18 +88,63 @@ def run_contract_check(logs: List[Dict[str, Any]], log_format: str = "langfuse-v
     
     # Report results
     if not errors:
-        click.echo("Contract check passed. All required fields present.")
-        if verbose:
-            click.echo(f"   Validated {len(logs)} log entries successfully")
+        if output_format == "markdown":
+            click.echo("✅ **Contract Check Passed**")
+            click.echo("\nAll required fields present.")
+            if verbose:
+                click.echo(f"\nValidated {len(logs)} log entries successfully")
+        else:
+            click.echo("Contract check passed. All required fields present.")
+            if verbose:
+                click.echo(f"   Validated {len(logs)} log entries successfully")
         return 0
     else:
-        click.echo("Contract check failed:")
-        for error in errors:
-            click.echo(f"  - {error}")
-        
-        # Summary
-        click.echo("")
-        click.echo(f"Found {len(errors)} violation(s) across {len(logs)} log entries.")
+        if output_format == "markdown":
+            # Markdown table format for CI
+            click.echo("❌ **Contract Check Failed**")
+            click.echo("")
+            click.echo("| Line | Rule ID | Error Message |")
+            click.echo("|------|---------|---------------|")
+            
+            for error in errors:
+                # Parse error message to extract components
+                line_num = "N/A"
+                rule_id = "contract-violation"
+                message = error
+                
+                # Extract line number if present
+                if "Line " in error:
+                    try:
+                        line_part = error.split("Line ")[1].split(":")[0]
+                        line_num = line_part.strip()
+                        message = error.split(f"Line {line_part}:")[1].strip()
+                    except:
+                        pass
+                
+                # Extract rule type from message
+                if "Missing required field:" in message:
+                    rule_id = "missing-field"
+                    field_name = message.split("Missing required field: ")[1].split()[0]
+                    message = f"Missing required field '{field_name}'"
+                elif "incorrect type" in message:
+                    rule_id = "invalid-type"
+                elif "Invalid value" in message:
+                    rule_id = "invalid-value"
+                
+                # Clean up message for table
+                message = message.replace("|", "\\|")  # Escape pipes in message
+                click.echo(f"| {line_num} | {rule_id} | {message} |")
+            
+            click.echo("")
+            click.echo(f"**Found {len(errors)} violation(s) across {len(logs)} log entries.**")
+        else:
+            click.echo("Contract check failed:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            
+            # Summary
+            click.echo("")
+            click.echo(f"Found {len(errors)} violation(s) across {len(logs)} log entries.")
         
         if verbose:
             # Group errors by type for better insight
