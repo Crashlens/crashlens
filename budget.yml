@@ -1,4 +1,0 @@
-rules:
-  - must_use: gpt-3.5
-    if_input_tokens_lt: 1000
-  - retry_limit: 2

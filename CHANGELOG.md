@@ -5,7 +5,79 @@ All notable changes to CrashLens will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-01-15
+## [3.0.0] - 2025-08-04 🔥 **MAJOR RELEASE: Policy-Only Architecture**
+
+### 🚀 **BREAKING CHANGES**
+- **Complete CLI rewrite** - New command structure with `crashlens scan`, `crashlens validate-policy`, `crashlens info`
+- **Legacy detector removal** - All hardcoded Python detector classes eliminated
+- **YAML-first enforcement** - 100% policy-driven detection system
+- **New CLI flags** - Updated command syntax and options
+
+### ✅ **Added**
+- **🔧 YAML Policy Engine** - Complete policy-driven detection system
+- **📋 Policy Validation** - `crashlens validate-policy` command for YAML syntax checking
+- **📊 Enhanced Info Command** - Detailed log file statistics with model and cost analysis
+- **🔐 License Integration** - Premium feature gating through license system
+- **🎯 Dry Run Mode** - `--dry-run` flag for testing without generating reports
+- **📄 Multiple Output Formats** - JSON, Markdown, Slack, Summary formats
+- **⚡ Flexible Field Matching** - Support for nested fields like `input.model`, `usage.prompt_tokens`
+- **🧠 Smart Model Detection** - Enhanced parsing for different log formats
+- **🔍 Verbose Logging** - `--verbose` flag for detailed execution information
+
+### 🗑️ **Removed (Legacy Code Elimination)**
+- **Deleted**: `fallback_failure.py` - replaced by YAML rule `fallback_failure_expensive`
+- **Deleted**: `fallback_storm.py` - replaced by YAML rule `fallback_storm_detection`  
+- **Deleted**: `overkill_model_detector.py` - replaced by YAML rule `overkill_expensive_model`
+- **Deleted**: `retry_loops.py` - replaced by YAML rule `retry_loop_detection`
+- **Deleted**: `retry_fallback_detector.py` - replaced by YAML rules
+- **Deleted**: `SuppressionEngine` class - replaced by `PolicySuppressionEngine`
+- **Deleted**: `DETECTOR_PRIORITY` constants and legacy suppression logic
+- **Deleted**: All detector imports and instantiation code from CLI
+
+### 🔄 **Changed**
+- **CLI Commands**: `crashlens policy-check` → `crashlens scan --policy`
+- **Output Flags**: `--output-format` → `--format`
+- **Configuration**: All detection rules now in `modern-policy.yaml`
+- **Architecture**: Detector classes → Policy Engine (single point of enforcement)
+- **Error Handling**: Enhanced error messages with actionable suggestions
+- **Performance**: Single policy evaluation pass vs multiple detector runs
+
+### 📋 **Policy Rule Coverage**
+- **Cost Control**: `high_cost_request`, `overkill_expensive_model`, `excessive_tokens`
+- **Security**: `unauthorized_model_usage`, `dev_expensive_model_block`  
+- **Reliability**: `retry_loop_detection`, `fallback_failure_expensive`
+- **Premium Features**: `premium_cost_analysis`, `model_efficiency_analysis`, `cross_request_patterns`, `fallback_storm_detection`
+
+### 🧪 **Validation & Testing**
+- ✅ Policy validation with 10 comprehensive rules
+- ✅ Detection testing with demo logs (3 violations found)
+- ✅ All output formats working correctly
+- ✅ License gating for premium features
+- ✅ Zero Python syntax errors
+
+### 📚 **Documentation Updates**
+- Updated all CLI examples in README files
+- Fixed GitHub workflow commands  
+- Updated troubleshooting guides
+- Added policy configuration examples
+
+---
+
+## [2.0.0] - 2025-01-04 **Policy Engine Introduction**
+
+### Added
+- **YAML Policy Engine** - Initial implementation of policy-driven detection
+- **License System** - Premium feature gating and validation
+- **Modern Policy Configuration** - YAML-based rule definitions
+- **Enhanced CLI** - Improved command structure and options
+
+### Changed
+- **Detection Architecture** - Hybrid approach with both detectors and policies
+- **Configuration Management** - YAML-first policy definitions
+
+---
+
+## [1.0.0] - 2024-01-15 **Legacy Detector System**
 
 ### Added
 - **GitHub Action for automated log validation** in CI/CD pipelines
@@ -70,23 +142,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Future Releases
 
-### Planned for v1.1.0
-- **OpenAI log format support** - Contract validation for OpenAI API logs
-- **Custom schema definitions** - User-defined contract requirements
-- **Batch processing improvements** - Faster validation for large datasets
-- **Integration with popular MLOps platforms** - MLflow, Weights & Biases support
+### Planned for v3.1.0
+- **Enhanced Policy Syntax** - More advanced matching operators and conditions
+- **Policy Templates** - Pre-built policy sets for common use cases  
+- **Cross-Trace Analysis** - Advanced pattern detection across multiple traces
+- **Performance Optimizations** - Faster processing for large log files
+- **Integration Improvements** - Better Slack, Teams, and webhook support
 
-### Planned for v1.2.0
-- **Real-time log streaming validation** - Live contract checking
-- **Advanced reporting dashboard** - Web UI for validation results
-- **Team management features** - Multi-user access and permissions
-- **Enterprise security compliance** - SOC2, GDPR, HIPAA support
+### Planned for v3.2.0
+- **OpenAI Log Format Support** - Native support for OpenAI API logs
+- **Custom Field Definitions** - User-defined field mappings and transformations
+- **Policy Inheritance** - Hierarchical policy configurations
+- **Real-time Monitoring** - Live log stream analysis
 
 ### Under Consideration
-- **VS Code extension** - IDE integration for developer workflows
-- **Webhook integrations** - Real-time notifications and triggers
-- **Machine learning insights** - Predictive quality scoring
-- **Multi-cloud deployment** - AWS, GCP, Azure native integrations
+- **VS Code Extension** - IDE integration for policy development
+- **Web Dashboard** - GUI for policy management and violation analysis
+- **Machine Learning Insights** - AI-powered policy recommendations
+- **Multi-cloud Deployment** - Kubernetes, Docker, and cloud-native support
 
 ---
 
