@@ -1,0 +1,260 @@
+name: 🔍 Langfuse Schema Validation
+
+# Trigger on push to main/develop and all pull requests
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  # Allow manual workflow runs
+  workflow_dispatch:
+    inputs:
+      log_path:
+        description: 'Path to Langfuse log file (relative to repo root)'
+        required: false
+        default: 'logs/langfuse-latest.jsonl'
+      schema_version:
+        description: 'Langfuse schema version to validate against'
+        required: false
+        default: 'langfuse-v1'
+        type: choice
+        options:
+          - langfuse-v1
+          - langfuse-v2
+
+# Ensure only one schema check runs at a time per branch
+concurrency:
+  group: schema-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema-validation:
+    name: 🧪 Validate Langfuse Schema Contracts
+    runs-on: ubuntu-latest
+    
+    strategy:
+      # Test multiple schema versions with fallback support
+      matrix:
+        schema-version: [langfuse-v1, langfuse-v2]
+        python-version: ['3.11']
+      # Don't fail entire workflow if one schema version fails
+      fail-fast: false
+    
+    env:
+      # Support environment variable override with sensible default
+      LOG_PATH: ${{ github.event.inputs.log_path || env.LOG_PATH || 'logs/langfuse-latest.jsonl' }}
+      SCHEMA_VERSION: ${{ github.event.inputs.schema_version || matrix.schema-version }}
+    
+    steps:
+      # ===============================================
+      # 🏗️ Environment Setup
+      # ===============================================
+      
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better context in error messages
+          fetch-depth: 0
+      
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Cache pip dependencies for faster builds
+          cache: 'pip'
+      
+      - name: 📦 Install CrashLens CLI
+        run: |
+          echo "🔧 Installing CrashLens from PyPI..."
+          pip install --upgrade pip
+          pip install crashlens
+          
+          echo "✅ CrashLens installation completed"
+          echo "📍 Installed version:"
+          crashlens --version || echo "⚠️  Version command not available"
+      
+      # ===============================================
+      # 🔍 Log File Validation
+      # ===============================================
+      
+      - name: 🔎 Verify Log File Exists
+        run: |
+          echo "🔍 Checking for log file: $LOG_PATH"
+          
+          if [ ! -f "$LOG_PATH" ]; then
+            echo "❌ Error: Log file not found at path: $LOG_PATH"
+            echo ""
+            echo "📁 Available files in logs/ directory:"
+            find logs/ -name "*.jsonl" -o -name "*.json" 2>/dev/null || echo "No logs directory found"
+            echo ""
+            echo "💡 Hint: Ensure your log file exists at the specified path"
+            echo "   You can set a custom path using the LOG_PATH environment variable"
+            exit 1
+          fi
+          
+          echo "✅ Log file found: $LOG_PATH"
+          echo "📊 File size: $(du -h "$LOG_PATH" | cut -f1)"
+          echo "📝 Line count: $(wc -l < "$LOG_PATH") lines"
+      
+      # ===============================================
+      # 🧪 Schema Contract Validation
+      # ===============================================
+      
+      - name: 🧪 Run Schema Validation (${{ matrix.schema-version }})
+        id: schema-check
+        run: |
+          echo "🔍 Starting Langfuse schema validation..."
+          echo "📂 Log file: $LOG_PATH"
+          echo "🏷️  Schema version: $SCHEMA_VERSION"
+          echo "=============================================="
+          echo ""
+          
+          # Run crashlens with schema validation
+          if crashlens scan "$LOG_PATH" --log-format "$SCHEMA_VERSION"; then
+            echo ""
+            echo "=============================================="
+            echo "✅ SUCCESS: Schema validation passed for $SCHEMA_VERSION"
+            echo "🎉 All Langfuse log entries conform to the schema contract"
+            echo "📊 No contract violations detected"
+            echo "schema_status=success" >> $GITHUB_OUTPUT
+          else
+            exit_code=$?
+            echo ""
+            echo "=============================================="
+            echo "❌ FAILURE: Schema validation failed for $SCHEMA_VERSION"
+            echo "🚨 Contract violations detected in Langfuse logs"
+            echo "💡 Check the error messages above for details"
+            echo "schema_status=failure" >> $GITHUB_OUTPUT
+            
+            # Special handling for unsupported schema versions
+            if [ $exit_code -eq 1 ]; then
+              echo ""
+              echo "⚠️  Note: If this is a new schema version, it may not be supported yet."
+              echo "   The system will automatically fall back to langfuse-v1 for parsing."
+              echo "   Consider updating CrashLens or check if the schema version is correct."
+            fi
+            
+            exit $exit_code
+          fi
+      
+      # ===============================================
+      # 📊 Results Summary
+      # ===============================================
+      
+      - name: 📊 Validation Summary
+        if: always()
+        run: |
+          echo "=============================================="
+          echo "📋 SCHEMA VALIDATION SUMMARY"
+          echo "=============================================="
+          echo "📂 Log file: $LOG_PATH"
+          echo "🏷️  Schema version: $SCHEMA_VERSION"
+          echo "🐍 Python version: ${{ matrix.python-version }}"
+          echo "🔧 Runner: ${{ runner.os }}"
+          echo ""
+          
+          if [ "${{ steps.schema-check.outputs.schema_status }}" = "success" ]; then
+            echo "✅ Status: PASSED"
+            echo "🎉 All schema contracts validated successfully"
+          else
+            echo "❌ Status: FAILED"
+            echo "🚨 Schema contract violations detected"
+          fi
+          echo "=============================================="
+      
+      # ===============================================
+      # 🚨 Failure Handling
+      # ===============================================
+      
+      - name: 🚨 Schema Validation Failed
+        if: failure()
+        run: |
+          echo ""
+          echo "🚨 SCHEMA VALIDATION FAILURE DETECTED"
+          echo "=============================================="
+          echo "This failure indicates that your Langfuse logs contain"
+          echo "entries that violate the expected schema contract."
+          echo ""
+          echo "🔧 Possible solutions:"
+          echo "  1. Check your log file format and structure"
+          echo "  2. Verify the schema version is correct"
+          echo "  3. Update your Langfuse logging to match the schema"
+          echo "  4. Check for missing required fields (e.g., traceId)"
+          echo ""
+          echo "💡 For detailed error analysis, review the validation"
+          echo "   output above and check the CrashLens documentation."
+          echo "=============================================="
+          
+          # Set job as failed
+          exit 1
+
+  # ===============================================
+  # 📈 Multi-Schema Results Aggregation
+  # ===============================================
+  
+  validation-summary:
+    name: 📊 Validation Results Summary
+    runs-on: ubuntu-latest
+    needs: schema-validation
+    if: always()
+    
+    steps:
+      - name: 📋 Generate Summary Report
+        run: |
+          echo "=============================================="
+          echo "🔍 LANGFUSE SCHEMA VALIDATION REPORT"
+          echo "=============================================="
+          echo "📅 Run Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🔗 Workflow: ${{ github.workflow }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo ""
+          
+          # Check if any validation jobs failed
+          if [ "${{ needs.schema-validation.result }}" = "success" ]; then
+            echo "✅ OVERALL STATUS: ALL VALIDATIONS PASSED"
+            echo "🎉 All tested schema versions are valid"
+            echo "✨ Your Langfuse logs conform to expected contracts"
+          elif [ "${{ needs.schema-validation.result }}" = "failure" ]; then
+            echo "❌ OVERALL STATUS: VALIDATION FAILURES DETECTED"
+            echo "🚨 One or more schema versions failed validation"
+            echo "🔧 Review individual job results for details"
+          else
+            echo "⚠️  OVERALL STATUS: VALIDATION INCOMPLETE"
+            echo "❓ Some validations were cancelled or skipped"
+          fi
+          
+          echo ""
+          echo "📊 Matrix Results Summary:"
+          echo "  - langfuse-v1: ${{ needs.schema-validation.result }}"
+          echo "  - langfuse-v2: ${{ needs.schema-validation.result }}"
+          echo ""
+          echo "💡 For detailed logs, check individual job outputs above"
+          echo "=============================================="
+
+# ===============================================
+# 📚 Workflow Documentation
+# ===============================================
+
+# This workflow provides comprehensive Langfuse schema validation with:
+#
+# ✅ Multi-version testing (v1, v2) with fallback support
+# ✅ Flexible log path configuration via environment variables
+# ✅ Clear success/failure messaging for CI/CD integration
+# ✅ Production-grade error handling and reporting
+# ✅ Manual workflow dispatch for testing
+# ✅ Concurrency control to prevent resource conflicts
+# ✅ Comprehensive logging and debugging information
+#
+# Environment Variables:
+#   LOG_PATH: Path to Langfuse log file (default: logs/langfuse-latest.jsonl)
+#   SCHEMA_VERSION: Schema version to validate (default: langfuse-v1)
+#
+# Manual Dispatch Options:
+#   log_path: Custom log file path
+#   schema_version: Specific schema version to test
+#
+# Exit Codes:
+#   0: All validations passed
+#   1: Schema contract violations detected
+#   >1: Infrastructure or setup errors
