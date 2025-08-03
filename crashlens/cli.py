@@ -398,6 +398,8 @@ def cli():
               default='slack', help='Output format')
 @click.option('--config', '-c', type=click.Path(path_type=Path),
               help='Custom pricing config file path')
+@click.option('--log-format', default='langfuse-v1',
+              help='Specify the input log format version (e.g., langfuse-v1, langfuse-v2)')
 @click.option('--demo', is_flag=True, help='Use built-in demo data')
 @click.option('--stdin', is_flag=True, help='Read from standard input')
 @click.option('--paste', is_flag=True, help='Read JSONL data from clipboard')
@@ -407,8 +409,9 @@ def cli():
 @click.option('--detailed-dir', type=click.Path(path_type=Path), default='detailed_output', 
               help='Directory for detailed reports (default: detailed_output)')
 def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
-         demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
-         summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output')) -> str:
+         log_format: str = 'langfuse-v1', demo: bool = False, stdin: bool = False, paste: bool = False, 
+         summary: bool = False, summary_only: bool = False, detailed: bool = False, 
+         detailed_dir: Path = Path('detailed_output')) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -452,8 +455,17 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
     # Initialize suppression engine
     suppression_engine = SuppressionEngine(suppression_config)
     
+    # Parse log format version and initialize version-aware parser
+    if log_format.startswith("langfuse-"):
+        schema_version = log_format.split("-")[1]  # extracts 'v1', 'v2', etc.
+        click.echo(f"🔄 Using Langfuse parser with schema version: {schema_version}")
+        parser = LangfuseParser(default_schema=schema_version)
+    else:
+        click.echo(f"❌ Error: Unsupported log format: {log_format}")
+        click.echo("💡 Supported formats: langfuse-v1, langfuse-v2")
+        sys.exit(1)
+    
     # Initialize parser and load logs based on input source
-    parser = LangfuseParser()
     traces = {}
     
     try:

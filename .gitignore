@@ -75,3 +75,5 @@ Desktop.ini
 *.iml 
 
 report.md
+
+.copilot/
