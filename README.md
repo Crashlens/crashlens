@@ -37,7 +37,7 @@ CrashLens is a developer tool to **analyze GPT API logs** and uncover hidden **t
 ## TL;DR
 
 ```sh
-pip install crashlens
+pip install crashlens-detector
 crashlens scan path/to/your-logs.jsonl
 # Generates report.md with per-trace waste, cost, and suggestions
 ```
