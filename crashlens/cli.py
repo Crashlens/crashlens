@@ -58,11 +58,192 @@ __build_date__ = "2025-08-05"
 from .parsers.langfuse import LangfuseParser
 from .reporters.slack_formatter import SlackFormatter
 from .reporters.markdown_formatter import MarkdownFormatter
+from .langfuse_client import LangfuseClient, save_logs_to_temp_file, test_langfuse_connection
 from .reporters.summary_formatter import SummaryFormatter
 from .policy.engine import PolicyEngine, PolicyAction
 from .utils.slack_webhook import SlackWebhookSender, group_violations_by_rule
 from .license_checker import get_license_checker, load_license_key
 from .utils.roi_calculator import generate_roi_report
+
+
+# ✅ Feature: crashlens init --template=<name>
+# Template mapping for common policy scaffolding
+TEMPLATE_YAMLS = {
+    "retry-limit": """# CrashLens Policy Template: Retry Limit Control
+# Prevents excessive retry patterns that can cause cost explosions
+
+rules:
+  - id: retry_limit_exceeded
+    description: "Limit the number of retries in a request trace"
+    match:
+      retry_count: ">2"
+    action: warn
+    severity: medium
+    suggestion: "Implement exponential backoff and circuit breaker patterns"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 50
+  enable_cost_estimation: true
+
+cost_thresholds:
+  warning_threshold: 0.05
+  critical_threshold: 0.20
+""",
+    
+    "fallback-escalation": """# CrashLens Policy Template: Fallback Escalation Detection
+# Detects unnecessary escalation from cheaper to expensive models
+
+rules:
+  - id: fallback_escalation_detected
+    description: "Detect escalation from GPT-3.5 to GPT-4 indicating fallback issues"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo"]
+      # Note: Sequence detection requires enhanced policy engine
+      # This rule catches expensive model usage that might be fallback
+    action: warn
+    severity: high
+    suggestion: "Review fallback logic - consider improving cheaper model prompts instead"
+    requires_license: false
+    
+  - id: expensive_model_retry
+    description: "Detect expensive models used with retry patterns"
+    match:
+      input.model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
+      retry_count: ">0"
+    action: warn
+    severity: high
+    suggestion: "Avoid expensive models in retry scenarios - use cheaper alternatives"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 50
+  enable_cost_estimation: true
+""",
+    
+    "basic-safety": """# CrashLens Policy Template: Basic Safety & Cost Controls
+# Essential safety rules for production AI usage
+
+rules:
+  - id: expensive_model_simple_task
+    description: "Warn if GPT-4 is used for short prompts (simple tasks)"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
+      usage.prompt_tokens: "<50"
+    action: warn
+    severity: medium
+    suggestion: "Consider using gpt-3.5-turbo or gpt-4o-mini for simple tasks"
+    requires_license: false
+    
+  - id: unauthorized_model_usage
+    description: "Block usage of non-approved models"
+    match:
+      input.model: "not in:['gpt-3.5-turbo', 'gpt-4', 'gpt-4o-mini', 'claude-3-haiku']"
+    action: fail
+    severity: critical
+    suggestion: "Use only approved models from the organizational whitelist"
+    requires_license: false
+    
+  - id: excessive_token_usage
+    description: "Flag requests with very high token usage"
+    match:
+      usage.total_tokens: ">4000"
+    action: warn
+    severity: medium
+    suggestion: "Break down large requests or use summarization techniques"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 100
+  enable_cost_estimation: true
+""",
+    
+    "cost-cap": """# CrashLens Policy Template: Cost Cap & Budget Controls
+# Strict cost controls to prevent budget overruns
+
+rules:
+  - id: high_cost_request_block
+    description: "Block completions costing more than threshold"
+    match:
+      cost: ">0.10"
+    action: fail
+    severity: critical
+    suggestion: "Request exceeds cost limit - optimize prompt or use cheaper model"
+    requires_license: false
+    
+  - id: medium_cost_warning
+    description: "Warn on moderately expensive requests"
+    match:
+      cost: ">0.05"
+    action: warn
+    severity: high
+    suggestion: "Consider cost optimization - prompt engineering or model downgrade"
+    requires_license: false
+    
+  - id: inefficient_cost_ratio
+    description: "Detect poor cost-to-token efficiency"
+    match:
+      cost: ">0.02"
+      usage.total_tokens: "<100"
+    action: warn
+    severity: medium
+    suggestion: "Small requests on expensive models - consider batching or cheaper alternatives"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 25  # Strict enforcement
+  enable_cost_estimation: true
+
+cost_thresholds:
+  warning_threshold: 0.05
+  critical_threshold: 0.10
+  daily_budget: 25.00
+  monthly_budget: 500.00
+""",
+    
+    "internal-only": """# CrashLens Policy Template: Internal Content Detection
+# Detects potentially sensitive or internal-use content
+
+rules:
+  - id: internal_content_detected
+    description: "Alert if internal-use terms are present in prompts"
+    match:
+      # Note: This requires enhanced string matching in policy engine
+      # For now, this is a placeholder for content-based detection
+      usage.prompt_tokens: ">0"  # Matches any request - manual review needed
+    action: warn
+    severity: high
+    suggestion: "Manual review required - check for internal/confidential content"
+    requires_license: false
+    
+  - id: high_risk_model_usage
+    description: "Flag usage of powerful models that might process sensitive data"
+    match:
+      input.model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
+      usage.prompt_tokens: ">200"  # Large prompts more likely to contain sensitive data
+    action: warn
+    severity: medium
+    suggestion: "Review large prompts on powerful models for sensitive content"
+    requires_license: false
+    
+  - id: unauthorized_external_model
+    description: "Block non-internal models for sensitive workloads"
+    match:
+      input.model: "not in:['gpt-3.5-turbo', 'claude-3-haiku']"  # Only allow basic models
+    action: fail
+    severity: critical
+    suggestion: "Use only approved internal-safe models for this workload"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 10  # Conservative for security
+  enable_cost_estimation: true
+  enable_pattern_detection: true
+
+# Note: For true content detection, consider integrating with DLP tools
+# This template provides basic structural detection patterns
+"""
+}
 
 
 def generate_simulation_report(violations: List, pricing_config: Dict, verbose: bool, 
@@ -281,7 +462,8 @@ def cli():
 
 
 @cli.command()
-@click.argument('log_file', type=click.Path(exists=True, path_type=Path))
+@click.argument('log_file', type=click.Path(exists=True, path_type=Path), required=False)
+@click.option('--source', type=str, help='Data source: "langfuse", "helicone", or path to log file')
 @click.option('--policy', '-p', type=click.Path(exists=True, path_type=Path), 
               help='Path to YAML policy configuration file')
 @click.option('--license-key', type=str, help='License key for premium features')
@@ -297,25 +479,96 @@ def cli():
 @click.option('--dry-run', is_flag=True, help='Show what would be detected without creating reports')
 @click.option('--simulate', is_flag=True, help='🚧 Simulation mode: Show what would be blocked without enforcement')
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str], 
+@click.option('--hours-back', type=int, default=24, help='Hours back to fetch from API sources (default: 24)')
+@click.option('--limit', type=int, default=1000, help='Maximum number of traces to fetch from API sources (default: 1000)')
+def scan(log_file: Optional[Path], source: Optional[str], policy: Optional[Path], license_key: Optional[str], 
          output_format: str, summary_only: bool, output: Optional[Path], 
          slack_webhook: Optional[str], slack_channel: str, dry_run: bool, 
-         simulate: bool, verbose: bool):
+         simulate: bool, verbose: bool, hours_back: int, limit: int):
     """
-    🚀 Scan log file for policy violations using YAML rules
+    🚀 Scan logs for policy violations using YAML rules
     
-    Analyzes Langfuse-format JSONL logs and detects issues based on YAML policy rules.
-    All detection logic is policy-driven - no hardcoded detectors.
+    Analyzes logs from various sources (files, Langfuse API, etc.) and detects issues 
+    based on YAML policy rules. All detection logic is policy-driven.
+    
+    Examples:
+        crashlens scan logs.jsonl                    # Scan local file
+        crashlens scan --source=langfuse --simulate  # Fetch from Langfuse and simulate
+        crashlens scan --source=path/to/logs.jsonl   # Explicit file path
     """
     
     try:
+        # Determine input source and validate
+        temp_log_file = None
+        actual_log_file = None
+        
+        if source:
+            if source.lower() == 'langfuse':
+                # Fetch from Langfuse API
+                click.echo("🔗 Fetching logs from Langfuse...")
+                
+                # Test connection first
+                if not test_langfuse_connection():
+                    click.echo("❌ Failed to connect to Langfuse. Please check your credentials.", err=True)
+                    return
+                
+                try:
+                    # Initialize Langfuse client
+                    langfuse_client = LangfuseClient()
+                    
+                    # Fetch traces
+                    traces = langfuse_client.fetch_traces(hours_back=hours_back, limit=limit)
+                    
+                    if not traces:
+                        click.echo("⚠️  No traces found in Langfuse", err=True)
+                        return
+                    
+                    # Convert to CrashLens format
+                    log_entries = langfuse_client.convert_to_crashlens_format(traces)
+                    
+                    if not log_entries:
+                        click.echo("⚠️  No usable log entries after conversion", err=True)
+                        return
+                    
+                    # Save to temporary file for processing
+                    temp_log_file = save_logs_to_temp_file(log_entries)
+                    actual_log_file = temp_log_file
+                    
+                except Exception as e:
+                    click.echo(f"❌ Error fetching from Langfuse: {e}", err=True)
+                    return
+                    
+            elif source.lower() == 'helicone':
+                click.echo("❌ Helicone source not yet implemented", err=True)
+                return
+            else:
+                # Treat as file path
+                source_path = Path(source)
+                if not source_path.exists():
+                    click.echo(f"❌ File not found: {source}", err=True)
+                    return
+                actual_log_file = source_path
+        else:
+            # Use log_file argument
+            if not log_file:
+                click.echo("❌ Please provide either a log file argument or --source option", err=True)
+                click.echo("Examples:")
+                click.echo("  crashlens scan logs.jsonl")
+                click.echo("  crashlens scan --source=langfuse")
+                click.echo("  crashlens scan --source=path/to/logs.jsonl")
+                return
+            actual_log_file = log_file
+        
+        if verbose:
+            click.echo(f"[LOG] Using log file: {actual_log_file}")
+        
         # Load configurations
         policy_config = load_policy_config(policy)
         pricing_config = load_pricing_config()
         
         if verbose:
-            click.echo(f"📋 Loaded policy with {len(policy_config.get('rules', []))} rules")
-            click.echo(f"💰 Loaded pricing for {len(pricing_config.get('models', {}))} models")
+            click.echo(f"[POLICY] Loaded policy with {len(policy_config.get('rules', []))} rules")
+            click.echo(f"[PRICING] Loaded pricing for {len(pricing_config.get('models', {}))} models")
         
         # Initialize license checker
         if license_key:
@@ -328,7 +581,7 @@ def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str],
         
         # Parse log file
         parser = LangfuseParser()
-        traces_dict = parser.parse_file(log_file)
+        traces_dict = parser.parse_file(actual_log_file)
         
         if not traces_dict:
             click.echo("⚠️  No traces found in log file", err=True)
@@ -344,7 +597,7 @@ def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str],
                 log_entries.append(log_entry)
         
         if verbose:
-            click.echo(f"📊 Parsed {len(traces_dict)} traces with {len(log_entries)} log entries from {log_file}")
+            click.echo(f"[PARSING] Parsed {len(traces_dict)} traces with {len(log_entries)} log entries from {actual_log_file}")
         
         # Initialize policy engine
         # Create a temporary policy file if needed
@@ -364,9 +617,9 @@ def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str],
         all_violations, skipped_rules = policy_engine.evaluate_logs(log_entries)
         
         if verbose:
-            click.echo(f"🔍 Found {len(all_violations)} total violations")
+            click.echo(f"[ANALYSIS] Found {len(all_violations)} total violations")
             if skipped_rules:
-                click.echo(f"⏭️  Skipped {len(skipped_rules)} license-gated rules")
+                click.echo(f"[SKIPPED] Skipped {len(skipped_rules)} license-gated rules")
         
         # Handle simulation mode
         if simulate:
@@ -499,6 +752,16 @@ def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str],
             import traceback
             traceback.print_exc()
         sys.exit(1)
+    finally:
+        # Clean up temporary file if created
+        if temp_log_file and temp_log_file.exists():
+            try:
+                os.unlink(temp_log_file)
+                if verbose:
+                    click.echo(f"[CLEANUP] Cleaned up temporary file: {temp_log_file}")
+            except Exception as e:
+                if verbose:
+                    click.echo(f"[WARNING] Could not clean up temporary file {temp_log_file}: {e}")
 
 
 @cli.command()
@@ -610,6 +873,112 @@ def info(log_file: Path):
     except Exception as e:
         click.echo(f"❌ Error reading log file: {e}", err=True)
         sys.exit(1)
+
+
+@cli.command()
+@click.option('--template', '-t', type=click.Choice(list(TEMPLATE_YAMLS.keys())), 
+              required=True, help='Policy template to scaffold')
+@click.option('--output', '-o', type=click.Path(path_type=Path), 
+              help='Output file path (default: <template-name>.yaml)')
+@click.option('--force', '-f', is_flag=True, 
+              help='Overwrite existing file if it exists')
+@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+def init(template: str, output: Optional[Path], force: bool, verbose: bool):
+    """
+    ✅ Initialize a new policy file from a template
+    
+    Scaffolds prebuilt YAML policy files for common use cases.
+    Available templates: retry-limit, fallback-escalation, basic-safety, cost-cap, internal-only
+    """
+    
+    try:
+        # Determine output file path
+        if not output:
+            output = Path(f"{template}.yaml")
+        
+        # Check if file exists
+        if output.exists() and not force:
+            click.echo(f"❌ File {output} already exists. Use --force to overwrite.", err=True)
+            sys.exit(1)
+        
+        # Get template content
+        template_content = TEMPLATE_YAMLS[template]
+        
+        # Write template to file
+        with open(output, 'w', encoding='utf-8') as f:
+            f.write(template_content)
+        
+        if verbose:
+            click.echo(f"📋 Template: {template}")
+            click.echo(f"📄 Output file: {output}")
+            click.echo(f"📏 Content length: {len(template_content)} characters")
+        
+        click.echo(f"✅ Policy template '{template}' created successfully at {output}")
+        click.echo(f"💡 Next steps:")
+        click.echo(f"   1. Review and customize the policy rules in {output}")
+        click.echo(f"   2. Test with: crashlens scan logs.jsonl --policy {output} --simulate")
+        click.echo(f"   3. Deploy with: crashlens scan logs.jsonl --policy {output}")
+        
+        # Show template info
+        click.echo(f"\n📋 Template Info:")
+        if template == "retry-limit":
+            click.echo("   🔄 Prevents excessive retry patterns that cause cost explosions")
+        elif template == "fallback-escalation":
+            click.echo("   ⬆️ Detects unnecessary escalation from cheaper to expensive models")
+        elif template == "basic-safety":
+            click.echo("   🛡️ Essential safety rules for production AI usage")
+        elif template == "cost-cap":
+            click.echo("   💰 Strict cost controls to prevent budget overruns")
+        elif template == "internal-only":
+            click.echo("   🔒 Detects potentially sensitive or internal-use content")
+            
+    except KeyError:
+        click.echo(f"❌ Unknown template: {template}", err=True)
+        click.echo(f"Available templates: {', '.join(TEMPLATE_YAMLS.keys())}")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error creating policy file: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command(name='list-templates')
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed template descriptions')
+def list_templates(verbose: bool):
+    """
+    📋 List available policy templates
+    
+    Shows all available templates for the 'crashlens init' command.
+    """
+    
+    click.echo("📋 Available CrashLens Policy Templates:")
+    click.echo("=" * 50)
+    
+    template_descriptions = {
+        "retry-limit": "🔄 Prevents excessive retry patterns that cause cost explosions",
+        "fallback-escalation": "⬆️ Detects unnecessary escalation from cheaper to expensive models", 
+        "basic-safety": "🛡️ Essential safety rules for production AI usage",
+        "cost-cap": "💰 Strict cost controls to prevent budget overruns",
+        "internal-only": "🔒 Detects potentially sensitive or internal-use content"
+    }
+    
+    for template, description in template_descriptions.items():
+        click.echo(f"\n📄 {template}")
+        click.echo(f"   {description}")
+        
+        if verbose:
+            # Count rules in template
+            template_content = TEMPLATE_YAMLS[template]
+            rule_count = template_content.count('- id:')
+            click.echo(f"   📊 Rules: {rule_count}")
+            click.echo(f"   📏 Size: {len(template_content)} characters")
+            
+            # Usage example
+            click.echo(f"   🚀 Usage: crashlens init --template {template}")
+    
+    click.echo(f"\n💡 Usage Examples:")
+    click.echo(f"   crashlens init --template basic-safety")
+    click.echo(f"   crashlens init --template cost-cap --output my-budget.yaml")
+    click.echo(f"   crashlens init --template retry-limit --force")
 
 
 if __name__ == "__main__":
