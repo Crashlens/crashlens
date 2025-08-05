@@ -1,0 +1,71 @@
+# CrashLens Policy: Maximum Cost Per Trace
+# Prevents individual traces from exceeding cost limits
+
+rules:
+  - id: trace_cost_hard_limit
+    description: "Block traces exceeding maximum cost threshold"
+    match:
+      cost: ">0.50"
+    action: fail
+    severity: critical
+    suggestion: "Trace cost exceeds $0.50 limit. Break down complex requests or use cheaper models."
+    requires_license: false
+    
+  - id: trace_cost_warning_limit
+    description: "Warn on traces approaching cost limits"
+    match:
+      cost: ">0.20"
+    action: warn
+    severity: high
+    suggestion: "Trace cost is high ($0.20+). Consider optimizing context length or model selection."
+    requires_license: false
+    
+  - id: development_cost_limit
+    description: "Stricter limits for development environment"
+    match:
+      metadata.env: ["development", "dev", "staging"]
+      cost: ">0.10"
+    action: fail
+    severity: high
+    suggestion: "Development environment cost limit exceeded. Use cheaper models for testing."
+    requires_license: false
+    
+  - id: token_efficiency_check
+    description: "Flag traces with poor cost-to-token ratios"
+    match:
+      usage.total_tokens: "<100"
+      cost: ">0.05"
+    action: warn
+    severity: medium
+    suggestion: "Poor cost efficiency detected - high cost for low token count. Check model selection."
+    requires_license: false
+    
+  - id: large_context_cost_warning
+    description: "Warn on expensive large context requests"
+    match:
+      usage.prompt_tokens: ">8000"
+      cost: ">0.15"
+    action: warn
+    severity: medium
+    suggestion: "Large context with high cost detected. Consider context compression or cheaper models."
+    requires_license: false
+
+global:
+  max_violations_per_rule: 20
+  enable_cost_estimation: true
+  
+cost_thresholds:
+  warning_threshold: 0.20   # Warn at $0.20 per trace
+  critical_threshold: 0.50  # Block at $0.50 per trace
+
+# Environment-specific cost limits
+environment_limits:
+  production:
+    max_cost_per_trace: 0.50
+    daily_budget: 100.00
+  staging:
+    max_cost_per_trace: 0.20
+    daily_budget: 20.00
+  development:
+    max_cost_per_trace: 0.10
+    daily_budget: 5.00

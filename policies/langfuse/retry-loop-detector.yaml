@@ -1,0 +1,65 @@
+# CrashLens Policy: Retry Loop Detector
+# Designed for Langfuse traces - detects expensive retry patterns
+
+rules:
+  - id: excessive_retry_pattern
+    description: "Block traces with excessive retry attempts"
+    match:
+      retry_count: ">3"
+    action: fail
+    severity: critical
+    suggestion: "Implement exponential backoff and circuit breaker patterns. >3 retries indicates poor error handling."
+    requires_license: false
+    
+  - id: expensive_model_retries
+    description: "Warn when expensive models are used in retry scenarios"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
+      retry_count: ">1"
+    action: warn
+    severity: high
+    suggestion: "Use cheaper fallback models (gpt-3.5-turbo) for retry scenarios to minimize cost impact"
+    requires_license: false
+    
+  - id: high_cost_retry_cascade
+    description: "Detect retry cascades that are burning budget"
+    match:
+      cost: ">0.05"
+      retry_count: ">0"
+    action: warn
+    severity: high
+    suggestion: "High-cost retry detected - review error handling and consider model downgrade for retries"
+    requires_license: false
+    
+  - id: rapid_retry_detection
+    description: "Flag rapid successive retries within short timeframes"
+    match:
+      retry_count: ">2"
+      usage.total_tokens: "<200"
+    action: warn
+    severity: medium
+    suggestion: "Rapid retries on short requests detected - implement proper backoff delays"
+    requires_license: false
+    
+  - id: fallback_chain_monitoring
+    description: "Monitor fallback model usage patterns"
+    match:
+      fallback_count: ">0"
+    action: warn
+    severity: low
+    suggestion: "Fallback model used - monitor if primary model issues are frequent"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 10  # Low tolerance for retry issues
+  enable_cost_estimation: true
+  
+cost_thresholds:
+  warning_threshold: 0.01  # Low threshold since retries compound costs
+  critical_threshold: 0.05
+
+# Retry-specific budgets
+budget_limits:
+  daily_retry_budget: 5.00     # Maximum $5/day on retry costs
+  monthly_retry_budget: 100.00  # Maximum $100/month on retry costs
+  max_retry_cost_per_trace: 0.20  # Maximum $0.20 per trace including retries

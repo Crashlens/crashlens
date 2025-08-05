@@ -1,0 +1,88 @@
+# CrashLens Policy: CI Sample - Lightweight checks for continuous integration
+# Quick validation suitable for CI/CD pipelines
+
+rules:
+  - id: ci_cost_check
+    description: "Enforce cost limits in CI environment"
+    match:
+      cost: ">0.05"
+    action: fail
+    severity: critical
+    suggestion: "CI cost limit exceeded - review model selection for testing"
+    requires_license: false
+    
+  - id: ci_model_allowlist
+    description: "Restrict to approved models in CI"
+    match:
+      input.model: "not_in:[gpt-4o-mini, gpt-3.5-turbo, claude-3-haiku]"
+    action: fail
+    severity: critical
+    suggestion: "Unauthorized model in CI - use approved models: gpt-4o-mini, gpt-3.5-turbo, claude-3-haiku"
+    requires_license: false
+    
+  - id: ci_token_limit
+    description: "Prevent large token usage in CI"
+    match:
+      output.token_count: ">500"
+    action: warn
+    severity: medium
+    suggestion: "High token count in CI - consider shorter test prompts"
+    requires_license: false
+    
+  - id: ci_response_time
+    description: "Monitor response times in CI"
+    match:
+      duration: ">5000"  # 5 seconds
+    action: warn
+    severity: low
+    suggestion: "Slow response in CI - may impact build times"
+    requires_license: false
+    
+  - id: ci_error_detection
+    description: "Catch API errors in CI"
+    match:
+      status: "error"
+    action: fail
+    severity: critical
+    suggestion: "API error in CI - check model availability and API keys"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 5
+  enable_cost_estimation: true
+  ci_mode: true
+  
+cost_thresholds:
+  warning_threshold: 0.01
+  critical_threshold: 0.05
+
+# CI-specific configuration
+ci_config:
+  timeout: 30s              # Fast timeout for CI
+  max_parallel_requests: 3  # Limited concurrency
+  allowed_models:
+    - "gpt-4o-mini"
+    - "gpt-3.5-turbo"
+    - "claude-3-haiku"
+  cost_budget: 0.05         # $0.05 per CI run
+  
+# Sample test cases for validation
+test_cases:
+  - name: "valid_ci_request"
+    input:
+      model: "gpt-4o-mini"
+      cost: 0.01
+      duration: 1500
+      status: "success"
+    expected: "pass"
+    
+  - name: "expensive_model_in_ci"
+    input:
+      model: "gpt-4"
+      cost: 0.10
+    expected: "fail"
+    
+  - name: "api_error_in_ci"
+    input:
+      status: "error"
+    expected: "fail"

@@ -59,6 +59,8 @@ from .parsers.langfuse import LangfuseParser
 from .reporters.slack_formatter import SlackFormatter
 from .reporters.markdown_formatter import MarkdownFormatter
 from .langfuse_client import LangfuseClient, save_logs_to_temp_file, test_langfuse_connection
+from .helicone_client import HeliconeClient, test_helicone_connection
+from .openai_client import OpenAIClient, test_openai_connection
 from .reporters.summary_formatter import SummaryFormatter
 from .policy.engine import PolicyEngine, PolicyAction
 from .utils.slack_webhook import SlackWebhookSender, group_violations_by_rule
@@ -463,7 +465,7 @@ def cli():
 
 @cli.command()
 @click.argument('log_file', type=click.Path(exists=True, path_type=Path), required=False)
-@click.option('--source', type=str, help='Data source: "langfuse", "helicone", or path to log file')
+@click.option('--source', type=str, help='Data source: "langfuse", "helicone", "openai", "file", or path to log file')
 @click.option('--policy', '-p', type=click.Path(exists=True, path_type=Path), 
               help='Path to YAML policy configuration file')
 @click.option('--license-key', type=str, help='License key for premium features')
@@ -505,11 +507,11 @@ def scan(log_file: Optional[Path], source: Optional[str], policy: Optional[Path]
         if source:
             if source.lower() == 'langfuse':
                 # Fetch from Langfuse API
-                click.echo("🔗 Fetching logs from Langfuse...")
+                click.echo("[LANGFUSE] Fetching logs from Langfuse...")
                 
                 # Test connection first
                 if not test_langfuse_connection():
-                    click.echo("❌ Failed to connect to Langfuse. Please check your credentials.", err=True)
+                    click.echo("[ERROR] Failed to connect to Langfuse. Please check your credentials.", err=True)
                     return
                 
                 try:
@@ -520,14 +522,14 @@ def scan(log_file: Optional[Path], source: Optional[str], policy: Optional[Path]
                     traces = langfuse_client.fetch_traces(hours_back=hours_back, limit=limit)
                     
                     if not traces:
-                        click.echo("⚠️  No traces found in Langfuse", err=True)
+                        click.echo("[WARNING] No traces found in Langfuse", err=True)
                         return
                     
                     # Convert to CrashLens format
                     log_entries = langfuse_client.convert_to_crashlens_format(traces)
                     
                     if not log_entries:
-                        click.echo("⚠️  No usable log entries after conversion", err=True)
+                        click.echo("[WARNING] No usable log entries after conversion", err=True)
                         return
                     
                     # Save to temporary file for processing
@@ -535,26 +537,104 @@ def scan(log_file: Optional[Path], source: Optional[str], policy: Optional[Path]
                     actual_log_file = temp_log_file
                     
                 except Exception as e:
-                    click.echo(f"❌ Error fetching from Langfuse: {e}", err=True)
+                    click.echo(f"[ERROR] Error fetching from Langfuse: {e}", err=True)
                     return
                     
             elif source.lower() == 'helicone':
-                click.echo("❌ Helicone source not yet implemented", err=True)
-                return
-            else:
-                # Treat as file path
-                source_path = Path(source)
-                if not source_path.exists():
-                    click.echo(f"❌ File not found: {source}", err=True)
+                # Fetch from Helicone API
+                click.echo("[HELICONE] Fetching logs from Helicone...")
+                
+                # Test connection first
+                if not test_helicone_connection():
+                    click.echo("[ERROR] Failed to connect to Helicone. Please check your credentials.", err=True)
                     return
-                actual_log_file = source_path
+                
+                try:
+                    # Initialize Helicone client
+                    helicone_client = HeliconeClient()
+                    
+                    # Fetch requests
+                    requests = helicone_client.fetch_requests(hours_back=hours_back, limit=limit)
+                    
+                    if not requests:
+                        click.echo("[WARNING] No requests found in Helicone", err=True)
+                        return
+                    
+                    # Convert to CrashLens format
+                    log_entries = helicone_client.convert_to_crashlens_format(requests)
+                    
+                    if not log_entries:
+                        click.echo("[WARNING] No usable log entries after conversion", err=True)
+                        return
+                    
+                    # Save to temporary file for processing
+                    temp_log_file = save_logs_to_temp_file(log_entries)
+                    actual_log_file = temp_log_file
+                    
+                except Exception as e:
+                    click.echo(f"[ERROR] Error fetching from Helicone: {e}", err=True)
+                    return
+                    
+            elif source.lower() == 'openai':
+                # Fetch from OpenAI Usage API
+                click.echo("[OPENAI] Fetching usage data from OpenAI...")
+                
+                # Test connection first
+                if not test_openai_connection():
+                    click.echo("[ERROR] Failed to connect to OpenAI. Please check your credentials.", err=True)
+                    return
+                
+                try:
+                    # Initialize OpenAI client
+                    openai_client = OpenAIClient()
+                    
+                    # Fetch usage data (convert hours to days, minimum 1 day)
+                    days_back = max(1, hours_back // 24)
+                    usage_data = openai_client.fetch_usage_data(days_back=days_back)
+                    
+                    if not usage_data:
+                        click.echo("[WARNING] No usage data found in OpenAI", err=True)
+                        return
+                    
+                    # Convert to CrashLens format
+                    log_entries = openai_client.convert_to_crashlens_format(usage_data)
+                    
+                    if not log_entries:
+                        click.echo("[WARNING] No usable log entries after conversion", err=True)
+                        return
+                    
+                    # Save to temporary file for processing
+                    temp_log_file = save_logs_to_temp_file(log_entries)
+                    actual_log_file = temp_log_file
+                    
+                except Exception as e:
+                    click.echo(f"[ERROR] Error fetching from OpenAI: {e}", err=True)
+                    return
+            else:
+                # Treat as file path (including --source=file alias)
+                if source.lower() == 'file':
+                    if not log_file:
+                        click.echo("[ERROR] When using --source=file, you must also provide a log file path as an argument", err=True)
+                        click.echo("Example: crashlens scan --source=file logs.jsonl")
+                        return
+                    actual_log_file = log_file
+                else:
+                    # Direct file path
+                    source_path = Path(source)
+                    if not source_path.exists():
+                        click.echo(f"[ERROR] File not found: {source}", err=True)
+                        return
+                    actual_log_file = source_path
         else:
             # Use log_file argument
             if not log_file:
-                click.echo("❌ Please provide either a log file argument or --source option", err=True)
+                click.echo("[ERROR] Please provide either a log file argument or --source option", err=True)
                 click.echo("Examples:")
                 click.echo("  crashlens scan logs.jsonl")
                 click.echo("  crashlens scan --source=langfuse")
+                click.echo("  crashlens scan --source=helicone")
+                click.echo("  crashlens scan --source=openai")
+                click.echo("  crashlens scan --source=file logs.jsonl")
                 click.echo("  crashlens scan --source=path/to/logs.jsonl")
                 return
             actual_log_file = log_file

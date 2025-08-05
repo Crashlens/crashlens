@@ -1,0 +1,67 @@
+# CrashLens Policy: Fallback Chain Detector
+# Monitors model fallback patterns and cascading failures
+
+rules:
+  - id: excessive_fallback_usage
+    description: "Block excessive fallback to expensive models"
+    match:
+      fallback_count: ">2"
+      input.model: ["gpt-4", "claude-3-opus"]
+    action: fail
+    severity: critical
+    suggestion: "Excessive fallbacks to expensive models detected. Review primary model reliability."
+    requires_license: false
+    
+  - id: fallback_storm_detection
+    description: "Detect fallback storms indicating system issues"
+    match:
+      fallback_count: ">5"
+    action: fail
+    severity: critical
+    suggestion: "Fallback storm detected - investigate primary model availability and error handling"
+    requires_license: false
+    
+  - id: reverse_fallback_pattern
+    description: "Flag inappropriate fallback patterns (cheap to expensive)"
+    match:
+      metadata.primary_model: ["gpt-3.5-turbo", "gpt-4o-mini"]
+      input.model: ["gpt-4", "claude-3-opus"]
+      fallback_count: ">0"
+    action: warn
+    severity: high
+    suggestion: "Fallback from cheap to expensive model detected - review fallback logic"
+    requires_license: false
+    
+  - id: high_cost_fallback_chain
+    description: "Monitor cost impact of fallback chains"
+    match:
+      fallback_count: ">1"
+      cost: ">0.10"
+    action: warn
+    severity: high
+    suggestion: "High-cost fallback chain detected - consider fallback to cheaper models"
+    requires_license: false
+    
+  - id: frequent_fallback_user
+    description: "Flag users/sessions with frequent fallback usage"
+    match:
+      fallback_count: ">3"
+      metadata.user_id: "not_empty"
+    action: warn
+    severity: medium
+    suggestion: "User experiencing frequent fallbacks - may need support or different model configuration"
+    requires_license: false
+
+global:
+  max_violations_per_rule: 15
+  enable_cost_estimation: true
+  
+cost_thresholds:
+  warning_threshold: 0.10
+  critical_threshold: 0.25
+
+# Fallback monitoring configuration
+fallback_monitoring:
+  max_fallback_rate: 0.15        # Alert if >15% of requests use fallbacks
+  max_cascade_depth: 3           # Maximum allowed fallback chain depth
+  fallback_cost_multiplier: 2.0  # Expected cost increase from fallbacks
