@@ -1,51 +1,83 @@
-# 📜 4. CrashLens Suppression Policy Configuration
-# Controls detector behavior and suppression rules
+# 📜 CrashLens v2.0 Legacy Policy Configuration
+# Optimized suppression rules and budget policies for hybrid system
 
 suppression_rules:
-  # Retry Loop Detector - Highest priority (detects fundamental issues)
+  # Retry Loop Detector - Highest priority
   retry_loop:
     enabled: true
     suppress_if_retry_loop: false  # Can't suppress itself
+    threshold: 4  # More lenient for production
     
-  # Fallback Storm Detector - Detects chaotic model switching  
+  # Fallback Storm Detector - Enhanced for v2.0
   fallback_storm:
     enabled: true
-    suppress_if_retry_loop: true   # 🧪 Test Case: Toggle suppression
+    suppress_if_retry_loop: true
+    min_models: 2  # Must involve multiple models
+    time_window_minutes: 5  # Expanded window
     
-  # Fallback Failure Detector - Detects unnecessary expensive calls
+  # Fallback Failure Detector - Production optimized
   fallback_failure:
     enabled: true
-    suppress_if_retry_loop: true   # Usually suppressed by retry detection
+    suppress_if_retry_loop: true
+    expensive_models: ["gpt-4", "gpt-4-turbo", "claude-3-opus", "claude-3-sonnet"]
     
-  # Overkill Model Detector - Detects expensive models for simple tasks
+  # Overkill Model Detector - Enhanced thresholds
   overkill_model:
     enabled: true
-    suppress_if_retry_loop: false  # Independent of retry patterns
+    suppress_if_retry_loop: false
+    token_threshold: 50  # Increased from 20
+    expensive_models: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
 
-# 📊 5. Budget Policy Enforcement (v0.1+ Feature)
+# 📊 Enhanced Budget Policy Enforcement (v2.0)
 budget_policies:
-  - name: high_cost_model_budget
+  - name: gpt4_production_budget
     model: "gpt-4"
-    monthly_cap_usd: 1000
+    monthly_cap_usd: 2000  # Increased for production
+    daily_cap_usd: 100     # New daily limit
     threshold_alerts:
-      - percentage: 70
+      - percentage: 60
         action: send_slack_alert
-        message: "GPT-4 budget at 70% (${spent}/${budget})"
-      - percentage: 90
+        message: "📊 GPT-4 budget at 60% (${spent}/${budget}) - monitoring recommended"
+      - percentage: 80
         action: send_slack_alert
-        message: "🚨 GPT-4 budget at 90% - consider cost controls"
+        message: "⚠️ GPT-4 budget at 80% (${spent}/${budget}) - review usage patterns"
+      - percentage: 95
+        action: send_slack_alert
+        message: "🚨 GPT-4 budget at 95% - implement cost controls immediately"
       - percentage: 100
         action: block_requests
-        message: "GPT-4 monthly budget exceeded - requests blocked"
+        message: "🛑 GPT-4 monthly budget exceeded - requests blocked until next cycle"
         
   - name: claude_opus_budget
     model: "claude-3-opus"
-    monthly_cap_usd: 500
+    monthly_cap_usd: 1000  # Increased limit
+    daily_cap_usd: 50      # New daily limit
     threshold_alerts:
-      - percentage: 80
+      - percentage: 75
         action: send_slack_alert
+        message: "Claude-3-Opus budget at 75% - consider cheaper alternatives"
+      - percentage: 90
+        action: send_slack_alert  
+        message: "🚨 Claude-3-Opus budget critical - implement restrictions"
       - percentage: 100
         action: block_requests
+        message: "Claude-3-Opus budget exceeded - use claude-3-sonnet or cheaper models"
+
+  # New: Overall organization budget
+  - name: organization_total_budget
+    model: "*"  # All models
+    monthly_cap_usd: 5000
+    daily_cap_usd: 200
+    threshold_alerts:
+      - percentage: 70
+        action: send_slack_alert
+        message: "📈 Organization AI budget at 70% - cost optimization recommended"
+      - percentage: 85
+        action: send_slack_alert
+        message: "⚠️ Organization AI budget at 85% - implement usage restrictions"
+      - percentage: 100
+        action: send_email_alert
+        message: "🚨 CRITICAL: Organization AI budget exceeded - emergency review required"
 
 # 🧠 2. Enhanced Overkill Model Policies
 policies:

@@ -3,7 +3,42 @@
 CrashLens CLI - YAML Policy-Only Version
 Scans Langfuse-style JSONL logs using YAML-driven policy rules only.
 
-Version: 3.0.0 (Policy-Only)
+Version: 2.0.0 (Policy + Detector Hybrid)
+
+🚧 Feature: Dry-run policy simulation mode for CrashLens CLI
+
+Goal:
+- When the user passes `--simulate`, the tool should not block or halt anything.
+- Instead, it should scan the input logs using existing policy rules,
+  and report what *would have been blocked* if enforcement was active.
+
+Expected Behavior:
+- For each violation detected:
+  - Show:
+    - Violation type (e.g., "GPT-4 misuse")
+    - Violated rule ID
+    - Suggested fix (e.g., downgrade model, reduce retries)
+    - Estimated token waste or cost if calculable
+
+- Output Format (to stdout or Slack webhook):
+  - Grouped summary of violations by rule
+  - Show `💸 Estimated cost wasted: $X.XX` if available
+  - Prefix each with `🚫 Simulated Block:` to indicate it's not enforced
+
+Constraints:
+- Should respect all YAML policy engine logic (model matchers, intent rules, retry fallback rules)
+- Must NOT modify any files or halt the CLI in simulate mode
+- Should work with both JSONL file input and Langfuse/Helicone APIs
+
+Usage:
+    crashlens scan logs.jsonl --simulate
+
+Steps:
+1. Add a new CLI argument `--simulate` (bool)
+2. Inside the policy match loop, if simulate=True:
+   - Collect violations with all metadata
+   - Format and print them with simulation indicators
+3. Optionally return exit code 0 even if violations exist (since nothing is enforced)
 """
 
 import click
@@ -17,8 +52,8 @@ from datetime import datetime
 from typing import Optional, Dict, List, Any
 
 # Version information
-__version__ = "3.0.0"
-__build_date__ = "2025-01-04"
+__version__ = "2.0.0"
+__build_date__ = "2025-08-05"
 
 from .parsers.langfuse import LangfuseParser
 from .reporters.slack_formatter import SlackFormatter
@@ -28,6 +63,173 @@ from .policy.engine import PolicyEngine, PolicyAction
 from .utils.slack_webhook import SlackWebhookSender, group_violations_by_rule
 from .license_checker import get_license_checker, load_license_key
 from .utils.roi_calculator import generate_roi_report
+
+
+def generate_simulation_report(violations: List, pricing_config: Dict, verbose: bool, 
+                              output_format: str, slack_webhook: Optional[str] = None):
+    """
+    Generate a simulation report showing what would be blocked without enforcement.
+    
+    Args:
+        violations: List of PolicyViolation objects
+        pricing_config: Pricing configuration for cost calculations
+        verbose: Whether to show detailed output
+        output_format: Output format (markdown, slack, json)
+        slack_webhook: Optional Slack webhook URL
+    """
+    click.echo("\n🚧 SIMULATION MODE - Policy Enforcement Preview")
+    click.echo("=" * 60)
+    
+    if not violations:
+        click.echo("✅ No policy violations detected - all requests would pass!")
+        return
+    
+    # Group violations by rule
+    violations_by_rule = {}
+    total_estimated_cost = 0.0
+    total_violations = len(violations)
+    
+    for violation in violations:
+        rule_id = violation.rule_id
+        if rule_id not in violations_by_rule:
+            violations_by_rule[rule_id] = {
+                'violations': [],
+                'total_cost': 0.0,
+                'suggestion': violation.suggestion,
+                'severity': violation.severity.value,
+                'action': violation.action.value
+            }
+        
+        violations_by_rule[rule_id]['violations'].append(violation)
+        
+        # Calculate estimated cost/waste
+        log_entry = violation.log_entry
+        cost = log_entry.get('cost', 0.0)
+        violations_by_rule[rule_id]['total_cost'] += cost
+        total_estimated_cost += cost
+    
+    # Display simulation results
+    click.echo(f"🚫 Found {total_violations} violations that would be flagged/blocked:\n")
+    
+    for rule_id, rule_data in violations_by_rule.items():
+        rule_violations = rule_data['violations']
+        severity = rule_data['severity']
+        action = rule_data['action']
+        suggestion = rule_data['suggestion']
+        rule_cost = rule_data['total_cost']
+        
+        # Severity emoji
+        severity_emoji = {
+            'critical': '🚨',
+            'high': '⚠️',
+            'medium': '⚡',
+            'low': 'ℹ️'
+        }.get(severity.lower(), '•')
+        
+        # Action indicator
+        action_indicator = {
+            'fail': '🛑 WOULD BLOCK',
+            'warn': '⚠️ WOULD WARN',
+            'block': '🚫 WOULD DENY'
+        }.get(action.lower(), '📝 WOULD FLAG')
+        
+        click.echo(f"{severity_emoji} {action_indicator}: {rule_id}")
+        click.echo(f"   📊 Violations: {len(rule_violations)}")
+        if rule_cost > 0:
+            click.echo(f"   💸 Estimated cost/waste: ${rule_cost:.4f}")
+        click.echo(f"   💡 Suggested fix: {suggestion}")
+        
+        if verbose:
+            click.echo(f"   📋 Affected traces:")
+            for v in rule_violations[:5]:  # Show first 5
+                trace_id = v.log_entry.get('trace_id', 'unknown')
+                model = v.log_entry.get('input', {}).get('model', 'unknown')
+                cost = v.log_entry.get('cost', 0.0)
+                click.echo(f"      • {trace_id} (model: {model}, cost: ${cost:.4f})")
+            if len(rule_violations) > 5:
+                click.echo(f"      ... and {len(rule_violations) - 5} more")
+        
+        click.echo()  # Empty line between rules
+    
+    # Summary
+    click.echo("📈 SIMULATION SUMMARY:")
+    click.echo(f"   • Total violations: {total_violations}")
+    click.echo(f"   • Rules triggered: {len(violations_by_rule)}")
+    if total_estimated_cost > 0:
+        click.echo(f"   • Total estimated cost impact: ${total_estimated_cost:.4f}")
+    
+    # Count by action type
+    action_counts = {}
+    for rule_data in violations_by_rule.values():
+        action = rule_data['action']
+        action_counts[action] = action_counts.get(action, 0) + len(rule_data['violations'])
+    
+    if action_counts:
+        click.echo(f"   • By action type:")
+        for action, count in action_counts.items():
+            action_name = {
+                'fail': 'Would be blocked',
+                'warn': 'Would be warned',
+                'block': 'Would be denied'
+            }.get(action, 'Would be flagged')
+            click.echo(f"     - {action_name}: {count}")
+    
+    # Slack notification in simulation mode
+    if slack_webhook and output_format == 'slack':
+        send_simulation_slack_notification(violations_by_rule, total_violations, 
+                                         total_estimated_cost, slack_webhook)
+    
+    click.echo("\n✨ Simulation complete! No enforcement actions were taken.")
+    click.echo("   To enable enforcement, run without --simulate flag.")
+
+
+def send_simulation_slack_notification(violations_by_rule: Dict, total_violations: int, 
+                                     total_cost: float, webhook_url: str):
+    """Send simulation results to Slack"""
+    try:
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🚧 CrashLens Policy Simulation Report"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Simulation Results:*\n• {total_violations} violations detected\n• {len(violations_by_rule)} rules triggered\n• ${total_cost:.4f} estimated cost impact"
+                }
+            }
+        ]
+        
+        # Add top violations
+        for rule_id, rule_data in list(violations_by_rule.items())[:3]:  # Top 3
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*🚫 {rule_id}*\n{len(rule_data['violations'])} violations | ${rule_data['total_cost']:.4f}\n💡 {rule_data['suggestion']}"
+                }
+            })
+        
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "ℹ️ This is a simulation - no enforcement actions were taken"
+                }
+            ]
+        })
+        
+        webhook_sender = SlackWebhookSender(webhook_url)
+        webhook_sender.send_policy_violations_alert({rule_id: rule_data['violations'] for rule_id, rule_data in violations_by_rule.items()}, total_cost)
+        click.echo("📤 Simulation results sent to Slack")
+        
+    except Exception as e:
+        click.echo(f"⚠️ Failed to send Slack notification: {e}")
 
 
 def load_policy_config(policy_path: Optional[Path] = None) -> Dict[str, Any]:
@@ -72,7 +274,7 @@ def load_pricing_config(pricing_path: Optional[Path] = None) -> Dict[str, Any]:
 
 
 @click.group()
-@click.version_option(__version__, message="CrashLens CLI v%(version)s (Policy-Only)")
+@click.version_option(__version__, message="CrashLens CLI v%(version)s (Policy + Detector Hybrid)")
 def cli():
     """🔍 CrashLens - YAML Policy-Driven Token Waste Detection"""
     pass
@@ -93,10 +295,12 @@ def cli():
 @click.option('--slack-channel', default='#ai-cost-monitoring', 
               help='Slack channel for notifications')
 @click.option('--dry-run', is_flag=True, help='Show what would be detected without creating reports')
+@click.option('--simulate', is_flag=True, help='🚧 Simulation mode: Show what would be blocked without enforcement')
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
 def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str], 
          output_format: str, summary_only: bool, output: Optional[Path], 
-         slack_webhook: Optional[str], slack_channel: str, dry_run: bool, verbose: bool):
+         slack_webhook: Optional[str], slack_channel: str, dry_run: bool, 
+         simulate: bool, verbose: bool):
     """
     🚀 Scan log file for policy violations using YAML rules
     
@@ -163,6 +367,11 @@ def scan(log_file: Path, policy: Optional[Path], license_key: Optional[str],
             click.echo(f"🔍 Found {len(all_violations)} total violations")
             if skipped_rules:
                 click.echo(f"⏭️  Skipped {len(skipped_rules)} license-gated rules")
+        
+        # Handle simulation mode
+        if simulate:
+            generate_simulation_report(all_violations, pricing_config, verbose, output_format, slack_webhook)
+            return  # Exit without creating files or enforcing
         
         # Handle dry run
         if dry_run:
