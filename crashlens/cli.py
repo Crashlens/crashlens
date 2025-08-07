@@ -459,7 +459,7 @@ def load_pricing_config(pricing_path: Optional[Path] = None) -> Dict[str, Any]:
 @click.group()
 @click.version_option(__version__, message="CrashLens CLI v%(version)s (Policy + Detector Hybrid)")
 def cli():
-    """🔍 CrashLens - YAML Policy-Driven Token Waste Detection"""
+    """CrashLens - YAML Policy-Driven Token Waste Detection"""
     pass
 
 
