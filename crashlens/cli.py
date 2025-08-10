@@ -29,6 +29,13 @@ try:
 except ImportError:
     HAS_FAKER = False
 
+# Optional imports for version detection
+try:
+    import importlib.metadata
+    HAS_IMPORTLIB_METADATA = True
+except ImportError:
+    HAS_IMPORTLIB_METADATA = False
+
 from .parsers.langfuse import LangfuseParser
 from .detectors.retry_loops import RetryLoopDetector
 from .detectors.fallback_storm import FallbackStormDetector
@@ -41,6 +48,24 @@ from .langfuse_client import LangfuseClient, save_logs_to_temp_file
 from .helicone_client import HeliconeClient
 from .policy.templates import get_template_manager
 from .policy.engine import PolicyEngine
+
+
+# =============================================================================
+# Version Detection Function
+# =============================================================================
+
+def _get_current_cli_version() -> str:
+    """Get the current CLI version."""
+    try:
+        # Use importlib.metadata (Python 3.8+)
+        if HAS_IMPORTLIB_METADATA:
+            return importlib.metadata.version('crashlens')
+    except Exception:
+        pass
+    
+    # Fallback version
+    return "1.0.0"
+
 
 # 🔢 1. DETECTOR PRIORITIES - Global constant used throughout
 DETECTOR_PRIORITY = {
@@ -406,7 +431,7 @@ def _calculate_trace_time_span(records: List[Dict[str, Any]]) -> float:
 
 
 @click.group()
-@click.version_option(version="0.1.0")
+@click.version_option(version=_get_current_cli_version() or "unknown")
 def cli():
     """CrashLens - Detect token waste in GPT API logs with production-grade suppression"""
     pass
@@ -1190,27 +1215,6 @@ def list_policy_templates():
 # =============================================================================
 # Init Command Helper Functions
 # =============================================================================
-
-def _get_current_cli_version() -> str:
-    """Get the current CLI version."""
-    try:
-        # Try to get version from package metadata
-        try:
-            import pkg_resources
-            return pkg_resources.get_distribution('crashlens').version
-        except ImportError:
-            # Try alternative method
-            try:
-                import importlib.metadata
-                return importlib.metadata.version('crashlens')
-            except (ImportError, Exception):
-                pass
-    except:
-        pass
-    
-    # Fallback version
-    return "1.0.0"
-
 
 def _load_config_schema() -> Dict[str, Any]:
     """Load the JSON schema for config validation."""
