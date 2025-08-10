@@ -1,0 +1,46 @@
+# CrashLens Code Owners
+# 
+# This file defines ownership for different parts of the codebase.
+# Code owners are automatically requested for review when PRs affect their files.
+# 
+# Global ownership - all files require review from main maintainers
+* @LawLight
+
+# Core CLI and main package
+/crashlens/ @LawLight
+/crashlens/cli.py @LawLight
+
+# Detectors - Critical algorithms that need careful review
+/crashlens/detectors/ @LawLight
+
+# Parsers - Data ingestion logic
+/crashlens/parsers/ @LawLight
+
+# Reporters - Output formatting
+/crashlens/reporters/ @LawLight
+
+# Configuration files
+/crashlens/config/ @LawLight
+/pyproject.toml @LawLight
+/poetry.lock @LawLight
+
+# GitHub workflows and CI/CD
+/.github/workflows/ @LawLight
+/.github/ @LawLight
+
+# Documentation
+/README.md @LawLight
+/docs/ @LawLight
+/*.md @LawLight
+
+# Tests - Ensure test quality
+/tests/ @LawLight
+
+# Example data and logs
+/examples-logs/ @LawLight
+/examples/ @LawLight
+
+# Security and policy files
+/SECURITY.md @LawLight
+/LICENSE @LawLight
+/policies/ @LawLight

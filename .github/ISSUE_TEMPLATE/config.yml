@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-issue-config.json
+
+blank_issues_enabled: false
+contact_links:
+  - name: "📖 Documentation"
+    url: "https://github.com/Crashlens/crashlens/blob/main/README.md"
+    about: "Check our documentation for guides and usage examples"
+  - name: "💬 GitHub Discussions"  
+    url: "https://github.com/Crashlens/crashlens/discussions"
+    about: "Ask questions and discuss ideas with the community"
+  - name: "🔒 Security Policy"
+    url: "https://github.com/Crashlens/crashlens/blob/main/SECURITY.md"
+    about: "Review our security policy for reporting vulnerabilities"

@@ -1,43 +1,36 @@
-# 💰 CrashLens - AI Cost Policy Enforcement
-
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/crashlens/crashlens)
-
 ## 🧠 What is CrashLens?
 
-CrashLens is a **policy-driven AI cost optimization tool** that enforces custom **YAML rules** to prevent LLM waste, detect retry loops, and optimize model usage. Instead of hardcoded detection logic, you define your own policies to match your team's budget and usage requirements.
+
+CrashLens is a developer tool to **analyze GPT API logs** and uncover hidden **token waste**, retry loops, and overkill model usage. It helps you **optimize your OpenAI, Anthropic, or Langfuse API usage** by generating a cost breakdown and **suggesting cost-saving actions**.
 
 #### 🔍 Use it when you want to:
 
-- **Enforce cost policies** with custom YAML rules
-- **Prevent budget overruns** before they happen
-- **Detect retry loops** and fallback inefficiencies  
-- **Optimize model selection** based on usage patterns
-- **Generate compliance reports** for team analysis
-- **Integrate with CI/CD** for automated enforcement
+- Understand how your GPT API budget is being spent
+- Reduce unnecessary model calls or retries
+- Audit logs for fallback logic inefficiencies
+- Analyze Langfuse/OpenAI JSONL logs locally, with full privacy
 
-🧾 **Supports**: OpenAI, Anthropic, Langfuse JSONL logs  
-💻 **Platform**: 100% CLI, 100% local, policy-driven
+🧾 Supports: OpenAI, Anthropic, Langfuse JSONL logs  
+💻 Platform: 100% CLI, 100% local
 
 ---
 
-### 💡 Why use CrashLens v3.0?
+### 💡 Why use CrashLens?
 
-> **"Policy-driven cost control beats reactive monitoring."**
-> 
-> CrashLens v3.0 replaces hardcoded detection logic with flexible YAML policies, giving you complete control over what gets flagged and how your team manages AI costs.
+> "You can't optimize what you can't see."
+> CrashLens gives you visibility into how you're *actually* using LLMs — and how much it's costing you.
 
 ---
 
 ## 👨‍💻 Use Cases
 
-- **Budget enforcement**: Custom spending thresholds and model restrictions
-- **Retry loop detection**: Configurable retry count limits and patterns
-- **Model optimization**: Flag expensive models for simple tasks
-- **Compliance reporting**: Generate audit trails for cost governance  
-- **CI/CD integration**: Prevent bad patterns from reaching production
-- **Team policy management**: Shared YAML configs across projects
+- Track and reduce monthly OpenAI bills
+- Debug retry loops and fallback logic in LangChain or custom agents
+- Detect inefficient prompt-to-model usage (e.g., using GPT-4 for 3-token completions)
+- Generate token audit logs for compliance or team analysis
+- CLI tool to audit GPT usage and optimize OpenAI API costs
+- Analyze GPT token usage and efficiency in LLM logs
+- Reduce LLM spending with actionable insights
 
 ---
 
@@ -45,8 +38,8 @@ CrashLens is a **policy-driven AI cost optimization tool** that enforces custom 
 
 ```sh
 pip install crashlens
-crashlens scan logs.jsonl --policy budget.yaml
-# Enforces your custom YAML policies and generates detailed reports
+crashlens scan path/to/your-logs.jsonl
+# Generates report.md with per-trace waste, cost, and suggestions
 ```
 
 ---
@@ -80,54 +73,66 @@ Now you can run `crashlens` from any folder.
 
 ---
 
-**CrashLens** enforces YAML-based policies to detect violations, analyze costs, and prevent wasteful patterns. It generates detailed reports with policy-specific recommendations and actionable insights.
+**CrashLens** analyzes your logs for patterns like fallback failures, retry loops, and overkill model usage, and generates a detailed Markdown report (`report.md`) with cost breakdowns and actionable insights.
 
-## 📝 Example Policy-Based Analysis
+## 📝 Example CrashLens Report
 
-Below is what CrashLens outputs when policy violations are detected:
+Below is a sample of what the actual `report.md` looks like after running CrashLens:
 
-```
-❌ Policy Violations Found
+🚨 **CrashLens Token Waste Report** 🚨
+📊 Analysis Date: 2025-07-31 15:24:48
 
-🚨 excessive-retries (HIGH): 3 violations
-   💰 Estimated waste: $0.45
-   � Implement circuit breaker to avoid retry storms
-   � Lines: 15, 23, 31
+| Metric | Value |
+|--------|-------|
+| Total AI Spend | $1.18 |
+| Total Potential Savings | $0.82 |
+| Wasted Tokens | 19,831 |
+| Issues Found | 73 |
+| Traces Analyzed | 156 |
 
-⚠️  high-cost-threshold (MEDIUM): 1 violation  
-   💰 Estimated cost: $1.25
-   � Consider breaking down expensive requests
-   � Lines: 8
+❓ **Overkill Model** | 59 traces | $0.68 wasted | Fix: optimize usage
+   🎯 **Wasted tokens**: 16,496
+   🔗 **Traces** (57): trace_overkill_01, trace_norm_02, trace_overkill_02, trace_overkill_03, trace_norm_06, +52 more
 
-✅ Cost Analysis Summary:
-   Total Spend: $2.34
-   Policy Violations: 4
-   Estimated Savings: $0.68
-```
+📢 **Fallback Failure** | 7 traces | $0.08 wasted | Fix: remove redundant fallbacks
+   🎯 **Wasted tokens**: 1,330
+   🔗 **Traces** (7): trace_fallback_success_01, trace_fallback_success_02, trace_fallback_success_03, trace_fallback_success_04, trace_fallback_success_05, +2 more
+
+⚡ **Fallback Storm** | 5 traces | $0.07 wasted | Fix: optimize model selection
+   🎯 **Wasted tokens**: 1,877
+   🔗 **Traces** (5): trace_fallback_failure_01, trace_fallback_failure_02, trace_fallback_failure_03, trace_fallback_failure_04, trace_fallback_failure_05
+
+🔄 **Retry Loop** | 2 traces | $0.0001 wasted | Fix: exponential backoff
+   🎯 **Wasted tokens**: 128
+   🔗 **Traces** (2): trace_retry_loop_07, trace_retry_loop_10
+
+
+## Top Expensive Traces
+
+| Rank | Trace ID | Model | Cost |
+|------|----------|-------|------|
+| 1 | trace_norm_76 | gpt-4 | $0.09 |
+| 2 | trace_norm_65 | gpt-4 | $0.07 |
+| 3 | trace_norm_38 | gpt-4 | $0.06 |
+
+## Cost by Model
+
+| Model | Cost | Percentage |
+|-------|------|------------|
+| gpt-4 | $1.16 | 98% |
+| gpt-3.5-turbo | $0.02 | 2% |
 
 
 
 ---
 
 ## 🚀 Features
-
-### ✅ **Policy-Driven Architecture** 
-- **Custom YAML rules** instead of hardcoded detection
-- **Flexible matching** with operators: `>`, `<`, `==`, `in`, `regex`
-- **Configurable actions**: `fail`, `warn`, `ignore`
-- **Rich metadata**: severity levels, suggestions, rule IDs
-
-### ✅ **Enterprise-Ready**
-- **License gating** for premium policy features
-- **CI/CD integration** with GitHub Actions
-- **Multiple output formats**: JSON, Markdown, Slack
-- **Cost estimation** with token-level pricing
-
-### ✅ **Developer Experience**
-- **Policy validation**: `crashlens validate-policy budget.yaml`
-- **Log file info**: `crashlens info logs.jsonl`
-- **Debug output**: `--debug-license`, `--verbose`
-- **Local execution**: No data leaves your machine
+- Detects token waste patterns: fallback failures, retry loops, overkill/short completions
+- Supports OpenAI, Anthropic, and Langfuse-style logs (JSONL)
+- Robust error handling for malformed or incomplete logs
+- Configurable model pricing and thresholds via `pricing.yaml`
+- Generates a professional Markdown report (`report.md`) after every scan
+- 100% local: No data leaves your machine
 
 ---
 
@@ -219,18 +224,12 @@ You can run CrashLens via Poetry or as a Python module:
 
 ### Basic Scan (from file)
 ```sh
-crashlens scan examples/retry-test.jsonl --policy budget.yaml
-```
-
-### Policy Validation
-```sh
-crashlens validate-policy budget.yaml
+crashlens scan examples/retry-test.jsonl
 ```
 
 ### Demo Mode (built-in sample data)
 ```sh
-crashlens scan --demo --policy crashlens/config/crashlens-policy.yaml
-```
+crashlens scan --demo
 
 ```
 🚨 **CrashLens Token Waste Report** 🚨
@@ -276,30 +275,29 @@ crashlens scan --demo --policy crashlens/config/crashlens-policy.yaml
 
 ---
 
-## Why CrashLens v3.0? (vs. grep + Excel, LangSmith, or basic logging)
+## Why CrashLens? (vs. grep + Excel, LangSmith, or basic logging)
 
 - 🔁 **grep + spreadsheet**: Too manual, error-prone, no cost context
 - 💸 **LangSmith**: Powerful but complex, requires full tracing/observability stack
 - 🔍 **Logging without cost visibility**: You miss $ waste and optimization opportunities
-- � **CrashLens v3.0**: Policy-driven rules, flexible enforcement, 100% local execution
+- 🔒 **CrashLens runs 100% locally—no data leaves your machine.**
 
 ---
 
-## Features (Policy-Driven v3.0)
+## Features (Ultra-Specific)
 
-- ✅ **YAML Policy Engine**: Define custom rules instead of hardcoded detection
-- ✅ **Flexible Matching**: Operators like `>`, `<`, `==`, `in`, `regex` for any log field
-- ✅ **Configurable Actions**: `fail`, `warn`, `ignore` with custom severity levels
-- ✅ **Enterprise Features**: License gating, CI/CD integration, multiple output formats
-- ✅ **Local Execution**: No data transmission, complete privacy
+- ✅ Detects retry-loop storms across trace IDs
+- ✅ Flags gpt-4, Claude, Gemini, and other expensive model usage where a cheaper model (e.g., gpt-3.5, Claude Instant) would suffice
+- ✅ Scans stdin logs from LangChain, LlamaIndex, custom logging
+- ✅ Generates Markdown cost reports with per-trace waste
 
 ---
 
-## What Makes CrashLens v3.0 Different?
+## What Makes CrashLens Different?
 
-- � **Policy-first architecture** (define your own rules in YAML)
+- 💵 **Model pricing fallback** (auto-detects/corrects missing cost info)
 - 🔒 **Security-by-design** (runs 100% locally, no API calls, no data leaves your machine)
-- 🚦 **Enterprise-ready**: License management, CI/CD workflows, team policies
+- 🚦 **Coming soon**: Policy enforcement, live CLI firewall, more integrations
 
 
 
@@ -308,22 +306,21 @@ crashlens scan --demo --policy crashlens/config/crashlens-policy.yaml
 **Your logs must be in JSONL format (one JSON object per line) and follow this structure:**
 
 ```json
-{"traceId": "trace_9", "model": "gpt-3.5-turbo", "usage": {"prompt_tokens": 25, "completion_tokens": 110, "total_tokens": 135}, "cost": 0.000178}
+{"traceId": "trace_9",  "startTime": "2025-07-19T10:36:13Z", "input": {"model": "gpt-3.5-turbo", "prompt": "How do solar panels work?"}, "usage": {"prompt_tokens": 25, "completion_tokens": 110, "total_tokens": 135}, "cost": 0.000178}
 ```
 
 - Each line is a separate API call (no commas or blank lines between objects).
-- Fields can be nested or flat depending on your logging format.
+- Fields must be nested as shown: `input.model`, `input.prompt`, `usage.completion_tokens`, etc.
 
-**Required fields for policy matching:**
+**Required fields:**
 - `traceId` (string): Unique identifier for a group of related API calls
-- `model` (string): Model name (e.g., `gpt-4`, `gpt-3.5-turbo`)
-- `usage.total_tokens` (int): Number of tokens used
-- Any fields referenced in your YAML policy rules
+- `input.model` (string): Model name (e.g., `gpt-4`, `gpt-3.5-turbo`)
+- `input.prompt` (string): The prompt sent to the model
+- `usage.completion_tokens` (int): Number of completion tokens used
 
 **Optional fields:**
 - `cost` (float): Cost of the API call
-- `retry_count` (int): Number of retries for this request
-- `startTime`, `endTime`, etc.: Any other metadata
+- `name`, `startTime`, etc.: Any other metadata
 
 💡 CrashLens expects JSONL with per-call metrics (model, tokens, cost). Works with LangChain logs, OpenAI api.log, Claude, Gemini, and more.
 
@@ -333,165 +330,58 @@ crashlens scan --demo --policy crashlens/config/crashlens-policy.yaml
 
 After installation, use the `crashlens` command in your terminal (or `python -m crashlens` if running from source).
 
-### 1. **Scan with policy enforcement**
+### 1. **Scan a log file**
 ```sh
-crashlens scan path/to/your-logs.jsonl --policy budget.yaml
+crashlens scan path/to/your-logs.jsonl
 ```
-- Scans the specified log file using your YAML policy and generates a detailed report.
+- Scans the specified log file and generates a `report.md` in your current directory.
 
-### 2. **Validate policy files**
+### 2. **Demo mode (built-in sample data)**
 ```sh
-crashlens validate-policy budget.yaml
+crashlens scan --demo
 ```
-- Validates your YAML policy syntax and rules before using it.
+- Runs analysis on built-in example logs (requires `examples-logs/demo-logs.jsonl` file).
+- **Note**: If installing from PyPI, you'll need to create sample logs or use your own data.
+- **From source**: Demo data is included in the repository.
 
-### 3. **Get log file information**
+### 3. **Scan from stdin (pipe)**
 ```sh
-crashlens info path/to/your-logs.jsonl
+cat path/to/your-logs.jsonl | crashlens scan --stdin
 ```
-- Shows statistics about your log file (number of entries, models used, etc.).
+- Reads logs from standard input (useful for pipelines or quick tests).
 
-### 4. **Demo mode (built-in sample data)**
+### 4. **Paste logs interactively**
 ```sh
-crashlens scan --demo --policy crashlens/config/crashlens-policy.yaml
+crashlens scan --paste
 ```
-- Runs analysis on built-in example logs with the default policy.
+- Reads JSONL data from clipboard (paste and press Enter to finish).
 
-### 5. **Policy enforcement with CI/CD**
+### 5. **Generate detailed category reports**
 ```sh
-crashlens scan logs.jsonl --policy budget.yaml --fail-on-policy
+crashlens scan --detailed
 ```
-- Fails with exit code 1 if policy violations are found (perfect for CI/CD).
+- Creates grouped JSON files in `detailed_output/` by issue type (fallback_failure.json, retry_loop.json, etc.).
 
-### 6. **Multiple output formats**
+### 6. **Get cost summaries**
 ```sh
-crashlens scan logs.jsonl --policy budget.yaml --output json
-crashlens scan logs.jsonl --policy budget.yaml --output markdown
+crashlens scan --summary          # Cost summary with breakdown
+crashlens scan --summary-only     # Summary without trace IDs
 ```
-- Generate reports in different formats for automation or documentation.
+- Shows cost analysis with or without detailed trace information.
 
-### 7. **Debug and licensing**
+### 7. **Change output format**
 ```sh
-crashlens scan logs.jsonl --policy budget.yaml --debug-license
+crashlens scan --format json      # JSON output
+crashlens scan --format markdown  # Markdown format  
 ```
-- Debug licensing issues and premium policy features.
+- Default format is `slack` for team sharing.
 
 ### 8. **Get help**
 ```sh
 crashlens --help
 crashlens scan --help
-crashlens validate-policy --help
 ```
 - Shows all available options and usage details.
-
----
-
-## ✅ GitHub Actions Integration (CI)
-
-CrashLens can validate logs during CI to prevent bad traces from entering production.
-
-### Example Workflow (`.github/workflows/log-check.yml`)
-```yaml
-name: Check Langfuse Logs
-
-on:
-  push:
-    paths:
-      - logs/**
-  workflow_dispatch:
-
-jobs:
-  validate-logs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install CrashLens
-        run: pip install crashlens
-
-      # Schema Contract Validation
-      - name: Contract Check
-        run: |
-          echo "## 📋 Schema Validation" >> $GITHUB_STEP_SUMMARY
-          crashlens scan logs/*.jsonl \
-            --contract-check \
-            --log-format langfuse-v1 \
-            --output markdown >> $GITHUB_STEP_SUMMARY
-            
-      # Policy Enforcement  
-      - name: Policy Check
-        run: |
-          echo "## 🚨 Policy Violations" >> $GITHUB_STEP_SUMMARY
-          crashlens scan logs/*.jsonl \
-            --policy policies/budget.yaml \
-            --log-format langfuse-v1 \
-            --output markdown \
-            --summary-only \
-            --fail-on-policy >> $GITHUB_STEP_SUMMARY
-            
-      # Token Waste Analysis
-      - name: Waste Analysis
-        run: |
-          echo "## 💰 Cost Analysis" >> $GITHUB_STEP_SUMMARY
-          crashlens scan logs/*.jsonl \
-            --log-format langfuse-v1 \
-            --summary-only >> $GITHUB_STEP_SUMMARY
-```
-
-This comprehensive workflow validates schema contracts, enforces policies, and analyzes token waste!
-
-### CI Integration Features
-
-- **📋 Contract Validation**: Enforce schema contracts with `--contract-check`
-- **🚨 Policy Enforcement**: Custom YAML policies with `--policy` and `--fail-on-policy`
-- **📊 Markdown Output**: CI-friendly tables with `--output markdown`
-- **🔄 Exit Codes**: Proper CI failure handling with non-zero exit codes
-- **📈 GitHub Summary**: Rich markdown reports in `$GITHUB_STEP_SUMMARY`
-
-### Schema Contract Validation
-```bash
-# Basic schema validation
-crashlens scan logs.jsonl --contract-check
-
-# Markdown table output for CI
-crashlens scan logs.jsonl --contract-check --output markdown
-
-# JSON output for automation
-crashlens scan logs.jsonl --contract-check --output json
-```
-
-### Policy Enforcement
-```bash
-# Basic policy check
-crashlens scan logs.jsonl --policy policies/budget.yaml
-
-# Fail CI on policy violations
-crashlens scan logs.jsonl --policy policies/budget.yaml --fail-on-policy
-
-# Markdown output for CI summaries
-crashlens scan logs.jsonl --policy policies/budget.yaml --output markdown --summary-only
-```
-
-### Example CI Outputs
-
-**Contract Violations:**
-```markdown
-❌ **Contract Check Failed**
-| Line | Rule ID | Error Message |
-|------|---------|---------------|
-| 2 | missing-field | Missing required field 'traceId' |
-| 3 | invalid-type | Field 'startTime' has incorrect type |
-**Found 2 violation(s) across 3 log entries.**
-```
-
-**Policy Violations:**
-```markdown
-❌ **Policy Violations Found**
-| Rule ID | Severity | Action | Reason | Suggestion |
-|---------|----------|--------|--------|------------|
-| excessive-retries | high | fail | retry_count=6 (rule: >=5) | Implement circuit breaker |
-| token-limit-exceeded | medium | warn | usage.total_tokens=15000 | Break down large prompts |
-**Found 2 policy violation(s).**
-```
 
 ---
 

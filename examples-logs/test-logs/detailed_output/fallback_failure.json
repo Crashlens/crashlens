@@ -1,0 +1,161 @@
+{
+  "detector_type": "Fallback Failure Detector",
+  "summary": {
+    "total_issues": 15,
+    "affected_traces": 15,
+    "total_waste_cost": 0.02691,
+    "total_waste_tokens": 1405,
+    "models_involved": [
+      "claude-3-haiku-20240307",
+      "claude-3-opus-20240229",
+      "gpt-3.5-turbo",
+      "gpt-4"
+    ]
+  },
+  "issues": [
+    {
+      "trace_id": "trace_001",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00159,
+      "waste_tokens": 34,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_002",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 475,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_003",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00111,
+      "waste_tokens": 31,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_004",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 83,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_005",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00168,
+      "waste_tokens": 34,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_006",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 109,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_007",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00216,
+      "waste_tokens": 46,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_008",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 47,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_009",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00051,
+      "waste_tokens": 13,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_010",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 56,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_011",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00996,
+      "waste_tokens": 172,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_012",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 28,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_013",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00075,
+      "waste_tokens": 20,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "trace_014",
+      "problem": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "estimated_cost": 0.0,
+      "waste_tokens": 97,
+      "severity": "medium",
+      "expensive_model": "claude-3-opus-20240229",
+      "cheaper_model": "claude-3-haiku-20240307"
+    },
+    {
+      "trace_id": "trace_015",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.00915,
+      "waste_tokens": 160,
+      "severity": "medium",
+      "expensive_model": "gpt-4",
+      "cheaper_model": "gpt-3.5-turbo"
+    }
+  ],
+  "suggestions": [
+    "Remove redundant expensive fallback calls",
+    "Use cheaper models as primary option",
+    "Only fallback when cheaper models actually fail"
+  ],
+  "metadata": {
+    "generated_at": "2025-08-08T21:45:28.830029",
+    "detector_category": "fallback_failure"
+  }
+}

@@ -1,1064 +1,701 @@
 #!/usr/bin/env python3
 """
-CrashLens CLI - YAML Policy-Only Version
-Scans Langfuse-style JSONL logs using YAML-driven policy rules only.
-
-Version: 2.0.0 (Policy + Detector Hybrid)
-
-🚧 Feature: Dry-run policy simulation mode for CrashLens CLI
-
-Goal:
-- When the user passes `--simulate`, the tool should not block or halt anything.
-- Instead, it should scan the input logs using existing policy rules,
-  and report what *would have been blocked* if enforcement was active.
-
-Expected Behavior:
-- For each violation detected:
-  - Show:
-    - Violation type (e.g., "GPT-4 misuse")
-    - Violated rule ID
-    - Suggested fix (e.g., downgrade model, reduce retries)
-    - Estimated token waste or cost if calculable
-
-- Output Format (to stdout or Slack webhook):
-  - Grouped summary of violations by rule
-  - Show `💸 Estimated cost wasted: $X.XX` if available
-  - Prefix each with `🚫 Simulated Block:` to indicate it's not enforced
-
-Constraints:
-- Should respect all YAML policy engine logic (model matchers, intent rules, retry fallback rules)
-- Must NOT modify any files or halt the CLI in simulate mode
-- Should work with both JSONL file input and Langfuse/Helicone APIs
-
-Usage:
-    crashlens scan logs.jsonl --simulate
-
-Steps:
-1. Add a new CLI argument `--simulate` (bool)
-2. Inside the policy match loop, if simulate=True:
-   - Collect violations with all metadata
-   - Format and print them with simulation indicators
-3. Optionally return exit code 0 even if violations exist (since nothing is enforced)
+CrashLens CLI - Token Waste Detection Tool
+Scans Langfuse-style JSONL logs for inefficient GPT API usage patterns.
+Production-grade suppression and priority logic for accurate root cause attribution.
 """
 
 import click
 import sys
 import yaml
-import tempfile
-import os
-import json
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, List, Any
-
-# Version information
-__version__ = "2.0.0"
-__build_date__ = "2025-08-05"
+from typing import Optional, Dict, List, Any, Set, Tuple
 
 from .parsers.langfuse import LangfuseParser
+from .detectors.retry_loops import RetryLoopDetector
+from .detectors.fallback_storm import FallbackStormDetector
+from .detectors.fallback_failure import FallbackFailureDetector
+from .detectors.overkill_model_detector import OverkillModelDetector
 from .reporters.slack_formatter import SlackFormatter
 from .reporters.markdown_formatter import MarkdownFormatter
-from .langfuse_client import LangfuseClient, save_logs_to_temp_file, test_langfuse_connection
-from .helicone_client import HeliconeClient, test_helicone_connection
-from .openai_client import OpenAIClient, test_openai_connection
 from .reporters.summary_formatter import SummaryFormatter
-from .policy.engine import PolicyEngine, PolicyAction
-from .utils.slack_webhook import SlackWebhookSender, group_violations_by_rule
-from .license_checker import get_license_checker, load_license_key
-from .utils.roi_calculator import generate_roi_report
 
+# 🔢 1. DETECTOR PRIORITIES - Global constant used throughout
+DETECTOR_PRIORITY = {
+    'RetryLoopDetector': 1,      # Highest priority - fundamental issue
+    'FallbackStormDetector': 2,  # Model switching chaos
+    'FallbackFailureDetector': 3, # Unnecessary expensive calls
+    'OverkillModelDetector': 4,   # Overkill for simple tasks - lowest priority
+}
 
-# ✅ Feature: crashlens init --template=<name>
-# Template mapping for common policy scaffolding
-TEMPLATE_YAMLS = {
-    "retry-limit": """# CrashLens Policy Template: Retry Limit Control
-# Prevents excessive retry patterns that can cause cost explosions
-
-rules:
-  - id: retry_limit_exceeded
-    description: "Limit the number of retries in a request trace"
-    match:
-      retry_count: ">2"
-    action: warn
-    severity: medium
-    suggestion: "Implement exponential backoff and circuit breaker patterns"
-    requires_license: false
-
-global:
-  max_violations_per_rule: 50
-  enable_cost_estimation: true
-
-cost_thresholds:
-  warning_threshold: 0.05
-  critical_threshold: 0.20
-""",
-    
-    "fallback-escalation": """# CrashLens Policy Template: Fallback Escalation Detection
-# Detects unnecessary escalation from cheaper to expensive models
-
-rules:
-  - id: fallback_escalation_detected
-    description: "Detect escalation from GPT-3.5 to GPT-4 indicating fallback issues"
-    match:
-      input.model: ["gpt-4", "gpt-4-turbo"]
-      # Note: Sequence detection requires enhanced policy engine
-      # This rule catches expensive model usage that might be fallback
-    action: warn
-    severity: high
-    suggestion: "Review fallback logic - consider improving cheaper model prompts instead"
-    requires_license: false
-    
-  - id: expensive_model_retry
-    description: "Detect expensive models used with retry patterns"
-    match:
-      input.model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
-      retry_count: ">0"
-    action: warn
-    severity: high
-    suggestion: "Avoid expensive models in retry scenarios - use cheaper alternatives"
-    requires_license: false
-
-global:
-  max_violations_per_rule: 50
-  enable_cost_estimation: true
-""",
-    
-    "basic-safety": """# CrashLens Policy Template: Basic Safety & Cost Controls
-# Essential safety rules for production AI usage
-
-rules:
-  - id: expensive_model_simple_task
-    description: "Warn if GPT-4 is used for short prompts (simple tasks)"
-    match:
-      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
-      usage.prompt_tokens: "<50"
-    action: warn
-    severity: medium
-    suggestion: "Consider using gpt-3.5-turbo or gpt-4o-mini for simple tasks"
-    requires_license: false
-    
-  - id: unauthorized_model_usage
-    description: "Block usage of non-approved models"
-    match:
-      input.model: "not in:['gpt-3.5-turbo', 'gpt-4', 'gpt-4o-mini', 'claude-3-haiku']"
-    action: fail
-    severity: critical
-    suggestion: "Use only approved models from the organizational whitelist"
-    requires_license: false
-    
-  - id: excessive_token_usage
-    description: "Flag requests with very high token usage"
-    match:
-      usage.total_tokens: ">4000"
-    action: warn
-    severity: medium
-    suggestion: "Break down large requests or use summarization techniques"
-    requires_license: false
-
-global:
-  max_violations_per_rule: 100
-  enable_cost_estimation: true
-""",
-    
-    "cost-cap": """# CrashLens Policy Template: Cost Cap & Budget Controls
-# Strict cost controls to prevent budget overruns
-
-rules:
-  - id: high_cost_request_block
-    description: "Block completions costing more than threshold"
-    match:
-      cost: ">0.10"
-    action: fail
-    severity: critical
-    suggestion: "Request exceeds cost limit - optimize prompt or use cheaper model"
-    requires_license: false
-    
-  - id: medium_cost_warning
-    description: "Warn on moderately expensive requests"
-    match:
-      cost: ">0.05"
-    action: warn
-    severity: high
-    suggestion: "Consider cost optimization - prompt engineering or model downgrade"
-    requires_license: false
-    
-  - id: inefficient_cost_ratio
-    description: "Detect poor cost-to-token efficiency"
-    match:
-      cost: ">0.02"
-      usage.total_tokens: "<100"
-    action: warn
-    severity: medium
-    suggestion: "Small requests on expensive models - consider batching or cheaper alternatives"
-    requires_license: false
-
-global:
-  max_violations_per_rule: 25  # Strict enforcement
-  enable_cost_estimation: true
-
-cost_thresholds:
-  warning_threshold: 0.05
-  critical_threshold: 0.10
-  daily_budget: 25.00
-  monthly_budget: 500.00
-""",
-    
-    "internal-only": """# CrashLens Policy Template: Internal Content Detection
-# Detects potentially sensitive or internal-use content
-
-rules:
-  - id: internal_content_detected
-    description: "Alert if internal-use terms are present in prompts"
-    match:
-      # Note: This requires enhanced string matching in policy engine
-      # For now, this is a placeholder for content-based detection
-      usage.prompt_tokens: ">0"  # Matches any request - manual review needed
-    action: warn
-    severity: high
-    suggestion: "Manual review required - check for internal/confidential content"
-    requires_license: false
-    
-  - id: high_risk_model_usage
-    description: "Flag usage of powerful models that might process sensitive data"
-    match:
-      input.model: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
-      usage.prompt_tokens: ">200"  # Large prompts more likely to contain sensitive data
-    action: warn
-    severity: medium
-    suggestion: "Review large prompts on powerful models for sensitive content"
-    requires_license: false
-    
-  - id: unauthorized_external_model
-    description: "Block non-internal models for sensitive workloads"
-    match:
-      input.model: "not in:['gpt-3.5-turbo', 'claude-3-haiku']"  # Only allow basic models
-    action: fail
-    severity: critical
-    suggestion: "Use only approved internal-safe models for this workload"
-    requires_license: false
-
-global:
-  max_violations_per_rule: 10  # Conservative for security
-  enable_cost_estimation: true
-  enable_pattern_detection: true
-
-# Note: For true content detection, consider integrating with DLP tools
-# This template provides basic structural detection patterns
-"""
+# Detector display names for output formatting
+DETECTOR_DISPLAY_NAMES = {
+    'RetryLoopDetector': 'Retry Loop',
+    'FallbackStormDetector': 'Fallback Storm', 
+    'FallbackFailureDetector': 'Fallback Failure',
+    'OverkillModelDetector': 'Overkill Model'
 }
 
 
-def generate_simulation_report(violations: List, pricing_config: Dict, verbose: bool, 
-                              output_format: str, slack_webhook: Optional[str] = None):
+class SuppressionEngine:
     """
-    Generate a simulation report showing what would be blocked without enforcement.
+    🧰 3. Production-grade suppression engine with trace-level ownership
+    Ensures one "owner" per trace for accurate root cause attribution.
+    """
+    
+    def __init__(self, suppression_config: Optional[Dict[str, Any]] = None):
+        self.suppression_config = suppression_config or {}
+        
+        # 🧠 2. Trace-Level Ownership: {trace_id: claimed_by_detector}
+        self.trace_ownership: Dict[str, str] = {}
+        self.suppressed_detections: List[Dict[str, Any]] = []
+        self.active_detections: List[Dict[str, Any]] = []
+    
+    def process_detections(self, detector_name: str, detections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Process detections with suppression logic
+        Returns active detections, stores suppressed ones
+        """
+        active = []
+        
+        for detection in detections:
+            trace_id = detection.get('trace_id')
+            if not trace_id:
+                active.append(detection)  # No trace_id, can't suppress
+                continue
+            
+            # Check if this detector is suppressed by configuration
+            if self._is_detector_suppressed(detector_name, trace_id):
+                self._add_suppressed_detection(detection, detector_name, "disabled_by_config")
+                continue
+            
+            # Check trace ownership and priority (only if not disabled by config)
+            if trace_id in self.trace_ownership:
+                current_owner = self.trace_ownership[trace_id]
+                current_priority = DETECTOR_PRIORITY.get(detector_name, 999)
+                owner_priority = DETECTOR_PRIORITY.get(current_owner, 999)
+                
+                # 🧰 3. Suppression Hook: Priority-based suppression (configurable)
+                if self._should_suppress_by_priority(detector_name, current_priority, owner_priority):
+                    # Current detector has lower priority, suppress this detection
+                    self._add_suppressed_detection(detection, detector_name, f"higher_priority_detector:{current_owner}")
+                    continue
+                elif current_priority < owner_priority:
+                    # Current detector has higher priority, it takes ownership
+                    # Move previous owner's detections to suppressed (only if priority suppression enabled)
+                    if self._should_suppress_by_priority(current_owner, owner_priority, current_priority):
+                        self._transfer_ownership(trace_id, current_owner, detector_name)
+            
+            # This detection is active - claim ownership
+            self.trace_ownership[trace_id] = detector_name
+            detection['suppressed_by'] = None  # Mark as not suppressed
+            active.append(detection)
+        
+        # Store active detections for this detector
+        self.active_detections.extend(active)
+        return active
+    
+    def _is_detector_suppressed(self, detector_name: str, trace_id: str) -> bool:
+        """Check if detector is suppressed by configuration"""
+        # Get the detector config (remove 'Detector' suffix and convert to lowercase)
+        config_key = detector_name.lower().replace('detector', '').replace('_', '')
+        if config_key in ['retryloop']:
+            config_key = 'retry_loop'
+        elif config_key == 'fallbackstorm':
+            config_key = 'fallback_storm'
+        elif config_key == 'fallbackfailure':
+            config_key = 'fallback_failure'
+        elif config_key == 'overkillmodel':
+            config_key = 'overkill_model'
+        
+        detector_config = self.suppression_config.get(config_key, {})
+        
+        # Check suppression rules
+        if detector_config.get('suppress_if_retry_loop', False):
+            return self.trace_ownership.get(trace_id) == 'RetryLoopDetector'
+        
+        return False
+    
+    def _should_suppress_by_priority(self, detector_name: str, current_priority: int, owner_priority: int) -> bool:
+        """Check if detector should be suppressed by priority logic"""
+        # Get the detector config
+        config_key = detector_name.lower().replace('detector', '').replace('_', '')
+        if config_key in ['retryloop']:
+            config_key = 'retry_loop'
+        elif config_key == 'fallbackstorm':
+            config_key = 'fallback_storm'
+        elif config_key == 'fallbackfailure':
+            config_key = 'fallback_failure'
+        elif config_key == 'overkillmodel':
+            config_key = 'overkill_model'
+        
+        detector_config = self.suppression_config.get(config_key, {})
+        
+        # If suppress_if_retry_loop is False, allow coexistence (no priority suppression)
+        if not detector_config.get('suppress_if_retry_loop', True):
+            return False
+        
+        # Otherwise, use priority suppression
+        return current_priority > owner_priority
+    
+    def _add_suppressed_detection(self, detection: Dict[str, Any], detector_name: str, reason: str):
+        """Add detection to suppressed list with metadata"""
+        suppressed = detection.copy()
+        suppressed['suppressed_by'] = detector_name
+        suppressed['suppression_reason'] = reason
+        suppressed['detector'] = detector_name
+        self.suppressed_detections.append(suppressed)
+    
+    def _transfer_ownership(self, trace_id: str, old_owner: str, new_owner: str):
+        """Transfer ownership and move old detections to suppressed"""
+        # Find active detections from old owner for this trace
+        to_suppress = []
+        remaining_active = []
+        
+        for detection in self.active_detections:
+            if detection.get('trace_id') == trace_id and detection.get('type', '').replace('_', '').replace(' ', '').lower() in old_owner.lower():
+                to_suppress.append(detection)
+            else:
+                remaining_active.append(detection)
+        
+        # Move old detections to suppressed
+        for detection in to_suppress:
+            self._add_suppressed_detection(detection, old_owner, f"superseded_by:{new_owner}")
+        
+        self.active_detections = remaining_active
+    
+    def get_suppression_summary(self) -> Dict[str, Any]:
+        """Generate suppression summary for transparency"""
+        total_traces = len(set(d.get('trace_id') for d in self.active_detections + self.suppressed_detections if d.get('trace_id')))
+        active_issues = len(self.active_detections)
+        suppressed_count = len(self.suppressed_detections)
+        
+        # Group suppressed by reason
+        suppression_breakdown = {}
+        for detection in self.suppressed_detections:
+            reason = detection.get('suppression_reason', 'unknown')
+            suppression_breakdown[reason] = suppression_breakdown.get(reason, 0) + 1
+        
+        return {
+            'total_traces_analyzed': total_traces,
+            'active_issues': active_issues,
+            'suppressed_issues': suppressed_count,
+            'suppression_breakdown': suppression_breakdown,
+            'trace_ownership': self.trace_ownership.copy()
+        }
+
+
+def load_suppression_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+    """📜 4. Load suppression rules from crashlens-policy.yaml"""
+    if config_path is None:
+        config_path = Path(__file__).parent / "config" / "crashlens-policy.yaml"
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            policy = yaml.safe_load(f)
+            return policy.get('suppression_rules', {})
+    except Exception:
+        return {}  # Default to no suppression rules
+
+
+def load_pricing_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Load pricing configuration from YAML file"""
+    if config_path is None:
+        config_path = Path(__file__).parent / "config" / "pricing.yaml"
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        click.echo(f"⚠️  Warning: Could not load pricing config: {e}", err=True)
+        return {}
+
+
+
+
+
+
+def generate_detailed_reports(
+    traces: Dict[str, List[Dict[str, Any]]], 
+    detections: List[Dict[str, Any]], 
+    output_dir: Path, 
+    model_pricing: Dict[str, Any]
+) -> int:
+    """Generate detailed grouped JSON reports by detector category
     
     Args:
-        violations: List of PolicyViolation objects
-        pricing_config: Pricing configuration for cost calculations
-        verbose: Whether to show detailed output
-        output_format: Output format (markdown, slack, json)
-        slack_webhook: Optional Slack webhook URL
+        traces: Dictionary of trace_id -> list of records
+        detections: List of all detection results
+        output_dir: Directory to save detailed reports
+        model_pricing: Model pricing configuration
+        
+    Returns:
+        Number of reports generated
     """
-    click.echo("\n🚧 SIMULATION MODE - Policy Enforcement Preview")
-    click.echo("=" * 60)
+    import json
+    from collections import defaultdict
     
-    if not violations:
-        click.echo("✅ No policy violations detected - all requests would pass!")
-        return
+    # Create output directory
+    output_dir.mkdir(exist_ok=True)
     
-    # Group violations by rule
-    violations_by_rule = {}
-    total_estimated_cost = 0.0
-    total_violations = len(violations)
+    # Group detections by detector type
+    detections_by_type = defaultdict(list)
+    for detection in detections:
+        detector_type = detection.get('type', 'unknown')
+        detections_by_type[detector_type].append(detection)
     
-    for violation in violations:
-        rule_id = violation.rule_id
-        if rule_id not in violations_by_rule:
-            violations_by_rule[rule_id] = {
-                'violations': [],
-                'total_cost': 0.0,
-                'suggestion': violation.suggestion,
-                'severity': violation.severity.value,
-                'action': violation.action.value
-            }
-        
-        violations_by_rule[rule_id]['violations'].append(violation)
-        
-        # Calculate estimated cost/waste
-        log_entry = violation.log_entry
-        cost = log_entry.get('cost', 0.0)
-        violations_by_rule[rule_id]['total_cost'] += cost
-        total_estimated_cost += cost
-    
-    # Display simulation results
-    click.echo(f"🚫 Found {total_violations} violations that would be flagged/blocked:\n")
-    
-    for rule_id, rule_data in violations_by_rule.items():
-        rule_violations = rule_data['violations']
-        severity = rule_data['severity']
-        action = rule_data['action']
-        suggestion = rule_data['suggestion']
-        rule_cost = rule_data['total_cost']
-        
-        # Severity emoji
-        severity_emoji = {
-            'critical': '🚨',
-            'high': '⚠️',
-            'medium': '⚡',
-            'low': 'ℹ️'
-        }.get(severity.lower(), '•')
-        
-        # Action indicator
-        action_indicator = {
-            'fail': '🛑 WOULD BLOCK',
-            'warn': '⚠️ WOULD WARN',
-            'block': '🚫 WOULD DENY'
-        }.get(action.lower(), '📝 WOULD FLAG')
-        
-        click.echo(f"{severity_emoji} {action_indicator}: {rule_id}")
-        click.echo(f"   📊 Violations: {len(rule_violations)}")
-        if rule_cost > 0:
-            click.echo(f"   💸 Estimated cost/waste: ${rule_cost:.4f}")
-        click.echo(f"   💡 Suggested fix: {suggestion}")
-        
-        if verbose:
-            click.echo(f"   📋 Affected traces:")
-            for v in rule_violations[:5]:  # Show first 5
-                trace_id = v.log_entry.get('trace_id', 'unknown')
-                model = v.log_entry.get('input', {}).get('model', 'unknown')
-                cost = v.log_entry.get('cost', 0.0)
-                click.echo(f"      • {trace_id} (model: {model}, cost: ${cost:.4f})")
-            if len(rule_violations) > 5:
-                click.echo(f"      ... and {len(rule_violations) - 5} more")
-        
-        click.echo()  # Empty line between rules
-    
-    # Summary
-    click.echo("📈 SIMULATION SUMMARY:")
-    click.echo(f"   • Total violations: {total_violations}")
-    click.echo(f"   • Rules triggered: {len(violations_by_rule)}")
-    if total_estimated_cost > 0:
-        click.echo(f"   • Total estimated cost impact: ${total_estimated_cost:.4f}")
-    
-    # Count by action type
-    action_counts = {}
-    for rule_data in violations_by_rule.values():
-        action = rule_data['action']
-        action_counts[action] = action_counts.get(action, 0) + len(rule_data['violations'])
-    
-    if action_counts:
-        click.echo(f"   • By action type:")
-        for action, count in action_counts.items():
-            action_name = {
-                'fail': 'Would be blocked',
-                'warn': 'Would be warned',
-                'block': 'Would be denied'
-            }.get(action, 'Would be flagged')
-            click.echo(f"     - {action_name}: {count}")
-    
-    # Slack notification in simulation mode
-    if slack_webhook and output_format == 'slack':
-        send_simulation_slack_notification(violations_by_rule, total_violations, 
-                                         total_estimated_cost, slack_webhook)
-    
-    click.echo("\n✨ Simulation complete! No enforcement actions were taken.")
-    click.echo("   To enable enforcement, run without --simulate flag.")
-
-
-def send_simulation_slack_notification(violations_by_rule: Dict, total_violations: int, 
-                                     total_cost: float, webhook_url: str):
-    """Send simulation results to Slack"""
-    try:
-        blocks = [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "🚧 CrashLens Policy Simulation Report"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Simulation Results:*\n• {total_violations} violations detected\n• {len(violations_by_rule)} rules triggered\n• ${total_cost:.4f} estimated cost impact"
-                }
-            }
-        ]
-        
-        # Add top violations
-        for rule_id, rule_data in list(violations_by_rule.items())[:3]:  # Top 3
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*🚫 {rule_id}*\n{len(rule_data['violations'])} violations | ${rule_data['total_cost']:.4f}\n💡 {rule_data['suggestion']}"
-                }
-            })
-        
-        blocks.append({
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": "ℹ️ This is a simulation - no enforcement actions were taken"
-                }
-            ]
-        })
-        
-        webhook_sender = SlackWebhookSender(webhook_url)
-        webhook_sender.send_policy_violations_alert({rule_id: rule_data['violations'] for rule_id, rule_data in violations_by_rule.items()}, total_cost)
-        click.echo("📤 Simulation results sent to Slack")
-        
-    except Exception as e:
-        click.echo(f"⚠️ Failed to send Slack notification: {e}")
-
-
-def load_policy_config(policy_path: Optional[Path] = None) -> Dict[str, Any]:
-    """Load YAML policy configuration"""
-    if not policy_path:
-        # Try default policy locations
-        default_paths = [
-            Path.cwd() / "modern-policy.yaml",
-            Path.cwd() / "policy.yaml", 
-            Path(__file__).parent / "config" / "modern-policy.yaml"
-        ]
-        
-        for path in default_paths:
-            if path.exists():
-                policy_path = path
-                break
-        else:
-            raise FileNotFoundError("No policy configuration found. Create a modern-policy.yaml file.")
-    
-    with open(policy_path, 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
-
-
-def load_pricing_config(pricing_path: Optional[Path] = None) -> Dict[str, Any]:
-    """Load pricing configuration"""
-    if not pricing_path:
-        pricing_path = Path(__file__).parent / "config" / "pricing.yaml"
-    
-    if pricing_path.exists():
-        with open(pricing_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
-    
-    # Default pricing fallback
-    return {
-        "models": {
-            "gpt-4": {"input_cost_per_token": 0.00003, "output_cost_per_token": 0.00006},
-            "gpt-3.5-turbo": {"input_cost_per_token": 0.0000015, "output_cost_per_token": 0.000002},
-            "claude-3-opus": {"input_cost_per_token": 0.000015, "output_cost_per_token": 0.000075},
-            "claude-3-haiku": {"input_cost_per_token": 0.00000025, "output_cost_per_token": 0.00000125}
-        }
+    # Generate detector display names mapping
+    detector_display_names = {
+        'retry_loop': 'Retry Loop Detector',
+        'fallback_storm': 'Fallback Storm Detector',
+        'fallback_failure': 'Fallback Failure Detector', 
+        'overkill_model': 'Overkill Model Detector'
     }
+    
+    # Suggestion mappings
+    detector_suggestions = {
+        'retry_loop': [
+            "Implement exponential backoff for retries",
+            "Add circuit breakers to prevent retry storms",
+            "Set maximum retry limits (e.g., 3 retries max)"
+        ],
+        'fallback_storm': [
+            "Optimize model selection logic",
+            "Use deterministic routing instead of chaotic fallbacks", 
+            "Implement proper model prioritization"
+        ],
+        'fallback_failure': [
+            "Remove redundant expensive fallback calls",
+            "Use cheaper models as primary option",
+            "Only fallback when cheaper models actually fail"
+        ],
+        'overkill_model': [
+            "Route simple prompts to cheaper models (e.g., gpt-3.5-turbo)",
+            "Implement prompt length-based model selection",
+            "Use GPT-4 only for complex reasoning tasks"
+        ]
+    }
+    
+    reports_generated = 0
+    
+    # Process each detector type
+    for detector_type, type_detections in detections_by_type.items():
+        if not type_detections:
+            continue
+        
+        detector_name = detector_display_names.get(detector_type, detector_type.title())
+        
+        # Format issues for this detector type
+        issues = []
+        total_waste_cost = 0.0
+        total_waste_tokens = 0
+        affected_traces = set()
+        
+        for detection in type_detections:
+            trace_id = detection.get('trace_id', '')
+            affected_traces.add(trace_id)
+            
+            issue = {
+                'trace_id': trace_id,
+                'problem': detection.get('description', 'Unknown issue'),
+                'estimated_cost': round(detection.get('waste_cost', 0), 6),
+                'waste_tokens': detection.get('waste_tokens', 0),
+                'severity': detection.get('severity', 'medium')
+            }
+            
+            # Add detector-specific details
+            if detector_type == 'retry_loop':
+                issue['retry_count'] = detection.get('retry_count', 0)
+                issue['models_involved'] = detection.get('models_used', [])
+            elif detector_type == 'fallback_storm':
+                issue['models_used'] = detection.get('models_used', [])
+                issue['num_calls'] = detection.get('num_calls', 0)
+            elif detector_type == 'fallback_failure':
+                issue['expensive_model'] = detection.get('model_used', '')
+                issue['cheaper_model'] = detection.get('suggested_model', '')
+            elif detector_type == 'overkill_model':
+                issue['expensive_model'] = detection.get('model_used', '')
+                issue['suggested_model'] = detection.get('suggested_model', '')
+            
+            issues.append(issue)
+            total_waste_cost += detection.get('waste_cost', 0)
+            total_waste_tokens += detection.get('waste_tokens', 0)
+        
+        # Calculate additional metadata
+        models_involved = set()
+        for trace_id in affected_traces:
+            if trace_id in traces:
+                for record in traces[trace_id]:
+                    model = record.get('model', record.get('input', {}).get('model', 'unknown'))
+                    models_involved.add(model)
+        
+        # Create grouped report
+        report = {
+            'detector_type': detector_name,
+            'summary': {
+                'total_issues': len(issues),
+                'affected_traces': len(affected_traces),
+                'total_waste_cost': round(total_waste_cost, 6),
+                'total_waste_tokens': total_waste_tokens,
+                'models_involved': sorted(list(models_involved))
+            },
+            'issues': issues,
+            'suggestions': detector_suggestions.get(detector_type, []),
+            'metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'detector_category': detector_type
+            }
+        }
+        
+        # Write report to file
+        output_file = output_dir / f"{detector_type}.json"
+        
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(report, f, indent=2)
+            reports_generated += 1
+        except Exception as e:
+            click.echo(f"⚠️  Warning: Failed to write {detector_type} report: {e}", err=True)
+    
+    return reports_generated
+
+
+def _calculate_trace_time_span(records: List[Dict[str, Any]]) -> float:
+    """Calculate time span of trace records in minutes"""
+    if len(records) < 2:
+        return 0.0
+    
+    try:
+        timestamps = []
+        for record in records:
+            ts_str = record.get('startTime', '')
+            if ts_str:
+                ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                timestamps.append(ts)
+        
+        if len(timestamps) < 2:
+            return 0.0
+        
+        span = max(timestamps) - min(timestamps)
+        return round(span.total_seconds() / 60, 2)
+        
+    except (ValueError, TypeError):
+        return 0.0
 
 
 @click.group()
-@click.version_option(__version__, message="CrashLens CLI v%(version)s (Policy + Detector Hybrid)")
+@click.version_option(version="0.1.0")
 def cli():
-    """CrashLens - YAML Policy-Driven Token Waste Detection"""
+    """CrashLens - Detect token waste in GPT API logs with production-grade suppression"""
     pass
 
 
-@cli.command()
-@click.argument('log_file', type=click.Path(exists=True, path_type=Path), required=False)
-@click.option('--source', type=str, help='Data source: "langfuse", "helicone", "openai", "file", or path to log file')
-@click.option('--policy', '-p', type=click.Path(exists=True, path_type=Path), 
-              help='Path to YAML policy configuration file')
-@click.option('--license-key', type=str, help='License key for premium features')
-@click.option('--format', 'output_format', type=click.Choice(['markdown', 'slack', 'summary', 'json']), 
-              default='markdown', help='Output format')
-@click.option('--summary-only', is_flag=True, 
-              help='Generate summary-only report without individual violation details')
-@click.option('--output', '-o', type=click.Path(path_type=Path), 
-              help='Output file path (default: report.md)')
-@click.option('--slack-webhook', type=str, help='Slack webhook URL for notifications')
-@click.option('--slack-channel', default='#ai-cost-monitoring', 
-              help='Slack channel for notifications')
-@click.option('--dry-run', is_flag=True, help='Show what would be detected without creating reports')
-@click.option('--simulate', is_flag=True, help='🚧 Simulation mode: Show what would be blocked without enforcement')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-@click.option('--hours-back', type=int, default=24, help='Hours back to fetch from API sources (default: 24)')
-@click.option('--limit', type=int, default=1000, help='Maximum number of traces to fetch from API sources (default: 1000)')
-def scan(log_file: Optional[Path], source: Optional[str], policy: Optional[Path], license_key: Optional[str], 
-         output_format: str, summary_only: bool, output: Optional[Path], 
-         slack_webhook: Optional[str], slack_channel: str, dry_run: bool, 
-         simulate: bool, verbose: bool, hours_back: int, limit: int):
-    """
-    🚀 Scan logs for policy violations using YAML rules
-    
-    Analyzes logs from various sources (files, Langfuse API, etc.) and detects issues 
-    based on YAML policy rules. All detection logic is policy-driven.
-    
-    Examples:
-        crashlens scan logs.jsonl                    # Scan local file
-        crashlens scan --source=langfuse --simulate  # Fetch from Langfuse and simulate
-        crashlens scan --source=path/to/logs.jsonl   # Explicit file path
+@click.command()
+@click.argument('logfile', type=click.Path(path_type=Path), required=False)
+@click.option('--format', '-f', 'output_format', 
+              type=click.Choice(['slack', 'markdown', 'json'], case_sensitive=False),
+              default='slack', help='Output format')
+@click.option('--config', '-c', type=click.Path(path_type=Path),
+              help='Custom pricing config file path')
+@click.option('--demo', is_flag=True, help='Use built-in demo data')
+@click.option('--stdin', is_flag=True, help='Read from standard input')
+@click.option('--paste', is_flag=True, help='Read JSONL data from clipboard')
+@click.option('--summary', is_flag=True, help='Show cost summary with breakdown')
+@click.option('--summary-only', is_flag=True, help='Summary without trace IDs')
+@click.option('--detailed', is_flag=True, help='Generate detailed per-trace JSON reports')
+@click.option('--detailed-dir', type=click.Path(path_type=Path), default='detailed_output', 
+              help='Directory for detailed reports (default: detailed_output)')
+def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
+         demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
+         summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output')) -> str:
+    """🎯 Scan logs for token waste patterns with production-grade suppression logic
+
+    📦 Examples:
+
+  crashlens scan logs.jsonl                    # Scan a specific log file
+  crashlens scan --demo                        # Run on built-in sample logs
+  cat logs.jsonl | crashlens scan --stdin      # Pipe logs via stdin
+  crashlens scan --paste                                 # Read logs from clipboard
+  crashlens scan --detailed                    # Generate traces JSON reports
+  crashlens scan --summary                     # Cost summary with categories
+  crashlens scan --summary-only                # Show summary only 
+
     """
     
-    try:
-        # Determine input source and validate
-        temp_log_file = None
-        actual_log_file = None
-        
-        if source:
-            if source.lower() == 'langfuse':
-                # Fetch from Langfuse API
-                click.echo("[LANGFUSE] Fetching logs from Langfuse...")
-                
-                # Test connection first
-                if not test_langfuse_connection():
-                    click.echo("[ERROR] Failed to connect to Langfuse. Please check your credentials.", err=True)
-                    return
-                
-                try:
-                    # Initialize Langfuse client
-                    langfuse_client = LangfuseClient()
-                    
-                    # Fetch traces
-                    traces = langfuse_client.fetch_traces(hours_back=hours_back, limit=limit)
-                    
-                    if not traces:
-                        click.echo("[WARNING] No traces found in Langfuse", err=True)
-                        return
-                    
-                    # Convert to CrashLens format
-                    log_entries = langfuse_client.convert_to_crashlens_format(traces)
-                    
-                    if not log_entries:
-                        click.echo("[WARNING] No usable log entries after conversion", err=True)
-                        return
-                    
-                    # Save to temporary file for processing
-                    temp_log_file = save_logs_to_temp_file(log_entries)
-                    actual_log_file = temp_log_file
-                    
-                except Exception as e:
-                    click.echo(f"[ERROR] Error fetching from Langfuse: {e}", err=True)
-                    return
-                    
-            elif source.lower() == 'helicone':
-                # Fetch from Helicone API
-                click.echo("[HELICONE] Fetching logs from Helicone...")
-                
-                # Test connection first
-                if not test_helicone_connection():
-                    click.echo("[ERROR] Failed to connect to Helicone. Please check your credentials.", err=True)
-                    return
-                
-                try:
-                    # Initialize Helicone client
-                    helicone_client = HeliconeClient()
-                    
-                    # Fetch requests
-                    requests = helicone_client.fetch_requests(hours_back=hours_back, limit=limit)
-                    
-                    if not requests:
-                        click.echo("[WARNING] No requests found in Helicone", err=True)
-                        return
-                    
-                    # Convert to CrashLens format
-                    log_entries = helicone_client.convert_to_crashlens_format(requests)
-                    
-                    if not log_entries:
-                        click.echo("[WARNING] No usable log entries after conversion", err=True)
-                        return
-                    
-                    # Save to temporary file for processing
-                    temp_log_file = save_logs_to_temp_file(log_entries)
-                    actual_log_file = temp_log_file
-                    
-                except Exception as e:
-                    click.echo(f"[ERROR] Error fetching from Helicone: {e}", err=True)
-                    return
-                    
-            elif source.lower() == 'openai':
-                # Fetch from OpenAI Usage API
-                click.echo("[OPENAI] Fetching usage data from OpenAI...")
-                
-                # Test connection first
-                if not test_openai_connection():
-                    click.echo("[ERROR] Failed to connect to OpenAI. Please check your credentials.", err=True)
-                    return
-                
-                try:
-                    # Initialize OpenAI client
-                    openai_client = OpenAIClient()
-                    
-                    # Fetch usage data (convert hours to days, minimum 1 day)
-                    days_back = max(1, hours_back // 24)
-                    usage_data = openai_client.fetch_usage_data(days_back=days_back)
-                    
-                    if not usage_data:
-                        click.echo("[WARNING] No usage data found in OpenAI", err=True)
-                        return
-                    
-                    # Convert to CrashLens format
-                    log_entries = openai_client.convert_to_crashlens_format(usage_data)
-                    
-                    if not log_entries:
-                        click.echo("[WARNING] No usable log entries after conversion", err=True)
-                        return
-                    
-                    # Save to temporary file for processing
-                    temp_log_file = save_logs_to_temp_file(log_entries)
-                    actual_log_file = temp_log_file
-                    
-                except Exception as e:
-                    click.echo(f"[ERROR] Error fetching from OpenAI: {e}", err=True)
-                    return
-            else:
-                # Treat as file path (including --source=file alias)
-                if source.lower() == 'file':
-                    if not log_file:
-                        click.echo("[ERROR] When using --source=file, you must also provide a log file path as an argument", err=True)
-                        click.echo("Example: crashlens scan --source=file logs.jsonl")
-                        return
-                    actual_log_file = log_file
-                else:
-                    # Direct file path
-                    source_path = Path(source)
-                    if not source_path.exists():
-                        click.echo(f"[ERROR] File not found: {source}", err=True)
-                        return
-                    actual_log_file = source_path
-        else:
-            # Use log_file argument
-            if not log_file:
-                click.echo("[ERROR] Please provide either a log file argument or --source option", err=True)
-                click.echo("Examples:")
-                click.echo("  crashlens scan logs.jsonl")
-                click.echo("  crashlens scan --source=langfuse")
-                click.echo("  crashlens scan --source=helicone")
-                click.echo("  crashlens scan --source=openai")
-                click.echo("  crashlens scan --source=file logs.jsonl")
-                click.echo("  crashlens scan --source=path/to/logs.jsonl")
-                return
-            actual_log_file = log_file
-        
-        if verbose:
-            click.echo(f"[LOG] Using log file: {actual_log_file}")
-        
-        # Load configurations
-        policy_config = load_policy_config(policy)
-        pricing_config = load_pricing_config()
-        
-        if verbose:
-            click.echo(f"[POLICY] Loaded policy with {len(policy_config.get('rules', []))} rules")
-            click.echo(f"[PRICING] Loaded pricing for {len(pricing_config.get('models', {}))} models")
-        
-        # Initialize license checker
-        if license_key:
-            license_checker = get_license_checker()
-            # Apply the license key if provided
-            license_checker.license_key = license_key
-        else:
-            # Try to load from default locations
-            license_checker = load_license_key()
-        
-        # Parse log file
-        parser = LangfuseParser()
-        traces_dict = parser.parse_file(actual_log_file)
-        
-        if not traces_dict:
-            click.echo("⚠️  No traces found in log file", err=True)
-            return
-        
-        # Flatten traces into log entries for policy engine
-        log_entries = []
-        for trace_id, trace_logs in traces_dict.items():
-            for log_entry in trace_logs:
-                # Ensure trace_id is included in the log entry
-                if 'trace_id' not in log_entry:
-                    log_entry['trace_id'] = trace_id
-                log_entries.append(log_entry)
-        
-        if verbose:
-            click.echo(f"[PARSING] Parsed {len(traces_dict)} traces with {len(log_entries)} log entries from {actual_log_file}")
-        
-        # Initialize policy engine
-        # Create a temporary policy file if needed
-        if policy:
-            policy_engine = PolicyEngine(policy)
-        else:
-            # Create temporary policy file from loaded config
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False, encoding='utf-8') as tmp_file:
-                yaml.dump(policy_config, tmp_file, default_flow_style=False)
-                tmp_policy_path = Path(tmp_file.name)
-            
-            try:
-                policy_engine = PolicyEngine(tmp_policy_path)
-            finally:
-                # Clean up temporary file
-                os.unlink(tmp_policy_path)        # Run policy evaluation
-        all_violations, skipped_rules = policy_engine.evaluate_logs(log_entries)
-        
-        if verbose:
-            click.echo(f"[ANALYSIS] Found {len(all_violations)} total violations")
-            if skipped_rules:
-                click.echo(f"[SKIPPED] Skipped {len(skipped_rules)} license-gated rules")
-        
-        # Handle simulation mode
-        if simulate:
-            generate_simulation_report(all_violations, pricing_config, verbose, output_format, slack_webhook)
-            return  # Exit without creating files or enforcing
-        
-        # Handle dry run
-        if dry_run:
-            click.echo("🔍 DRY RUN - Violations that would be reported:")
-            for violation in all_violations:
-                severity_emoji = {
-                    'critical': '🚨',
-                    'high': '⚠️',
-                    'medium': '⚡',
-                    'low': 'ℹ️'
-                }.get(violation.severity.value.lower(), '•')
-                
-                click.echo(f"{severity_emoji} {violation.rule_id}: {violation.reason}")
-            
-            click.echo(f"\n📊 Total: {len(all_violations)} violations")
-            return
-        
-        # Convert violations to legacy format for formatters
-        detections_for_formatters = []
-        for violation in all_violations:
-            detection = {
-                "rule_id": violation.rule_id,
-                "reason": violation.reason,
-                "suggestion": violation.suggestion,
-                "severity": violation.severity.value,
-                "action": violation.action.value,
-                "trace_id": violation.log_entry.get('trace_id'),
-                "line_number": violation.line_number,
-                **violation.log_entry  # Include all log entry data
-            }
-            detections_for_formatters.append(detection)
-        
-        # Generate output
-        if output_format == 'markdown':
-            formatter = MarkdownFormatter()
-            content = formatter.format(detections_for_formatters, traces_dict, 
-                                     pricing_config.get('models', {}), summary_only)
-            
-            output_path = output or Path.cwd() / "report.md"
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            
-            click.echo(f"📝 Markdown report written to {output_path}")
-        
-        elif output_format == 'slack':
-            formatter = SlackFormatter()
-            content = formatter.format(detections_for_formatters, traces_dict, 
-                                     pricing_config.get('models', {}), summary_only)
-            
-            if slack_webhook:
-                # Note: SlackWebhookSender might need to be updated for policy violations
-                click.echo(f"📢 Slack integration needs to be updated for policy violations")
-            else:
-                output_path = output or Path.cwd() / "slack_report.json"
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                click.echo(f"📱 Slack format report written to {output_path}")
-        
-        elif output_format == 'summary':
-            formatter = SummaryFormatter()
-            content = formatter.format(traces_dict, pricing_config.get('models', {}), 
-                                     True, detections_for_formatters)  # summary_only=True, detections=violations
-            
-            output_path = output or Path.cwd() / "summary.md"
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            
-            click.echo(f"📊 Summary report written to {output_path}")
-        
-        elif output_format == 'json':
-            import json
-            
-            # Convert violations to JSON-serializable format
-            violations_data = []
-            for v in all_violations:
-                violations_data.append({
-                    "rule_id": v.rule_id,
-                    "line_number": v.line_number,
-                    "reason": v.reason,
-                    "severity": v.severity.value,
-                    "action": v.action.value,
-                    "suggestion": v.suggestion,
-                    "log_entry": v.log_entry
-                })
-            
-            json_data = {
-                "scan_timestamp": datetime.now().isoformat(),
-                "log_file": str(log_file),
-                "total_traces": len(traces_dict),
-                "total_log_entries": len(log_entries),
-                "total_violations": len(all_violations),
-                "violations": violations_data
-            }
-            
-            output_path = output or Path.cwd() / "violations.json"
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(json_data, f, indent=2)
-            
-            click.echo(f"📄 JSON report written to {output_path}")
-        
-        # Print summary
-        if all_violations:
-            click.echo(f"\n🔍 Scan complete: {len(all_violations)} violations found")
-            
-            # Count by severity
-            severity_counts = {}
-            for violation in all_violations:
-                severity = violation.severity.value
-                severity_counts[severity] = severity_counts.get(severity, 0) + 1
-            
-            for severity, count in severity_counts.items():
-                emoji = {
-                    'critical': '🚨',
-                    'high': '⚠️', 
-                    'medium': '⚡',
-                    'low': 'ℹ️'
-                }.get(severity.lower(), '•')
-                click.echo(f"  {emoji} {severity}: {count}")
-        else:
-            click.echo("✅ No policy violations found")
-    
-    except Exception as e:
-        click.echo(f"❌ Error during scan: {e}", err=True)
-        if verbose:
-            import traceback
-            traceback.print_exc()
+    # Validate input options
+    input_count = sum([bool(logfile), demo, stdin, paste])
+    if input_count == 0:
+        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, or --paste")
+        click.echo("💡 Try: crashlens scan --help")
         sys.exit(1)
-    finally:
-        # Clean up temporary file if created
-        if temp_log_file and temp_log_file.exists():
-            try:
-                os.unlink(temp_log_file)
-                if verbose:
-                    click.echo(f"[CLEANUP] Cleaned up temporary file: {temp_log_file}")
-            except Exception as e:
-                if verbose:
-                    click.echo(f"[WARNING] Could not clean up temporary file {temp_log_file}: {e}")
-
-
-@cli.command()
-@click.option('--policy', '-p', type=click.Path(exists=True, path_type=Path), 
-              help='Path to YAML policy configuration file')
-def validate_policy(policy: Optional[Path]):
-    """
-    ✅ Validate YAML policy configuration
+    elif input_count > 1:
+        click.echo("❌ Error: Cannot use multiple input sources simultaneously")
+        click.echo("💡 Choose one: file path, --demo, --stdin, or --paste")
+        sys.exit(1)
     
-    Checks policy syntax, rule definitions, and configuration validity.
-    """
+    # Validate summary options
+    if summary and summary_only:
+        click.echo("❌ Error: Cannot use --summary and --summary-only together")
+        click.echo("💡 Choose one: --summary OR --summary-only")
+        sys.exit(1)
+
+    # File existence check for logfile
+    if logfile and not logfile.exists():
+        click.echo(f"❌ Error: File not found: {logfile}", err=True)
+        sys.exit(1)
+    
+    # Load configurations
+    pricing_config = load_pricing_config(config)
+    suppression_config = load_suppression_config(config)
+    
+    # Initialize suppression engine
+    suppression_engine = SuppressionEngine(suppression_config)
+    
+    # Initialize parser and load logs based on input source
+    parser = LangfuseParser()
+    traces = {}
     
     try:
-        policy_config = load_policy_config(policy)
-        
-        # Basic validation
-        if 'rules' not in policy_config:
-            click.echo("❌ Policy must contain 'rules' section", err=True)
-            sys.exit(1)
-        
-        rules = policy_config['rules']
-        if not isinstance(rules, list) or len(rules) == 0:
-            click.echo("❌ Policy 'rules' must be a non-empty list", err=True)
-            sys.exit(1)
-        
-        # Validate each rule
-        for i, rule in enumerate(rules):
-            if not isinstance(rule, dict):
-                click.echo(f"❌ Rule {i+1} must be a dictionary", err=True)
+        if demo:
+            # Use built-in demo data
+            demo_file = Path(__file__).parent.parent / "examples-logs" / "demo-logs.jsonl"
+            if not demo_file.exists():
+                click.echo("❌ Error: Demo file not found. Please check installation.")
                 sys.exit(1)
-            
-            required_fields = ['id', 'description', 'match', 'action', 'severity']
-            for field in required_fields:
-                if field not in rule:
-                    click.echo(f"❌ Rule {i+1} missing required field: {field}", err=True)
-                    sys.exit(1)
+            click.echo("🎬 Running analysis on built-in demo data...")
+            traces = parser.parse_file(demo_file) or {}
         
-        click.echo(f"✅ Policy validation passed")
-        click.echo(f"📋 Found {len(rules)} valid rules")
+        elif stdin:
+            # Read from standard input
+            click.echo("📥 Reading JSONL data from standard input...")
+            try:
+                traces = parser.parse_stdin() or {}
+            except KeyboardInterrupt:
+                click.echo("\n⚠️  Input cancelled by user")
+                sys.exit(1)
         
-        # Show rule summary
-        for rule in rules:
-            requires_license = rule.get('requires_license', False)
-            license_indicator = "🔐" if requires_license else "🆓"
-            click.echo(f"  {license_indicator} {rule['id']}: {rule['description']}")
-    
-    except Exception as e:
-        click.echo(f"❌ Policy validation failed: {e}", err=True)
-        sys.exit(1)
-
-
-@cli.command()
-@click.argument('log_file', type=click.Path(exists=True, path_type=Path))
-def info(log_file: Path):
-    """
-    ℹ️  Show information about a log file
-    
-    Displays basic statistics about traces, models, and costs without running detection.
-    """
-    
-    try:
-        # Parse log file
-        parser = LangfuseParser()
-        traces_dict = parser.parse_file(log_file)
-        
-        if not traces_dict:
-            click.echo("⚠️  No traces found in log file", err=True)
-            return
-        
-        # Calculate statistics
-        total_traces = len(traces_dict)
-        models_used = set()
-        total_cost = 0.0
-        total_tokens = 0
-        total_log_entries = 0
-        
-        for trace_id, trace_logs in traces_dict.items():
-            total_log_entries += len(trace_logs)
-            for log_entry in trace_logs:
-                # Check for model in different locations
-                model = None
-                if 'model' in log_entry and log_entry['model']:
-                    model = log_entry['model']
-                elif 'input' in log_entry and isinstance(log_entry['input'], dict) and 'model' in log_entry['input']:
-                    model = log_entry['input']['model']
+        elif paste:
+            # Clipboard paste mode - automatically read from clipboard
+            try:
+                import pyperclip
+                click.echo("📋 Reading JSONL data from clipboard...")
                 
-                if model:
-                    models_used.add(model)
-                    
-                if 'cost' in log_entry and log_entry['cost']:
-                    total_cost += log_entry['cost']
-                if 'usage' in log_entry and log_entry['usage']:
-                    usage = log_entry['usage']
-                    if isinstance(usage, dict) and 'total_tokens' in usage:
-                        total_tokens += usage['total_tokens']
+                # Get data from clipboard
+                clipboard_text = pyperclip.paste()
+                
+                if not clipboard_text.strip():
+                    click.echo("❌ Error: Clipboard is empty or contains no data")
+                    click.echo("💡 Copy some JSONL data to your clipboard first, then run this command")
+                    sys.exit(1)
+                
+                # Split into lines and filter empty lines
+                lines = [line.strip() for line in clipboard_text.splitlines() if line.strip()]
+                
+                if not lines:
+                    click.echo("❌ Error: No valid JSONL lines found in clipboard")
+                    click.echo("💡 Make sure your clipboard contains JSONL data (one JSON object per line)")
+                    sys.exit(1)
+                
+                click.echo(f"📊 Processing {len(lines)} lines from clipboard...")
+                
+                # Join lines and parse as string
+                jsonl_text = '\n'.join(lines)
+                traces = parser.parse_string(jsonl_text) or {}
+                
+            except ImportError:
+                click.echo("❌ Error: pyperclip library not available")
+                click.echo("💡 Install with: pip install pyperclip")
+                sys.exit(1)
+            except Exception as e:
+                click.echo(f"❌ Error reading from clipboard: {e}", err=True)
+                click.echo("💡 Make sure your clipboard contains valid JSONL data")
+                sys.exit(1)
         
-        # Display info
-        click.echo(f"📊 Log File Information: {log_file}")
-        click.echo(f"📈 Total Traces: {total_traces}")
-        click.echo(f"📄 Total Log Entries: {total_log_entries}")
-        click.echo(f"🤖 Models Used: {', '.join(sorted(models_used)) if models_used else 'Unknown'}")
-        click.echo(f"💰 Total Cost: ${total_cost:.4f}")
-        click.echo(f"🔤 Total Tokens: {total_tokens:,}")
+        elif logfile:
+            # Read from specified file
+            traces = parser.parse_file(logfile) or {}
         
-        if total_traces > 0:
-            click.echo(f"📊 Average Cost per Trace: ${total_cost/total_traces:.4f}")
-            click.echo(f"📊 Average Tokens per Trace: {total_tokens//total_traces:,}")
-    
     except Exception as e:
-        click.echo(f"❌ Error reading log file: {e}", err=True)
+        click.echo(f"❌ Error reading input: {e}", err=True)
         sys.exit(1)
-
-
-@cli.command()
-@click.option('--template', '-t', type=click.Choice(list(TEMPLATE_YAMLS.keys())), 
-              required=True, help='Policy template to scaffold')
-@click.option('--output', '-o', type=click.Path(path_type=Path), 
-              help='Output file path (default: <template-name>.yaml)')
-@click.option('--force', '-f', is_flag=True, 
-              help='Overwrite existing file if it exists')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def init(template: str, output: Optional[Path], force: bool, verbose: bool):
-    """
-    ✅ Initialize a new policy file from a template
     
-    Scaffolds prebuilt YAML policy files for common use cases.
-    Available templates: retry-limit, fallback-escalation, basic-safety, cost-cap, internal-only
-    """
+    if not traces:
+        source = "demo data" if demo else "standard input" if stdin else "pasted data" if paste else "log file"
+        click.echo(f"⚠️  No traces found in {source}")
+        return ""
     
-    try:
-        # Determine output file path
-        if not output:
-            output = Path(f"{template}.yaml")
+    # click.echo("🔒 CrashLens runs 100% locally. No data leaves your system.")
+    
+    # Handle summary modes
+    if summary or summary_only:
+        # Run detectors to get waste analysis
+        all_active_detections = []
         
-        # Check if file exists
-        if output.exists() and not force:
-            click.echo(f"❌ File {output} already exists. Use --force to overwrite.", err=True)
-            sys.exit(1)
+        # Load thresholds from pricing config
+        thresholds = pricing_config.get('thresholds', {})
         
-        # Get template content
-        template_content = TEMPLATE_YAMLS[template]
+        # Run detectors in priority order
+        detector_configs = [
+            ('RetryLoopDetector', RetryLoopDetector(
+                max_retries=thresholds.get('retry_loop', {}).get('max_retries', 3),
+                time_window_minutes=thresholds.get('retry_loop', {}).get('time_window_minutes', 5),
+                max_retry_interval_minutes=thresholds.get('retry_loop', {}).get('max_retry_interval_minutes', 2)
+            )),
+            ('FallbackStormDetector', FallbackStormDetector(
+                min_calls=thresholds.get('fallback_storm', {}).get('min_calls', 3),  # type: ignore[call-arg]
+                min_models=thresholds.get('fallback_storm', {}).get('min_models', 2),  # type: ignore[call-arg]
+                max_trace_window_minutes=thresholds.get('fallback_storm', {}).get('max_trace_window_minutes', 3)  # type: ignore[call-arg]
+            )),
+            ('FallbackFailureDetector', FallbackFailureDetector(
+                time_window_seconds=thresholds.get('fallback_failure', {}).get('time_window_seconds', 300)  # type: ignore[call-arg]
+            )),
+            ('OverkillModelDetector', OverkillModelDetector(
+                max_prompt_tokens=thresholds.get('overkill_model', {}).get('max_prompt_tokens', 20),  # type: ignore[call-arg]
+                max_prompt_chars=thresholds.get('overkill_model', {}).get('max_prompt_chars', 150)  # type: ignore[call-arg]
+            ))
+        ]
         
-        # Write template to file
-        with open(output, 'w', encoding='utf-8') as f:
-            f.write(template_content)
+        # Process each detector
+        for detector_name, detector in detector_configs:
+            try:
+                if hasattr(detector, 'detect'):
+                    if 'already_flagged_ids' in detector.detect.__code__.co_varnames:
+                        already_flagged = set(suppression_engine.trace_ownership.keys())
+                        raw_detections = detector.detect(traces, pricing_config.get('models', {}), already_flagged)
+                    else:
+                        raw_detections = detector.detect(traces, pricing_config.get('models', {}))
+                else:
+                    raw_detections = []
+                
+                # Process through suppression engine
+                active_detections = suppression_engine.process_detections(detector_name, raw_detections)
+                all_active_detections.extend(active_detections)
+                
+            except Exception as e:
+                click.echo(f"⚠️  Warning: {detector_name} failed: {e}", err=True)
+                continue
         
-        if verbose:
-            click.echo(f"📋 Template: {template}")
-            click.echo(f"📄 Output file: {output}")
-            click.echo(f"📏 Content length: {len(template_content)} characters")
+        # Use SummaryFormatter for cost breakdown with waste analysis
+        summary_formatter = SummaryFormatter()
+        output = summary_formatter.format(traces, pricing_config.get('models', {}), summary_only, all_active_detections)
         
-        click.echo(f"✅ Policy template '{template}' created successfully at {output}")
-        click.echo(f"💡 Next steps:")
-        click.echo(f"   1. Review and customize the policy rules in {output}")
-        click.echo(f"   2. Test with: crashlens scan logs.jsonl --policy {output} --simulate")
-        click.echo(f"   3. Deploy with: crashlens scan logs.jsonl --policy {output}")
+        # Write to report.md
+        report_path = Path.cwd() / "report.md"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
         
-        # Show template info
-        click.echo(f"\n📋 Template Info:")
-        if template == "retry-limit":
-            click.echo("   🔄 Prevents excessive retry patterns that cause cost explosions")
-        elif template == "fallback-escalation":
-            click.echo("   ⬆️ Detects unnecessary escalation from cheaper to expensive models")
-        elif template == "basic-safety":
-            click.echo("   🛡️ Essential safety rules for production AI usage")
-        elif template == "cost-cap":
-            click.echo("   💰 Strict cost controls to prevent budget overruns")
-        elif template == "internal-only":
-            click.echo("   🔒 Detects potentially sensitive or internal-use content")
+        summary_type = "Summary-only" if summary_only else "Summary"
+        click.echo(f"✅ {summary_type} report written to {report_path}")
+        click.echo(output)
+        return output
+    
+    # Load thresholds from pricing config
+    thresholds = pricing_config.get('thresholds', {})
+    
+    # 🔢 1. Run detectors in priority order with suppression
+    detector_configs = [
+        ('RetryLoopDetector', RetryLoopDetector(
+            max_retries=thresholds.get('retry_loop', {}).get('max_retries', 3),  # type: ignore[call-arg]
+            time_window_minutes=thresholds.get('retry_loop', {}).get('time_window_minutes', 5),  # type: ignore[call-arg]
+            max_retry_interval_minutes=thresholds.get('retry_loop', {}).get('max_retry_interval_minutes', 2)  # type: ignore[call-arg]
+        )),
+        ('FallbackStormDetector', FallbackStormDetector(
+            min_calls=thresholds.get('fallback_storm', {}).get('min_calls', 3),  # type: ignore[call-arg]
+            min_models=thresholds.get('fallback_storm', {}).get('min_models', 2),  # type: ignore[call-arg]
+            max_trace_window_minutes=thresholds.get('fallback_storm', {}).get('max_trace_window_minutes', 3)  # type: ignore[call-arg]
+        )),
+        ('FallbackFailureDetector', FallbackFailureDetector(
+            time_window_seconds=thresholds.get('fallback_failure', {}).get('time_window_seconds', 300)  # type: ignore[call-arg]
+        )),
+        ('OverkillModelDetector', OverkillModelDetector(
+            max_prompt_tokens=thresholds.get('overkill_model', {}).get('max_prompt_tokens', 20),  # type: ignore[call-arg]
+            max_prompt_chars=thresholds.get('overkill_model', {}).get('max_prompt_chars', 150)  # type: ignore[call-arg]
+        ))
+    ]
+    
+    all_active_detections = []
+    
+    # Process each detector in priority order
+    for detector_name, detector in detector_configs:
+        try:
+            # Run detector
+            if hasattr(detector, 'detect'):
+                if 'already_flagged_ids' in detector.detect.__code__.co_varnames:
+                    # Detector supports suppression
+                    already_flagged = set(suppression_engine.trace_ownership.keys())
+                    raw_detections = detector.detect(traces, pricing_config.get('models', {}), already_flagged)
+                else:
+                    # Basic detector
+                    raw_detections = detector.detect(traces, pricing_config.get('models', {}))
+            else:
+                raw_detections = []
             
-    except KeyError:
-        click.echo(f"❌ Unknown template: {template}", err=True)
-        click.echo(f"Available templates: {', '.join(TEMPLATE_YAMLS.keys())}")
-        sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Error creating policy file: {e}", err=True)
-        sys.exit(1)
-
-
-@cli.command(name='list-templates')
-@click.option('--verbose', '-v', is_flag=True, help='Show detailed template descriptions')
-def list_templates(verbose: bool):
-    """
-    📋 List available policy templates
-    
-    Shows all available templates for the 'crashlens init' command.
-    """
-    
-    click.echo("📋 Available CrashLens Policy Templates:")
-    click.echo("=" * 50)
-    
-    template_descriptions = {
-        "retry-limit": "🔄 Prevents excessive retry patterns that cause cost explosions",
-        "fallback-escalation": "⬆️ Detects unnecessary escalation from cheaper to expensive models", 
-        "basic-safety": "🛡️ Essential safety rules for production AI usage",
-        "cost-cap": "💰 Strict cost controls to prevent budget overruns",
-        "internal-only": "🔒 Detects potentially sensitive or internal-use content"
-    }
-    
-    for template, description in template_descriptions.items():
-        click.echo(f"\n📄 {template}")
-        click.echo(f"   {description}")
-        
-        if verbose:
-            # Count rules in template
-            template_content = TEMPLATE_YAMLS[template]
-            rule_count = template_content.count('- id:')
-            click.echo(f"   📊 Rules: {rule_count}")
-            click.echo(f"   📏 Size: {len(template_content)} characters")
+            # Process through suppression engine
+            active_detections = suppression_engine.process_detections(detector_name, raw_detections)
+            all_active_detections.extend(active_detections)
             
-            # Usage example
-            click.echo(f"   🚀 Usage: crashlens init --template {template}")
+        except Exception as e:
+            click.echo(f"⚠️  Warning: {detector_name} failed: {e}", err=True)
+            continue
     
-    click.echo(f"\n💡 Usage Examples:")
-    click.echo(f"   crashlens init --template basic-safety")
-    click.echo(f"   crashlens init --template cost-cap --output my-budget.yaml")
-    click.echo(f"   crashlens init --template retry-limit --force")
+    # Get suppression summary
+    suppression_summary = suppression_engine.get_suppression_summary()
+    
+    # Generate detailed per-trace reports if requested
+    if detailed:
+        detailed_count = generate_detailed_reports(
+            traces, all_active_detections, detailed_dir, pricing_config.get('models', {})
+        )
+        click.echo(f"✅ Generated {detailed_count} detailed category reports in {detailed_dir}/")
+    
+    # Generate report based on format and write to report.md
+    report_path = Path.cwd() / "report.md"
+    
+    if output_format == 'json':
+        # Machine-readable JSON output
+        import json
+        json_output = []
+        for detection in all_active_detections:
+            json_detection = {
+                'type': detection.get('type'),
+                'severity': detection.get('severity'),
+                'description': detection.get('description'),
+                'waste_cost': f"{detection.get('waste_cost', 0):.6f}",
+                'suppression_notes': detection.get('suppression_notes', {})
+            }
+            if 'trace_id' in detection:
+                json_detection['trace_id'] = detection['trace_id']
+            json_output.append(json_detection)
+        
+        output = json.dumps(json_output, indent=2)
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ JSON report written to {report_path}")
+        click.echo(output)
+        return output
+    elif output_format == 'markdown':
+        # Markdown format
+        formatter = MarkdownFormatter()
+        output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}), summary_only=False)
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ Markdown report written to {report_path}")
+        click.echo(output)
+        return output
+    else:
+        # Default Slack format
+        formatter = SlackFormatter()
+        output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}))
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(output)
+        click.echo(f"✅ Slack report written to {report_path}")
+        click.echo(output)
+        return output
+
+
+# Add the scan command to CLI
+cli.add_command(scan)
 
 
 if __name__ == "__main__":
