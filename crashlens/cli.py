@@ -20,6 +20,8 @@ from .detectors.overkill_model_detector import OverkillModelDetector
 from .reporters.slack_formatter import SlackFormatter
 from .reporters.markdown_formatter import MarkdownFormatter
 from .reporters.summary_formatter import SummaryFormatter
+from .langfuse_client import LangfuseClient, save_logs_to_temp_file
+from .helicone_client import HeliconeClient
 
 # 🔢 1. DETECTOR PRIORITIES - Global constant used throughout
 DETECTOR_PRIORITY = {
@@ -406,9 +408,14 @@ def cli():
 @click.option('--detailed', is_flag=True, help='Generate detailed per-trace JSON reports')
 @click.option('--detailed-dir', type=click.Path(path_type=Path), default='detailed_output', 
               help='Directory for detailed reports (default: detailed_output)')
+@click.option('--from-langfuse', is_flag=True, help='Fetch traces from Langfuse API and analyze')
+@click.option('--from-helicone', is_flag=True, help='Fetch requests from Helicone API and analyze')
+@click.option('--hours-back', default=24, help='Hours back to fetch (for --from-langfuse/--from-helicone)')
+@click.option('--limit', default=1000, help='Max traces/requests to fetch (for --from-langfuse/--from-helicone)')
 def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
-         summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output')) -> str:
+         summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
+         from_langfuse: bool = False, from_helicone: bool = False, hours_back: int = 24, limit: int = 1000) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -420,18 +427,20 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
   crashlens scan --detailed                    # Generate traces JSON reports
   crashlens scan --summary                     # Cost summary with categories
   crashlens scan --summary-only                # Show summary only 
+  crashlens scan --from-langfuse               # Fetch from Langfuse API and analyze
+  crashlens scan --from-helicone --hours-back 48 # Fetch from Helicone API (48h) and analyze
 
     """
     
     # Validate input options
-    input_count = sum([bool(logfile), demo, stdin, paste])
+    input_count = sum([bool(logfile), demo, stdin, paste, from_langfuse, from_helicone])
     if input_count == 0:
-        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, or --paste")
+        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, --paste, --from-langfuse, or --from-helicone")
         click.echo("💡 Try: crashlens scan --help")
         sys.exit(1)
     elif input_count > 1:
         click.echo("❌ Error: Cannot use multiple input sources simultaneously")
-        click.echo("💡 Choose one: file path, --demo, --stdin, or --paste")
+        click.echo("💡 Choose one: file path, --demo, --stdin, --paste, --from-langfuse, or --from-helicone")
         sys.exit(1)
     
     # Validate summary options
@@ -512,6 +521,54 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                 click.echo("💡 Make sure your clipboard contains valid JSONL data")
                 sys.exit(1)
         
+        elif from_langfuse:
+            # Fetch from Langfuse API
+            try:
+                click.echo(f"🔗 Fetching traces from Langfuse (last {hours_back} hours, max {limit} traces)...")
+                client = LangfuseClient()
+                logs = client.fetch_traces(hours_back=hours_back, limit=limit)
+                
+                if not logs:
+                    click.echo("⚠️  No traces found in Langfuse for the specified time range.")
+                    return ""
+                
+                click.echo(f"✅ Successfully fetched {len(logs)} traces from Langfuse")
+                
+                # Save to temporary file and parse
+                temp_path = save_logs_to_temp_file(logs)
+                traces = parser.parse_file(temp_path) or {}
+                # Clean up temp file
+                temp_path.unlink()
+                
+            except Exception as e:
+                click.echo(f"❌ Error fetching from Langfuse: {e}", err=True)
+                click.echo("💡 Make sure LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set")
+                sys.exit(1)
+        
+        elif from_helicone:
+            # Fetch from Helicone API
+            try:
+                click.echo(f"🔗 Fetching requests from Helicone (last {hours_back} hours, max {limit} requests)...")
+                client = HeliconeClient()
+                logs = client.fetch_requests(hours_back=hours_back, limit=limit)
+                
+                if not logs:
+                    click.echo("⚠️  No requests found in Helicone for the specified time range.")
+                    return ""
+                
+                click.echo(f"✅ Successfully fetched {len(logs)} requests from Helicone")
+                
+                # Save to temporary file and parse
+                temp_path = save_logs_to_temp_file(logs)
+                traces = parser.parse_file(temp_path) or {}
+                # Clean up temp file
+                temp_path.unlink()
+                
+            except Exception as e:
+                click.echo(f"❌ Error fetching from Helicone: {e}", err=True)
+                click.echo("💡 Make sure HELICONE_API_KEY is set")
+                sys.exit(1)
+        
         elif logfile:
             # Read from specified file
             traces = parser.parse_file(logfile) or {}
@@ -521,7 +578,12 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         sys.exit(1)
     
     if not traces:
-        source = "demo data" if demo else "standard input" if stdin else "pasted data" if paste else "log file"
+        source = ("demo data" if demo else 
+                 "standard input" if stdin else 
+                 "pasted data" if paste else 
+                 "Langfuse API" if from_langfuse else 
+                 "Helicone API" if from_helicone else 
+                 "log file")
         click.echo(f"⚠️  No traces found in {source}")
         return ""
     
@@ -560,11 +622,7 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         for detector_name, detector in detector_configs:
             try:
                 if hasattr(detector, 'detect'):
-                    if 'already_flagged_ids' in detector.detect.__code__.co_varnames:
-                        already_flagged = set(suppression_engine.trace_ownership.keys())
-                        raw_detections = detector.detect(traces, pricing_config.get('models', {}), already_flagged)
-                    else:
-                        raw_detections = detector.detect(traces, pricing_config.get('models', {}))
+                    raw_detections = detector.detect(traces)
                 else:
                     raw_detections = []
                 
@@ -621,13 +679,7 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         try:
             # Run detector
             if hasattr(detector, 'detect'):
-                if 'already_flagged_ids' in detector.detect.__code__.co_varnames:
-                    # Detector supports suppression
-                    already_flagged = set(suppression_engine.trace_ownership.keys())
-                    raw_detections = detector.detect(traces, pricing_config.get('models', {}), already_flagged)
-                else:
-                    # Basic detector
-                    raw_detections = detector.detect(traces, pricing_config.get('models', {}))
+                raw_detections = detector.detect(traces)
             else:
                 raw_detections = []
             
@@ -696,6 +748,205 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
 
 # Add the scan command to CLI
 cli.add_command(scan)
+
+
+@click.command()
+@click.option('--hours-back', default=24, help='Hours back to fetch traces (default: 24)')
+@click.option('--limit', default=1000, help='Maximum number of traces to fetch (default: 1000)')
+@click.option('--output', '-o', type=click.Path(path_type=Path), help='Output file path (optional - if not provided, will analyze directly)')
+@click.option('--analyze', is_flag=True, help='Analyze fetched traces immediately')
+@click.option('--public-key', help='Langfuse public key (or use LANGFUSE_PUBLIC_KEY env var)')
+@click.option('--secret-key', help='Langfuse secret key (or use LANGFUSE_SECRET_KEY env var)')
+@click.option('--base-url', help='Langfuse base URL (or use LANGFUSE_HOST env var)')
+def fetch_langfuse(hours_back: int, limit: int, output: Optional[Path], analyze: bool,
+                   public_key: Optional[str], secret_key: Optional[str], base_url: Optional[str]):
+    """🔗 Fetch traces from Langfuse API and optionally analyze them
+    
+    📦 Examples:
+    
+    crashlens fetch-langfuse                           # Fetch last 24h and analyze
+    crashlens fetch-langfuse --hours-back 48          # Fetch last 48h  
+    crashlens fetch-langfuse --output logs.jsonl      # Save to file
+    crashlens fetch-langfuse --analyze --limit 500    # Fetch 500 traces and analyze
+    """
+    
+    try:
+        click.echo(f"🔗 Fetching traces from Langfuse (last {hours_back} hours, max {limit} traces)...")
+        
+        # Initialize client
+        client = LangfuseClient(public_key, secret_key, base_url)
+        
+        # Fetch traces
+        traces = client.fetch_traces(hours_back=hours_back, limit=limit)
+        
+        if not traces:
+            click.echo("⚠️  No traces found in the specified time range.")
+            return
+        
+        click.echo(f"✅ Successfully fetched {len(traces)} traces from Langfuse")
+        
+        # Handle output
+        if output:
+            # Save to file
+            temp_path = save_logs_to_temp_file(traces)
+            import shutil
+            shutil.move(str(temp_path), str(output))
+            click.echo(f"💾 Traces saved to {output}")
+            
+            # Analyze if requested
+            if analyze:
+                click.echo("🎯 Running analysis on fetched traces...")
+                from crashlens.cli import analyze_traces_from_file
+                analyze_traces_from_file(output)
+        else:
+            # Analyze directly (default behavior)
+            click.echo("🎯 Running analysis on fetched traces...")
+            temp_path = save_logs_to_temp_file(traces)
+            from crashlens.cli import analyze_traces_from_file
+            analyze_traces_from_file(temp_path)
+            # Clean up temp file
+            temp_path.unlink()
+            
+    except Exception as e:
+        click.echo(f"❌ Error fetching from Langfuse: {e}", err=True)
+        sys.exit(1)
+
+
+@click.command()
+@click.option('--hours-back', default=24, help='Hours back to fetch requests (default: 24)')
+@click.option('--limit', default=1000, help='Maximum number of requests to fetch (default: 1000)')
+@click.option('--output', '-o', type=click.Path(path_type=Path), help='Output file path (optional - if not provided, will analyze directly)')
+@click.option('--analyze', is_flag=True, help='Analyze fetched requests immediately')
+@click.option('--api-key', help='Helicone API key (or use HELICONE_API_KEY env var)')
+@click.option('--base-url', help='Helicone base URL (defaults to production)')
+def fetch_helicone(hours_back: int, limit: int, output: Optional[Path], analyze: bool,
+                   api_key: Optional[str], base_url: Optional[str]):
+    """🔗 Fetch requests from Helicone API and optionally analyze them
+    
+    📦 Examples:
+    
+    crashlens fetch-helicone                           # Fetch last 24h and analyze
+    crashlens fetch-helicone --hours-back 48          # Fetch last 48h  
+    crashlens fetch-helicone --output logs.jsonl      # Save to file
+    crashlens fetch-helicone --analyze --limit 500    # Fetch 500 requests and analyze
+    """
+    
+    try:
+        click.echo(f"🔗 Fetching requests from Helicone (last {hours_back} hours, max {limit} requests)...")
+        
+        # Initialize client
+        client = HeliconeClient(api_key, base_url)
+        
+        # Fetch requests
+        requests = client.fetch_requests(hours_back=hours_back, limit=limit)
+        
+        if not requests:
+            click.echo("⚠️  No requests found in the specified time range.")
+            return
+        
+        click.echo(f"✅ Successfully fetched {len(requests)} requests from Helicone")
+        
+        # Handle output
+        if output:
+            # Save to file
+            temp_path = save_logs_to_temp_file(requests)
+            import shutil
+            shutil.move(str(temp_path), str(output))
+            click.echo(f"💾 Requests saved to {output}")
+            
+            # Analyze if requested
+            if analyze:
+                click.echo("🎯 Running analysis on fetched requests...")
+                from crashlens.cli import analyze_traces_from_file
+                analyze_traces_from_file(output)
+        else:
+            # Analyze directly (default behavior)
+            click.echo("🎯 Running analysis on fetched requests...")
+            temp_path = save_logs_to_temp_file(requests)
+            from crashlens.cli import analyze_traces_from_file
+            analyze_traces_from_file(temp_path)
+            # Clean up temp file
+            temp_path.unlink()
+            
+    except Exception as e:
+        click.echo(f"❌ Error fetching from Helicone: {e}", err=True)
+        sys.exit(1)
+
+
+# Helper function to analyze traces from a file
+def analyze_traces_from_file(logfile: Path):
+    """Helper function to analyze traces from a file (reusable logic from scan command)"""
+    
+    # Load configurations
+    pricing_config = load_pricing_config(None)
+    suppression_config = load_suppression_config(None)
+    
+    # Initialize suppression engine
+    suppression_engine = SuppressionEngine(suppression_config)
+    
+    # Initialize parser and load logs
+    parser = LangfuseParser()
+    traces = parser.parse_file(logfile) or {}
+    
+    if not traces:
+        click.echo("⚠️  No valid traces found in fetched data")
+        return
+    
+    # Load thresholds from pricing config
+    thresholds = pricing_config.get('thresholds', {})
+    
+    # Run detectors in priority order with suppression (using same pattern as scan command)
+    detector_configs = [
+        ('RetryLoopDetector', RetryLoopDetector(
+            max_retries=thresholds.get('retry_loop', {}).get('max_retries', 3),  # type: ignore[call-arg]
+            time_window_minutes=thresholds.get('retry_loop', {}).get('time_window_minutes', 5),  # type: ignore[call-arg]
+            max_retry_interval_minutes=thresholds.get('retry_loop', {}).get('max_retry_interval_minutes', 2)  # type: ignore[call-arg]
+        )),
+        ('FallbackStormDetector', FallbackStormDetector(
+            min_calls=thresholds.get('fallback_storm', {}).get('min_calls', 3),  # type: ignore[call-arg]
+            min_models=thresholds.get('fallback_storm', {}).get('min_models', 2),  # type: ignore[call-arg]
+            max_trace_window_minutes=thresholds.get('fallback_storm', {}).get('max_trace_window_minutes', 3)  # type: ignore[call-arg]
+        )),
+        ('FallbackFailureDetector', FallbackFailureDetector(
+            time_window_seconds=thresholds.get('fallback_failure', {}).get('time_window_seconds', 300)  # type: ignore[call-arg]
+        )),
+        ('OverkillModelDetector', OverkillModelDetector(
+            max_prompt_tokens=thresholds.get('overkill_model', {}).get('max_prompt_tokens', 20),  # type: ignore[call-arg]
+            max_prompt_chars=thresholds.get('overkill_model', {}).get('max_prompt_chars', 150)  # type: ignore[call-arg]
+        ))
+    ]
+    
+    all_active_detections = []
+    
+    # Process each detector
+    for detector_name, detector in detector_configs:
+        try:
+            if hasattr(detector, 'detect'):
+                raw_detections = detector.detect(traces)
+            else:
+                raw_detections = []
+            
+            # Process through suppression engine
+            active_detections = suppression_engine.process_detections(detector_name, raw_detections)
+            all_active_detections.extend(active_detections)
+            
+        except Exception as e:
+            click.echo(f"⚠️  Warning: {detector_name} failed: {e}", err=True)
+            continue
+    
+    # Generate report using SlackFormatter (default format)
+    formatter = SlackFormatter()
+    output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}))
+    
+    click.echo("\n" + "="*80)
+    click.echo("🎯 ANALYSIS RESULTS")
+    click.echo("="*80)
+    click.echo(output)
+
+
+# Add new commands to CLI
+cli.add_command(fetch_langfuse)
+cli.add_command(fetch_helicone)
 
 
 if __name__ == "__main__":
