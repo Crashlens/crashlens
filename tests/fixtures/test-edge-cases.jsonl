@@ -1,4 +1,0 @@
-{"traceId": "edge_case_001", "model": "gpt-4", "retry_count": 0, "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}, "cost": 0.0}
-{"traceId": "edge_case_002", "model": "claude-3-opus", "usage": {"prompt_tokens": 10000, "completion_tokens": 1000, "total_tokens": 11000}, "cost": 2.5}
-{"traceId": "edge_case_003", "model": "gpt-3.5-turbo", "retry_count": 10, "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75}, "cost": 0.001}
-{"traceId": "edge_case_004", "model": "", "retry_count": 0, "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}, "cost": 0.01}

@@ -1,4 +1,0 @@
-{"traceId": "trace_001", "model": "gpt-4", "retry_count": 3, "usage": {"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300}, "cost": 0.06}
-{"traceId": "trace_002", "model": "gpt-3.5-turbo", "retry_count": 1, "usage": {"prompt_tokens": 150, "completion_tokens": 50, "total_tokens": 200}, "cost": 0.002}
-{"traceId": "trace_003", "model": "gpt-4", "retry_count": 5, "usage": {"prompt_tokens": 500, "completion_tokens": 200, "total_tokens": 700}, "cost": 0.14}
-{"traceId": "trace_004", "model": "claude-3-opus", "retry_count": 1, "usage": {"prompt_tokens": 6000, "completion_tokens": 300, "total_tokens": 6300}, "cost": 0.315}
