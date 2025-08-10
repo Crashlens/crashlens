@@ -1,0 +1,214 @@
+name: CrashLens Strict CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  crashlens-analysis:
+    runs-on: ubuntu-latest
+    name: Strict Token Waste & Cost Enforcement
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CrashLens and Dependencies
+        run: |
+          pip install crashlens==2.9.1
+          sudo apt-get update && sudo apt-get install -y jq bc
+
+      - name: Verify log files exist
+        run: |
+          echo "🔍 Checking for log files..."
+          if [ ! -d ".llm_logs" ]; then
+            echo "❌ Missing .llm_logs directory"
+            echo "📁 Repository structure:"
+            ls -la
+            exit 1
+          fi
+          
+          echo "✅ Found .llm_logs directory"
+          ls -la .llm_logs/
+          
+          if ! ls .llm_logs/*.jsonl 1> /dev/null 2>&1; then
+            echo "❌ No .jsonl log files found in .llm_logs/"
+            echo "📁 Contents:"
+            ls -la .llm_logs/
+            exit 1
+          fi
+          
+          echo "✅ Found log files:"
+          ls -la .llm_logs/*.jsonl
+
+      - name: Copy logs to working directory
+        run: |
+          mkdir -p logs 
+          cp .llm_logs/*.jsonl logs/
+          echo "📋 Copied log files:"
+          ls -la logs/
+          echo "📊 Log file sizes:"
+          wc -l logs/*.jsonl
+
+      - name: Enforce Waste & Cost Limits
+        run: |
+          echo "💰 Enforcing strict cost and performance limits..."
+          
+          # 🔧 STRICT LIMITS - Adjust these values as needed
+          DAILY_COST_LIMIT=5.00       # 💰 Fail if total cost exceeds $5/day
+          SLOW_RESPONSE_LIMIT=20      # ⏱️ Fail if >20 slow traces
+          EXPENSIVE_REQUEST_LIMIT=10  # 💸 Fail if >10 expensive requests
+          ERROR_RATE_THRESHOLD=0.20   # ❗ Fail if >20% error rate
+          
+          echo "📋 Enforcement Thresholds:"
+          echo "   Daily cost limit: \$${DAILY_COST_LIMIT}"
+          echo "   Slow response limit: ${SLOW_RESPONSE_LIMIT} traces"
+          echo "   Expensive request limit: ${EXPENSIVE_REQUEST_LIMIT} requests"
+          echo "   Error rate threshold: ${ERROR_RATE_THRESHOLD}"
+          
+          # Calculate metrics from logs
+          total_cost=$(cat logs/*.jsonl | jq -r '.cost // .totalCost // 0' 2>/dev/null | awk '{sum+=$1} END {print sum ? sum : 0}')
+          slow_traces=$(cat logs/*.jsonl | jq -r 'select(.usage.total_tokens > 1000 or (.metadata.processing_time_ms // 0) > 3000)' 2>/dev/null | wc -l)
+          expensive_requests=$(cat logs/*.jsonl | jq -r 'select((.cost // .totalCost // 0) > 0.05)' 2>/dev/null | wc -l)
+          total_requests=$(cat logs/*.jsonl | wc -l)
+          error_count=$(cat logs/*.jsonl | jq -r 'select(.level == "error" or .status == "error")' 2>/dev/null | wc -l)
+          
+          # Calculate error rate (handle division by zero)
+          if [ "$total_requests" -gt 0 ]; then
+            error_rate=$(echo "scale=3; $error_count / $total_requests" | bc -l)
+          else
+            error_rate=0
+          fi
+
+          echo ""
+          echo "📊 Current Metrics:"
+          echo "   💰 Total cost: \$${total_cost}"
+          echo "   🐢 Slow traces: ${slow_traces}"
+          echo "   💸 Expensive requests: ${expensive_requests}"
+          echo "   📊 Total requests: ${total_requests}"
+          echo "   ❗ Error count: ${error_count}"
+          echo "   📈 Error rate: ${error_rate}"
+
+          # Check limits and fail if exceeded
+          fail=false
+          violations=()
+          
+          if (( $(echo "$total_cost > $DAILY_COST_LIMIT" | bc -l) )); then
+            echo "🚨 VIOLATION: Cost limit exceeded (\$${total_cost} > \$${DAILY_COST_LIMIT})"
+            violations+=("Cost limit exceeded")
+            fail=true
+          fi
+          
+          if [ "$slow_traces" -gt "$SLOW_RESPONSE_LIMIT" ]; then
+            echo "🚨 VIOLATION: Too many slow traces (${slow_traces} > ${SLOW_RESPONSE_LIMIT})"
+            violations+=("Too many slow traces")
+            fail=true
+          fi
+          
+          if [ "$expensive_requests" -gt "$EXPENSIVE_REQUEST_LIMIT" ]; then
+            echo "🚨 VIOLATION: Too many expensive requests (${expensive_requests} > ${EXPENSIVE_REQUEST_LIMIT})"
+            violations+=("Too many expensive requests")
+            fail=true
+          fi
+          
+          if (( $(echo "$error_rate > $ERROR_RATE_THRESHOLD" | bc -l) )); then
+            echo "🚨 VIOLATION: Error rate too high (${error_rate} > ${ERROR_RATE_THRESHOLD})"
+            violations+=("Error rate too high")
+            fail=true
+          fi
+          
+          # Summary
+          if [ "$fail" = true ]; then
+            echo ""
+            echo "💥 STRICT CI ENFORCEMENT FAILED"
+            echo "❌ Violations detected:"
+            printf '   - %s\n' "${violations[@]}"
+            echo ""
+            echo "🔧 To fix these issues:"
+            echo "   1. Optimize expensive API calls"
+            echo "   2. Implement better retry logic"
+            echo "   3. Use cheaper models for simple tasks"
+            echo "   4. Fix error-prone operations"
+            echo ""
+            exit 1
+          else
+            echo ""
+            echo "✅ All strict limits passed!"
+            echo "🎉 No cost or performance violations detected"
+          fi
+
+      - name: Run CrashLens Policy Checks (Strict Mode)
+        run: |
+          echo "🔍 Running strict CrashLens policy checks..."
+          
+          # Run policy check with fail-on-violations flag
+          crashlens policy-check logs/*.jsonl \
+            --policy-template all \
+            --severity-threshold high \
+            --fail-on-violations
+            
+          echo "✅ CrashLens policy checks passed!"
+
+      - name: Generate Strict Enforcement Report
+        if: always()
+        run: |
+          echo "📄 Generating strict enforcement report..."
+          
+          cat > strict-enforcement-report.md << 'EOF'
+          # 🚨 CrashLens Strict CI Enforcement Report
+          
+          **Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Repository:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Enforcement Mode:** STRICT (Build-breaking enabled)
+          
+          ## 🎯 Enforcement Results
+          
+          This workflow enforces strict limits on:
+          - 💰 Daily cost limits ($5.00 maximum)
+          - ⏱️ Response time performance (max 20 slow traces)
+          - 💸 Expensive request limits (max 10 requests >$0.05)
+          - ❗ Error rate thresholds (max 20% error rate)
+          - 🔍 All CrashLens policy violations (high+ severity)
+          
+          ## 📊 Current Status
+          
+          $(if [ $? -eq 0 ]; then
+            echo "✅ **ALL LIMITS PASSED** - No violations detected"
+            echo "🎉 Your AI usage is within acceptable cost and performance bounds"
+          else
+            echo "❌ **ENFORCEMENT FAILED** - Violations detected"
+            echo "🚨 Build was terminated due to policy violations"
+            echo "📋 Review the workflow logs for specific violation details"
+          fi)
+          
+          ## 🔧 Configuration
+          
+          **Strict Limits Applied:**
+          - Maximum daily cost: $5.00
+          - Maximum slow traces: 20
+          - Maximum expensive requests: 10  
+          - Maximum error rate: 20%
+          - Policy severity threshold: High
+          
+          ---
+          *Enforced by CrashLens Strict CI v2.9.1*
+          EOF
+
+      - name: Upload Strict Enforcement Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-enforcement-results-${{ github.run_number }}
+          path: |
+            strict-enforcement-report.md
+            logs/*.jsonl
+          retention-days: 7

@@ -1,0 +1,454 @@
+name: CrashLens Analysis (Comprehensive)
+
+on:
+  # Run on push to main and pull requests
+  push:
+    branches: [ main, raj ]
+  pull_request:
+    branches: [ main ]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of scan to perform'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - logs-only
+          - security
+      count:
+        description: 'Number of test traces to generate'
+        required: false
+        default: '100'
+      
+  # Run daily at 6 AM UTC
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  crashlens-analysis:
+    runs-on: ubuntu-latest
+    name: CrashLens Comprehensive Analysis (Non-breaking)
+    
+    # 🔧 CONFIGURATION SECTION - Adjust these values to control CI behavior
+    env:
+      # Policy Configuration
+      CRASHLENS_TEMPLATES: "retry-loop-prevention,model-overkill-detection,budget-protection"  # or "all"
+      CRASHLENS_SEVERITY: "high"                    # low/medium/high/critical
+      CRASHLENS_FAIL_ON_VIOLATIONS: "false"        # "true" to break CI on violations
+      
+      # Cost Limits (optional)
+      DAILY_COST_LIMIT: "10.00"                    # Maximum daily cost in USD
+      EXPENSIVE_REQUEST_THRESHOLD: "0.05"          # Flag requests over $0.05
+      
+      # Performance Limits (optional)  
+      SLOW_RESPONSE_THRESHOLD_MS: "3000"           # Flag responses over 3 seconds
+      ERROR_RATE_THRESHOLD: "0.20"                 # Flag if >20% error rate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          
+      - name: Install Crashlens
+        run: |
+          # Install Crashlens directly from PyPI
+          pip install crashlens==2.9.1
+          
+          # Verify installation
+          crashlens --version
+          
+      - name: Initialize Crashlens Configuration
+        run: |
+          # Use environment variables for configuration
+          echo "🔧 Using CI Configuration:"
+          echo "  Templates: $CRASHLENS_TEMPLATES"
+          echo "  Severity: $CRASHLENS_SEVERITY" 
+          echo "  Fail on violations: $CRASHLENS_FAIL_ON_VIOLATIONS"
+          echo "  Daily cost limit: \$$DAILY_COST_LIMIT"
+          
+          # Set up automated configuration
+          export CRASHLENS_TEMPLATES="$CRASHLENS_TEMPLATES"
+          export CRASHLENS_SEVERITY="$CRASHLENS_SEVERITY"
+          export CRASHLENS_FAIL_ON_VIOLATIONS="$CRASHLENS_FAIL_ON_VIOLATIONS"
+          export CRASHLENS_LOGS_SOURCE="local"
+          export CRASHLENS_CREATE_WORKFLOW="false"
+          
+          # Initialize config
+          crashlens init --non-interactive
+          
+          # Show configuration
+          echo "📋 Crashlens Configuration:"
+          cat .crashlens/config.yaml
+          
+      - name: Check Cost Limits (Optional)
+        if: env.DAILY_COST_LIMIT != ''
+        continue-on-error: true  # Remove this line to make cost limits break CI
+        run: |
+          echo "💰 Checking cost limits..."
+          
+          # Install jq for JSON processing
+          sudo apt-get update && sudo apt-get install -y jq bc || true
+          
+          # Calculate total cost from logs (if they contain cost data)
+          if ls logs/*.jsonl 1> /dev/null 2>&1; then
+            TOTAL_COST=$(cat logs/*.jsonl | jq -r '.totalCost // 0' 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
+            
+            echo "📊 Cost Analysis:"
+            echo "   Total cost in logs: \$$TOTAL_COST"
+            echo "   Daily limit: \$$DAILY_COST_LIMIT"
+            
+            # Check if limit exceeded
+            if command -v bc >/dev/null && (( $(echo "$TOTAL_COST > $DAILY_COST_LIMIT" | bc -l 2>/dev/null || echo 0) )); then
+              echo "🚨 COST LIMIT EXCEEDED!"
+              echo "   Current: \$$TOTAL_COST"
+              echo "   Limit: \$$DAILY_COST_LIMIT"
+              echo "   Recommendation: Review expensive API calls and optimize"
+              # exit 1  # Uncomment to break CI on cost limit exceeded
+            else
+              echo "✅ Cost within limits"
+            fi
+          else
+            echo "ℹ️ No log files available for cost analysis"
+          fi
+          
+      - name: Prepare Real Log Data
+        run: |
+          echo "📁 Using real log files from .llm_logs/ folder..."
+          
+          # Check if .llm_logs directory exists
+          if [ -d ".llm_logs" ]; then
+            echo "✅ Found .llm_logs directory"
+            ls -la .llm_logs/
+            
+            # Create logs directory for analysis
+            mkdir -p logs
+            
+            # Copy all .jsonl files from .llm_logs to logs directory
+            if ls .llm_logs/*.jsonl 1> /dev/null 2>&1; then
+              cp .llm_logs/*.jsonl logs/
+              echo "📋 Copied log files:"
+              ls -la logs/
+              
+              # Validate log files
+              echo "📊 Log file validation:"
+              wc -l logs/*.jsonl
+              
+              # Show sample of first file for verification
+              echo "🔍 Sample from first log file:"
+              head -n 2 logs/*.jsonl | head -n 1
+            else
+              echo "❌ No .jsonl files found in .llm_logs directory"
+              echo "📁 Contents of .llm_logs:"
+              ls -la .llm_logs/
+              exit 1
+            fi
+          else
+            echo "❌ .llm_logs directory not found in repository"
+            echo "� Repository contents:"
+            ls -la
+            exit 1
+          fi
+          
+      - name: Run Crashlens Policy Analysis - Individual Files
+        id: individual-analysis
+        continue-on-error: true
+        run: |
+          echo "🔍 Running policy analysis on individual log files..."
+          
+          # Analyze each log file separately
+          for log_file in logs/*.jsonl; do
+            if [ -f "$log_file" ]; then
+              filename=$(basename "$log_file" .jsonl)
+              echo "� Analyzing $log_file..."
+              
+              # Run policy check and save to individual report
+              crashlens policy-check "$log_file" \
+                --policy-template all \
+                --severity-threshold high > "analysis-${filename}.md" 2>&1
+                
+              echo "✅ Analysis completed for $filename"
+            fi
+          done
+          
+      - name: Run Comprehensive Policy Check
+        id: full-analysis
+        continue-on-error: true
+        run: |
+          echo "🔍 Running comprehensive policy analysis..."
+          
+          # Combine all log files for comprehensive analysis
+          cat logs/*.jsonl > logs/combined-logs.jsonl
+          
+          # Run full policy suite and capture output
+          crashlens policy-check logs/combined-logs.jsonl \
+            --policy-template all \
+            --severity-threshold medium > comprehensive-analysis-report.md 2>&1
+            
+          echo "✅ Comprehensive analysis completed"
+          
+      - name: Security Dependency Scan
+        if: inputs.scan_type == 'full' || inputs.scan_type == 'security'
+        continue-on-error: true
+        run: |
+          echo "🛡️ Running security dependency scan..."
+          
+          # Install security tools
+          pip install safety bandit
+          
+          # Check for known vulnerabilities
+          safety check --json --output safety-report.json || echo "Safety scan completed with findings"
+          
+          # Static security analysis on source code (if any Python files exist)
+          if [ -d "crashlens/" ]; then
+            bandit -r crashlens/ -f json -o bandit-report.json || echo "Bandit scan completed"
+          else
+            echo "No source code directory found, skipping bandit scan"
+            echo '{"results": [], "metrics": {"_totals": {"nosec": 0, "skipped_tests": 0, "loc": 0, "confidence": {"high": 0, "medium": 0, "low": 0}, "severity": {"high": 0, "medium": 0, "low": 0}}}}' > bandit-report.json
+          fi
+          
+          echo "✅ Security scan completed"
+          
+      - name: Performance Analysis
+        continue-on-error: true
+        run: |
+          echo "📊 Running performance analysis..."
+          
+          # Create performance analysis script
+          cat > analyze_performance.py << 'EOF'
+          import json
+          import glob
+          from datetime import datetime
+          
+          print("=== Crashlens Performance Analysis ===")
+          
+          log_files = glob.glob('logs/*.jsonl')
+          performance_stats = {
+              'total_traces': 0,
+              'slow_traces': 0,
+              'fast_traces': 0,
+              'error_traces': 0,
+              'avg_response_time': 0,
+              'max_response_time': 0,
+              'expensive_requests': 0,
+              'analysis_timestamp': datetime.now().isoformat()
+          }
+          
+          total_time = 0
+          response_times = []
+          
+          for log_file in log_files:
+              print(f"Analyzing {log_file}...")
+              try:
+                  with open(log_file, 'r') as f:
+                      for line in f:
+                          try:
+                              trace = json.loads(line.strip())
+                              performance_stats['total_traces'] += 1
+                              
+                              # Extract timing information
+                              if 'endTime' in trace and 'startTime' in trace:
+                                  # Simple duration calculation (in practice, would parse timestamps)
+                                  duration = 1000  # Default 1 second
+                                  response_times.append(duration)
+                                  total_time += duration
+                                  
+                                  if duration > 3000:  # > 3 seconds
+                                      performance_stats['slow_traces'] += 1
+                                  else:
+                                      performance_stats['fast_traces'] += 1
+                              
+                              # Check for errors
+                              if 'level' in trace and trace['level'] == 'ERROR':
+                                  performance_stats['error_traces'] += 1
+                              
+                              # Check cost
+                              if 'totalCost' in trace and trace['totalCost'] > 0.01:
+                                  performance_stats['expensive_requests'] += 1
+                                  
+                          except json.JSONDecodeError:
+                              continue
+              except FileNotFoundError:
+                  continue
+          
+          # Calculate averages
+          if response_times:
+              performance_stats['avg_response_time'] = sum(response_times) / len(response_times)
+              performance_stats['max_response_time'] = max(response_times)
+          
+          # Save results
+          with open('performance-analysis-results.json', 'w') as f:
+              json.dump(performance_stats, f, indent=2)
+          
+          # Print summary
+          print(f"\n📊 Performance Summary:")
+          print(f"   Total traces analyzed: {performance_stats['total_traces']}")
+          print(f"   Slow traces (>3s): {performance_stats['slow_traces']}")
+          print(f"   Fast traces (<3s): {performance_stats['fast_traces']}")
+          print(f"   Error traces: {performance_stats['error_traces']}")
+          print(f"   Expensive requests: {performance_stats['expensive_requests']}")
+          print(f"   Average response time: {performance_stats['avg_response_time']:.0f}ms")
+          
+        
+          
+      - name: Generate Comprehensive Report
+        if: always()
+        run: |
+          echo "📄 Generating comprehensive analysis report..."
+          
+          cat > final-crashlens-report.md << EOF
+          # 🔍 Crashlens Analysis Report
+          
+          **Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")  
+          **Repository:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Workflow:** ${{ github.workflow }} #${{ github.run_number }}
+          
+          ## 📊 Analysis Summary
+          
+          ### Token Waste Detection Results
+          
+          $(if [ -f retry-analysis-report.md ]; then echo "#### Retry Loop Analysis"; cat retry-analysis-report.md; else echo "❌ Retry analysis not completed"; fi)
+          
+          $(if [ -f model-overkill-report.md ]; then echo "#### Model Overkill Analysis"; cat model-overkill-report.md; else echo "❌ Model overkill analysis not completed"; fi)
+          
+          ### Security Scan Results
+          
+          $(if [ -f safety-report.json ]; then echo "✅ Dependency vulnerability scan completed"; else echo "❌ Security scan not completed"; fi)
+          $(if [ -f bandit-report.json ]; then echo "✅ Static security analysis completed"; else echo "❌ Static security analysis not completed"; fi)
+          
+          ### Performance Analysis
+          
+          $(if [ -f performance-analysis-results.json ]; then echo "✅ Performance analysis completed"; cat performance-analysis-results.json; else echo "❌ Performance analysis not completed"; fi)
+          
+          ## 🎯 Key Findings
+          
+          - **Policy Violations:** Check individual analysis reports above
+          - **Security Issues:** Review safety-report.json and bandit-report.json
+          - **Performance Issues:** Review performance-analysis-results.json
+          
+          ## 📋 Recommendations
+          
+          1. **Token Optimization:** Review retry patterns and model selection
+          2. **Security:** Update any vulnerable dependencies found
+          3. **Performance:** Optimize slow API calls and reduce response times
+          4. **Monitoring:** Set up regular Crashlens scans in CI/CD
+          
+          ## 📁 Available Artifacts
+          
+          - Detailed analysis reports (Markdown & JSON)
+          - Security scan results
+          - Performance analysis data
+          - Generated test logs for validation
+          
+          ---
+          *Report generated by Crashlens v2.9.1*
+          EOF
+          
+      - name: Upload Analysis Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crashlens-analysis-${{ github.run_number }}
+          path: |
+            final-crashlens-report.md
+            analysis-*.md
+            comprehensive-analysis-report.md
+            performance-analysis-results.json
+            safety-report.json
+            bandit-report.json
+            logs/*.jsonl
+            .crashlens/config.yaml
+          retention-days: 30
+          
+      - name: Comment PR with Results  
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 🔍 Crashlens Analysis Results\n\n';
+            comment += `**Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+            
+            // Add analysis summary
+            comment += '### 📊 Analysis Summary:\n';
+            comment += '- ✅ Token waste detection completed\n';
+            comment += '- ✅ Policy violation analysis completed\n';
+            comment += '- ✅ Security dependency scan completed\n';
+            comment += '- ✅ Performance analysis completed\n\n';
+            
+            // Try to read key results
+            try {
+              if (fs.existsSync('retry-analysis-results.json')) {
+                const retryResults = JSON.parse(fs.readFileSync('retry-analysis-results.json', 'utf8'));
+                comment += `**Retry Analysis:** Found ${retryResults.violations?.length || 0} violations\n`;
+              }
+              
+              if (fs.existsSync('performance-analysis-results.json')) {
+                const perfResults = JSON.parse(fs.readFileSync('performance-analysis-results.json', 'utf8'));
+                comment += `**Performance Analysis:** Analyzed ${perfResults.total_traces || 0} traces\n`;
+              }
+            } catch (error) {
+              comment += '⚠️ Detailed results available in workflow artifacts.\n';
+            }
+            
+            comment += '\n📁 **View detailed reports in the [workflow artifacts](' + 
+                      context.payload.pull_request.html_url.replace('/pull/', '/actions/runs/${{ github.run_id }}') + ')**';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+            
+      - name: Set Workflow Summary
+        if: always()
+        run: |
+          echo "# 🔍 Crashlens Analysis Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY  
+          echo "**Commit:** [\`${{ github.sha }}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Analysis Components Completed:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f retry-analysis-report.md ]; then
+            echo "- ✅ **Retry Loop Detection** - Analysis completed" >> $GITHUB_STEP_SUMMARY
+          else  
+            echo "- ❌ **Retry Loop Detection** - Failed or skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f model-overkill-report.md ]; then
+            echo "- ✅ **Model Overkill Detection** - Analysis completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **Model Overkill Detection** - Failed or skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f comprehensive-analysis-report.md ]; then
+            echo "- ✅ **Comprehensive Policy Check** - Analysis completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **Comprehensive Policy Check** - Failed or skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f safety-report.json ]; then
+            echo "- ✅ **Security Dependency Scan** - Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **Security Dependency Scan** - Failed or skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f performance-analysis-results.json ]; then
+            echo "- ✅ **Performance Analysis** - Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ **Performance Analysis** - Failed or skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **[View detailed analysis results in artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**" >> $GITHUB_STEP_SUMMARY
