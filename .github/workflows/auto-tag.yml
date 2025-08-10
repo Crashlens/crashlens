@@ -1,0 +1,82 @@
+name: Auto Tag Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+    
+    - name: Configure Git
+      run: |
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+    
+    - name: Get version from pyproject.toml
+      id: get-version
+      run: |
+        VERSION=$(poetry version -s)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+    
+    - name: Check if tag exists
+      id: check-tag
+      run: |
+        if git rev-parse "v${{ steps.get-version.outputs.version }}" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Tag v${{ steps.get-version.outputs.version }} already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Tag v${{ steps.get-version.outputs.version }} does not exist"
+        fi
+    
+    - name: Create and push tag
+      if: steps.check-tag.outputs.exists == 'false'
+      run: |
+        git tag "v${{ steps.get-version.outputs.version }}"
+        git push origin "v${{ steps.get-version.outputs.version }}"
+        echo "✅ Created and pushed tag: v${{ steps.get-version.outputs.version }}"
+    
+    - name: Tag already exists
+      if: steps.check-tag.outputs.exists == 'true'
+      run: |
+        echo "⚠️ Tag v${{ steps.get-version.outputs.version }} already exists, skipping..."
+    
+    - name: Create GitHub Release
+      if: steps.check-tag.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: "v${{ steps.get-version.outputs.version }}"
+        name: "Release v${{ steps.get-version.outputs.version }}"
+        body: |
+          🚀 **CrashLens v${{ steps.get-version.outputs.version }}**
+          
+          Auto-generated release from version in pyproject.toml
+          
+          ## What's Changed
+          - Version bump to ${{ steps.get-version.outputs.version }}
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.get-version.outputs.version }}...v${{ steps.get-version.outputs.version }}
+        draft: false
+        prerelease: false
