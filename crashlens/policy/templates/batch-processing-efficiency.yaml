@@ -1,0 +1,118 @@
+# CrashLens Policy Template: Batch Processing Efficiency
+# Optimize batch processing patterns to reduce API overhead
+
+metadata:
+  name: "Batch Processing Efficiency"
+  description: "Optimize batch processing to reduce API calls and improve efficiency"
+  category: "batch_optimization"
+  severity_level: "medium"
+  estimated_savings: "20-50%"
+  
+rules:
+  - id: inefficient_single_requests
+    description: "Flag patterns that should be batched"
+    match:
+      similar_requests_count: ">10"
+      time_window: "<300"  # 5 minutes
+      batching_opportunity: true
+      requests_batchable: true
+    action: warn
+    severity: medium
+    suggestion: |
+      Multiple similar requests detected that could be batched.
+      Batching opportunities:
+      - Combine similar classification tasks
+      - Batch extraction operations
+      - Group related text processing
+      - Use array inputs where supported
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: suboptimal_batch_size
+    description: "Detect suboptimal batch sizes"
+    match:
+      batch_size: "<5"
+      available_context_for_larger_batch: true
+      batch_processing_enabled: true
+    action: warn
+    severity: low
+    suggestion: |
+      Small batch size detected when larger batches possible.
+      Batch size optimization:
+      - Increase batch size up to context limits
+      - Balance batch size vs processing time
+      - Use optimal batch sizes per model (typically 5-20 items)
+      - Consider memory and latency requirements
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: excessive_batch_overhead
+    description: "Flag batches with excessive formatting overhead"
+    match:
+      batch_formatting_overhead: ">30%"
+      actual_content_ratio: "<70%"
+    action: warn
+    severity: medium
+    suggestion: |
+      Excessive batch formatting overhead detected.
+      Batch format optimization:
+      - Simplify batch formatting templates
+      - Use more efficient serialization formats
+      - Minimize instructional overhead per item
+      - Consider JSON mode for structured batch processing
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: batch_size_context_mismatch
+    description: "Detect batch sizes that don't utilize available context efficiently"
+    match:
+      context_utilization: "<50%"
+      batch_could_be_larger: true
+      processing_time_acceptable: true
+    action: warn
+    severity: low
+    suggestion: |
+      Batch size not utilizing available context efficiently.
+      Context utilization improvements:
+      - Increase batch size to better utilize context window
+      - Balance processing efficiency with context usage
+      - Monitor processing time vs batch size trade-offs
+      - Use context-aware dynamic batch sizing
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: sequential_dependency_batching
+    description: "Flag inappropriate batching of sequential dependencies"
+    match:
+      batch_has_dependencies: true
+      items_depend_on_previous: true
+      parallel_processing_attempted: true
+    action: fail
+    severity: high
+    suggestion: |
+      Batching attempted on sequentially dependent operations!
+      Dependency handling:
+      - Don't batch operations that depend on previous results
+      - Use pipeline processing for dependent operations
+      - Implement proper dependency graph execution
+      - Consider streaming processing for dependent chains
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: mixed_complexity_batching
+    description: "Detect batches mixing different complexity tasks"
+    match:
+      batch_complexity_variance: ">high"
+      simple_and_complex_mixed: true
+      processing_time_variance: ">300%"
+    action: warn
+    severity: medium
+    suggestion: |
+      Mixed complexity batch detected - inefficient processing.
+      Batch composition optimization:
+      - Group similar complexity tasks together
+      - Process simple tasks in larger batches
+      - Use different models for different complexity levels
+      - Implement complexity-based batch routing
+    cost_impact: "medium"
+    requires_license: false

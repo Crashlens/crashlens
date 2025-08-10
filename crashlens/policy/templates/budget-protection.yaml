@@ -1,0 +1,111 @@
+# CrashLens Policy Template: Budget Protection
+# Comprehensive budget monitoring and protection policies
+
+metadata:
+  name: "Budget Protection"
+  description: "Prevent budget overruns and unexpected cost spikes"
+  category: "cost_control"
+  severity_level: "critical"
+  estimated_savings: "varies"
+  
+rules:
+  - id: daily_budget_exceeded
+    description: "Block requests when daily budget is exceeded"
+    match:
+      daily_spend: ">$100"  # Configurable per environment
+    action: fail
+    severity: critical
+    suggestion: |
+      Daily budget limit exceeded!
+      Immediate actions:
+      - Block non-essential API calls
+      - Switch to cached responses where possible
+      - Alert finance and engineering teams
+      - Review spending patterns for anomalies
+    cost_impact: "budget_protection"
+    requires_license: false
+    
+  - id: hourly_spend_spike
+    description: "Detect unusual hourly spending spikes"
+    match:
+      hourly_spend: ">$20"
+      spend_increase_ratio: ">5x"  # 5x higher than average
+    action: warn
+    severity: high
+    suggestion: |
+      Unusual spending spike detected!
+      Investigation steps:
+      - Check for infinite loops or storms
+      - Review recent deployments
+      - Analyze request patterns for anomalies
+      - Consider temporary rate limiting
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: expensive_single_request
+    description: "Flag unusually expensive single requests"
+    match:
+      cost: ">$5.00"
+      single_request: true
+    action: warn
+    severity: high
+    suggestion: |
+      Extremely expensive single request detected!
+      Analysis needed:
+      - Check prompt length and complexity
+      - Review model selection appropriateness
+      - Consider prompt optimization
+      - Implement cost warnings for users
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: model_cost_ratio_violation
+    description: "Detect inappropriate model cost ratios"
+    match:
+      gpt4_usage_percentage: ">70%"
+      cheaper_alternatives_available: true
+    action: warn
+    severity: medium
+    suggestion: |
+      High expensive model usage ratio detected.
+      Cost optimization:
+      - Aim for <50% premium model usage
+      - Route simple tasks to cheaper models
+      - Implement intelligent model selection
+      - Regular cost review meetings
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: token_efficiency_violation
+    description: "Flag inefficient token usage patterns"
+    match:
+      cost_per_output_token: ">$0.0001"
+      output_quality_score: "<0.8"
+    action: warn
+    severity: medium
+    suggestion: |
+      Poor token efficiency detected.
+      Optimization strategies:
+      - Review prompt engineering for conciseness
+      - Use more specific prompts to reduce iterations
+      - Consider fine-tuning for frequent tasks
+      - Implement output quality monitoring
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: weekend_spending_anomaly
+    description: "Detect unusual weekend spending patterns"
+    match:
+      day_of_week: ["Saturday", "Sunday"]
+      spend_ratio_vs_weekday: ">0.5"  # More than 50% of weekday spending
+    action: warn
+    severity: medium
+    suggestion: |
+      High weekend spending detected.
+      Review triggers:
+      - Check for automated processes running unnecessarily
+      - Review batch job schedules
+      - Validate emergency-only weekend usage policies
+      - Consider weekend budget limits
+    cost_impact: "medium"
+    requires_license: false

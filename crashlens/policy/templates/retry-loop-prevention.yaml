@@ -1,0 +1,87 @@
+# CrashLens Policy Template: Retry Loop Prevention
+# Detects and prevents expensive retry patterns that waste tokens
+
+metadata:
+  name: "Retry Loop Prevention"
+  description: "Comprehensive retry loop detection and prevention policies"
+  category: "cost_optimization"
+  severity_level: "critical"
+  estimated_savings: "15-40%"
+  
+rules:
+  - id: excessive_retry_pattern
+    description: "Block traces with excessive retry attempts"
+    match:
+      retry_count: ">3"
+    action: fail
+    severity: critical
+    suggestion: |
+      Detected >3 retry attempts. This indicates poor error handling.
+      Recommendations:
+      - Implement exponential backoff with jitter
+      - Add circuit breaker patterns
+      - Use cheaper models for retries
+      - Log retry reasons for debugging
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: expensive_model_retries
+    description: "Prevent expensive models in retry scenarios"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o", "claude-3-opus", "claude-3-sonnet"]
+      retry_count: ">1"
+    action: fail
+    severity: high
+    suggestion: |
+      Expensive model used in retry scenario. 
+      Solutions:
+      - Use gpt-4o-mini or gpt-3.5-turbo for retries
+      - Implement model degradation strategy
+      - Cache successful responses to avoid retries
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: rapid_retry_pattern
+    description: "Detect rapid retry patterns without backoff"
+    match:
+      retry_count: ">1"
+      time_between_retries: "<10"  # seconds
+    action: warn
+    severity: medium
+    suggestion: |
+      Rapid retries detected without proper backoff.
+      Implement exponential backoff: 2s, 4s, 8s, 16s delays
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: high_cost_retry_cascade
+    description: "Block retry cascades burning budget"
+    match:
+      cost: ">0.10"
+      retry_count: ">0"
+    action: fail
+    severity: high
+    suggestion: |
+      High-cost retry cascade detected (>${cost} per trace).
+      Emergency actions:
+      - Implement immediate circuit breaker
+      - Switch to cheaper fallback models
+      - Add request queuing and deduplication
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: persistent_failure_retry
+    description: "Detect persistent failures being retried"
+    match:
+      retry_count: ">2"
+      status: ["error", "timeout", "rate_limited"]
+    action: warn
+    severity: medium
+    suggestion: |
+      Persistent failures being retried repeatedly.
+      Solutions:
+      - Implement failure classification
+      - Stop retrying permanent failures (4xx errors)
+      - Use different strategies for different error types
+    cost_impact: "high"
+    requires_license: false

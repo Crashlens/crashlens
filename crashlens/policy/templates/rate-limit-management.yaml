@@ -1,0 +1,96 @@
+# CrashLens Policy Template: Rate Limit Violations
+# Detect and prevent rate limiting issues
+
+metadata:
+  name: "Rate Limit Management"
+  description: "Detect rate limiting issues and prevent API quota waste"
+  category: "api_efficiency"
+  severity_level: "high"
+  estimated_savings: "5-20%"
+  
+rules:
+  - id: excessive_rate_limit_hits
+    description: "Block patterns that consistently hit rate limits"
+    match:
+      rate_limit_errors: ">5"
+      time_window: "<300"  # 5 minutes
+    action: fail
+    severity: high
+    suggestion: |
+      Excessive rate limiting detected!
+      Efficiency measures:
+      - Implement exponential backoff with jitter
+      - Add request queuing and batching
+      - Monitor rate limit headers
+      - Distribute requests across time windows
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: burst_traffic_without_backoff
+    description: "Detect burst traffic patterns without proper backoff"
+    match:
+      requests_per_second: ">10"
+      backoff_strategy: null
+      rate_limit_status: "approaching_limit"
+    action: warn
+    severity: medium
+    suggestion: |
+      Burst traffic without backoff detected.
+      Traffic management:
+      - Implement request smoothing algorithms
+      - Use token bucket rate limiting
+      - Add client-side request queuing
+      - Monitor provider rate limit status
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: retry_after_rate_limit
+    description: "Prevent immediate retries after rate limit hits"
+    match:
+      previous_error: "rate_limited"
+      retry_delay: "<30"  # seconds
+    action: warn
+    severity: medium
+    suggestion: |
+      Immediate retry after rate limit detected.
+      Proper retry strategy:
+      - Respect 'Retry-After' headers
+      - Implement minimum 30-60 second delays
+      - Use exponential backoff: 30s, 60s, 120s
+      - Consider request queuing instead of retrying
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: concurrent_request_excess
+    description: "Flag excessive concurrent requests"
+    match:
+      concurrent_requests: ">20"
+      provider: ["openai", "anthropic"]
+    action: warn
+    severity: medium
+    suggestion: |
+      High concurrent request count detected.
+      Concurrency management:
+      - Limit concurrent requests (OpenAI: 10-20, Anthropic: 5-10)
+      - Implement request pooling
+      - Use semaphores for concurrency control
+      - Monitor provider-specific limits
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: quota_depletion_pattern
+    description: "Detect patterns leading to quota depletion"
+    match:
+      quota_usage: ">90%"
+      time_remaining_in_period: ">25%"
+    action: warn
+    severity: high
+    suggestion: |
+      Quota depletion risk detected!
+      Quota management:
+      - Implement quota monitoring and alerting
+      - Use tiered quota allocation (critical vs non-critical)
+      - Add quota-aware request scheduling
+      - Consider upgrading API tiers if consistently hitting limits
+    cost_impact: "high"
+    requires_license: false

@@ -1,0 +1,117 @@
+# CrashLens Policy Template: Fallback Storm Detection
+# Prevents cascading failures and fallback storms
+
+metadata:
+  name: "Fallback Storm Detection"
+  description: "Detect and prevent cascading fallback failures"
+  category: "system_reliability"
+  severity_level: "critical"
+  estimated_savings: "10-35%"
+  
+rules:
+  - id: excessive_fallback_cascade
+    description: "Block cascading fallback failures"
+    match:
+      fallback_chain_length: ">4"
+      fallback_models_tried: ">3"
+    action: fail
+    severity: critical
+    suggestion: |
+      Excessive fallback cascade detected!
+      Stability measures:
+      - Limit fallback chain to 2-3 models maximum
+      - Implement circuit breakers for model failures
+      - Use health checks before fallback attempts
+      - Add exponential backoff between fallbacks
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: fallback_to_expensive_model
+    description: "Prevent fallbacks to more expensive models"
+    match:
+      primary_model: ["gpt-4o-mini", "gpt-3.5-turbo", "claude-haiku"]
+      fallback_model: ["gpt-4", "claude-3-opus", "claude-3-sonnet"]
+    action: fail
+    severity: high
+    suggestion: |
+      Fallback to MORE expensive model detected!
+      Cost-effective fallback strategy:
+      - Fallback should go from expensive → cheap
+      - Use gpt-4o-mini as final fallback
+      - Implement graceful degradation, not escalation
+      - Cache successful responses to avoid fallbacks
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: rapid_fallback_storm
+    description: "Detect rapid fallback storms"
+    match:
+      fallback_attempts: ">10"
+      time_window: "<60"  # 1 minute
+      unique_error_types: ">1"
+    action: fail
+    severity: critical
+    suggestion: |
+      Rapid fallback storm detected - system instability!
+      Emergency response:
+      - Implement immediate circuit breaker
+      - Pause API calls for cooling period
+      - Switch to cached responses where available
+      - Alert on-call team for manual intervention
+    cost_impact: "catastrophic"
+    requires_license: false
+    
+  - id: cross_provider_storm
+    description: "Detect cross-provider fallback storms"
+    match:
+      providers_attempted: ">2"  # OpenAI, Anthropic, Google, etc.
+      fallback_attempts: ">5"
+      success_rate: "<0.3"
+    action: fail
+    severity: critical
+    suggestion: |
+      Cross-provider fallback storm detected!
+      System-wide issue suspected.
+      Actions:
+      - Check provider status pages
+      - Implement provider health monitoring
+      - Use static fallback responses for critical paths
+      - Enable maintenance mode if all providers failing
+    cost_impact: "catastrophic"
+    requires_license: false
+    
+  - id: model_unavailability_cascade
+    description: "Detect model unavailability cascades"
+    match:
+      error_types: ["model_unavailable", "capacity_exceeded", "rate_limited"]
+      fallback_attempts: ">3"
+      affected_models: ">2"
+    action: warn
+    severity: high
+    suggestion: |
+      Model availability cascade detected.
+      Mitigation strategies:
+      - Implement model availability caching
+      - Use health check endpoints before calls
+      - Implement request queuing during capacity issues
+      - Add automatic retry with exponential backoff
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: persistent_fallback_failure
+    description: "Detect persistent fallback failures"
+    match:
+      fallback_success_rate: "<0.5"
+      time_period: ">300"  # 5 minutes
+      fallback_attempts: ">20"
+    action: warn
+    severity: medium
+    suggestion: |
+      Persistent fallback failures detected.
+      Investigation needed:
+      - Review fallback model configurations
+      - Check authentication and API limits
+      - Validate fallback prompt compatibility
+      - Consider temporary service degradation
+    cost_impact: "medium"
+    requires_license: false

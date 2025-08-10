@@ -1,0 +1,118 @@
+# CrashLens Policy Template: Context Window Optimization
+# Optimize context window usage to prevent waste and improve efficiency
+
+metadata:
+  name: "Context Window Optimization"
+  description: "Optimize context window usage for better token efficiency"
+  category: "context_management"
+  severity_level: "medium"
+  estimated_savings: "15-40%"
+  
+rules:
+  - id: context_window_underutilization
+    description: "Flag significant context window underutilization"
+    match:
+      context_utilization: "<0.3"  # Using less than 30% of available context
+      model_max_context: ">8000"
+      task_could_benefit_from_more_context: true
+    action: warn
+    severity: low
+    suggestion: |
+      Significant context underutilization detected.
+      Context optimization opportunities:
+      - Include more relevant context for better results
+      - Use smaller context models for simple tasks
+      - Consider gpt-4o-mini (128k) instead of gpt-4-turbo (128k) for cost savings
+      - Bundle related requests to utilize context efficiently
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: context_window_near_limit
+    description: "Detect frequent context window limit approaches"
+    match:
+      context_utilization: ">0.95"
+      truncation_required: true
+      frequency_per_hour: ">10"
+    action: warn
+    severity: medium
+    suggestion: |
+      Frequent context limit issues detected.
+      Context management strategies:
+      - Implement intelligent context summarization
+      - Use sliding window techniques
+      - Prioritize most relevant context sections
+      - Consider upgrading to larger context models
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: inefficient_context_chunking
+    description: "Flag inefficient context chunking patterns"
+    match:
+      chunk_overlap: ">0.5"  # More than 50% overlap
+      chunk_count: ">10"
+      processing_efficiency: "<0.7"
+    action: warn
+    severity: medium
+    suggestion: |
+      Inefficient context chunking detected.
+      Chunking optimization:
+      - Reduce chunk overlap to 10-20%
+      - Use semantic chunking instead of fixed sizes
+      - Implement intelligent boundary detection
+      - Consider map-reduce patterns for large documents
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: redundant_context_repetition
+    description: "Detect redundant context being repeated across calls"
+    match:
+      context_similarity_across_calls: ">0.8"
+      repeated_context_length: ">2000"
+      call_frequency: ">5_per_hour"
+    action: warn
+    severity: medium
+    suggestion: |
+      Redundant context repetition detected.
+      Context caching strategies:
+      - Implement context caching mechanisms
+      - Use conversation state management
+      - Reference previous context instead of repeating
+      - Consider using assistant/thread-based APIs
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: large_context_simple_task
+    description: "Flag large context usage for simple tasks"
+    match:
+      context_length: ">16000"
+      task_complexity: "simple"
+      task_type: ["classification", "extraction", "yes_no"]
+    action: warn
+    severity: medium
+    suggestion: |
+      Large context used for simple task.
+      Context right-sizing:
+      - Extract only relevant portions for simple tasks
+      - Use context summarization before processing
+      - Consider if full context is actually needed
+      - Implement task-appropriate context selection
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: context_thrashing
+    description: "Detect context thrashing patterns"
+    match:
+      context_switches: ">20"
+      time_window: "<3600"  # 1 hour
+      context_reuse_efficiency: "<0.3"
+    action: warn
+    severity: high
+    suggestion: |
+      Context thrashing detected - frequent context switching.
+      Context stability improvements:
+      - Batch related operations together
+      - Implement context session management
+      - Use persistent context where appropriate
+      - Minimize unnecessary context changes
+    cost_impact: "high"
+    requires_license: false

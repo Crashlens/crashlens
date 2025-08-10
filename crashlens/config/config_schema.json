@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://crashlens.com/schemas/config.json",
+  "title": "Crashlens Configuration Schema",
+  "description": "Schema for validating Crashlens configuration files",
+  "type": "object",
+  "properties": {
+    "policy_template": {
+      "description": "Policy templates to use for analysis",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["all"]
+        },
+        {
+          "type": "string",
+          "pattern": "^(retry-loop-prevention|model-overkill-detection|chain-recursion-prevention|fallback-storm-detection|budget-protection|rate-limit-management|prompt-optimization|error-handling-efficiency|context-window-optimization|batch-processing-efficiency)(,(retry-loop-prevention|model-overkill-detection|chain-recursion-prevention|fallback-storm-detection|budget-protection|rate-limit-management|prompt-optimization|error-handling-efficiency|context-window-optimization|batch-processing-efficiency))*$"
+        }
+      ]
+    },
+    "severity_threshold": {
+      "description": "Minimum severity level for policy violations",
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "fail_on_violations": {
+      "description": "Whether to fail CI/CD on policy violations",
+      "type": "boolean"
+    },
+    "logs_source": {
+      "description": "Source of log data",
+      "type": "string",
+      "enum": ["local", "langfuse", "helicone", "other"]
+    },
+    "created_at": {
+      "description": "ISO 8601 timestamp of config creation",
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "description": "Crashlens version used to create this config",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?(-[a-zA-Z0-9]+)?$"
+    },
+    "output_directory": {
+      "description": "Directory for storing analysis reports",
+      "type": "string",
+      "default": "."
+    },
+    "api_keys": {
+      "description": "API key configuration (encrypted or references)",
+      "type": "object",
+      "properties": {
+        "langfuse_public_key": {
+          "type": "string"
+        },
+        "langfuse_secret_key_ref": {
+          "type": "string",
+          "description": "Reference to secret storage (e.g., env:LANGFUSE_SECRET_KEY)"
+        },
+        "helicone_api_key_ref": {
+          "type": "string",
+          "description": "Reference to secret storage (e.g., env:HELICONE_API_KEY)"
+        },
+        "openai_api_key_ref": {
+          "type": "string",
+          "description": "Reference to secret storage (e.g., env:OPENAI_API_KEY)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "workflow_config": {
+      "description": "GitHub Actions workflow configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "python_version": {
+          "type": "string",
+          "enum": ["3.10", "3.11", "3.12"],
+          "default": "3.11"
+        },
+        "trigger_branches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["main"]
+        },
+        "artifact_retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90,
+          "default": 30
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "policy_template",
+    "severity_threshold", 
+    "fail_on_violations",
+    "logs_source",
+    "version"
+  ],
+  "additionalProperties": false
+}

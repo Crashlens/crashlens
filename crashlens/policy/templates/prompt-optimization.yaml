@@ -1,0 +1,115 @@
+# CrashLens Policy Template: Prompt Optimization
+# Detect inefficient prompt patterns that waste tokens
+
+metadata:
+  name: "Prompt Optimization"
+  description: "Identify prompt patterns that waste tokens and reduce efficiency"
+  category: "prompt_engineering"
+  severity_level: "medium"
+  estimated_savings: "10-30%"
+  
+rules:
+  - id: excessive_prompt_length
+    description: "Flag unnecessarily long prompts"
+    match:
+      usage.prompt_tokens: ">4000"
+      task_complexity: ["simple", "moderate"]
+    action: warn
+    severity: medium
+    suggestion: |
+      Excessively long prompt for simple task detected.
+      Optimization strategies:
+      - Remove redundant instructions
+      - Use more concise language
+      - Break complex prompts into sequential calls
+      - Consider fine-tuning for repeated verbose prompts
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: repetitive_context_inclusion
+    description: "Detect repetitive context being included unnecessarily"
+    match:
+      context_similarity: ">0.9"
+      context_length: ">1000"
+      consecutive_calls: ">3"
+    action: warn
+    severity: medium
+    suggestion: |
+      Repetitive context inclusion detected.
+      Context optimization:
+      - Implement context caching
+      - Use conversation memory/state management
+      - Remove redundant background information
+      - Summarize long contexts instead of full inclusion
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: verbose_example_overuse
+    description: "Flag overuse of verbose examples in prompts"
+    match:
+      example_count: ">5"
+      example_total_length: ">2000"
+      task_type: ["classification", "extraction"]
+    action: warn
+    severity: low
+    suggestion: |
+      Excessive examples in prompt detected.
+      Example optimization:
+      - Use 1-3 high-quality examples instead of many
+      - Choose diverse, representative examples
+      - Consider few-shot learning techniques
+      - Use shorter, focused examples for simple tasks
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: unnecessary_formatting_instructions
+    description: "Detect overly detailed formatting instructions"
+    match:
+      prompt_contains_formatting: ">500"  # characters of formatting instructions
+      output_format: "simple"
+    action: warn
+    severity: low
+    suggestion: |
+      Excessive formatting instructions detected.
+      Formatting optimization:
+      - Use simple format specifications
+      - Rely on model's default formatting for basic tasks
+      - Use system messages for consistent formatting rules
+      - Consider structured output modes (JSON mode)
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: redundant_safety_instructions
+    description: "Flag redundant safety/instruction repetition"
+    match:
+      instruction_repetition_score: ">3"
+      safety_instruction_length: ">300"
+    action: warn
+    severity: low
+    suggestion: |
+      Redundant safety instructions detected.
+      Instruction optimization:
+      - Use system messages for consistent safety rules
+      - Avoid repeating safety instructions in every prompt
+      - Trust model's built-in safety training
+      - Keep safety instructions concise and specific
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: inefficient_chain_of_thought
+    description: "Detect inefficient chain-of-thought prompting"
+    match:
+      chain_of_thought_length: ">1000"
+      task_complexity: "simple"
+      thinking_steps: ">10"
+    action: warn
+    severity: medium
+    suggestion: |
+      Over-engineered chain-of-thought detected for simple task.
+      CoT optimization:
+      - Use direct prompts for simple tasks
+      - Reserve detailed CoT for complex reasoning
+      - Use structured thinking frameworks
+      - Consider if the task actually needs step-by-step reasoning
+    cost_impact: "medium"
+    requires_license: false

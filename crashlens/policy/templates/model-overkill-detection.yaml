@@ -1,0 +1,112 @@
+# CrashLens Policy Template: Model Overkill Detection
+# Prevents using expensive models for simple tasks
+
+metadata:
+  name: "Model Overkill Detection"
+  description: "Detect and prevent using expensive models for simple tasks"
+  category: "cost_optimization"
+  severity_level: "high"
+  estimated_savings: "25-60%"
+  
+rules:
+  - id: gpt4_for_simple_tasks
+    description: "Block GPT-4 usage for simple/short prompts"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      OR:
+        - usage.prompt_tokens: "<50"
+        - input.prompt_length: "<200"
+        - task_complexity: "simple"
+    action: fail
+    severity: high
+    suggestion: |
+      GPT-4 used for simple task. Cost optimization opportunities:
+      - Use gpt-4o-mini (90% cheaper, similar quality for simple tasks)
+      - Use gpt-3.5-turbo for classification, extraction, summaries <500 tokens
+      - Reserve GPT-4 for complex reasoning, code generation, creative tasks
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: claude_opus_overkill
+    description: "Prevent Claude Opus for basic tasks"
+    match:
+      input.model: ["claude-3-opus"]
+      OR:
+        - usage.prompt_tokens: "<100"
+        - task_type: ["classification", "extraction", "translation"]
+    action: fail
+    severity: high
+    suggestion: |
+      Claude Opus used for basic task. More efficient alternatives:
+      - Use Claude Haiku for simple tasks (50x cheaper)
+      - Use Claude Sonnet for moderate complexity
+      - Reserve Opus for complex analysis and reasoning
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: expensive_model_for_keywords
+    description: "Block expensive models for keyword extraction"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
+      task_type: ["keyword_extraction", "entity_extraction", "classification"]
+    action: fail
+    severity: medium
+    suggestion: |
+      Expensive model used for structured extraction task.
+      Cheaper alternatives:
+      - Use gpt-4o-mini for keyword extraction
+      - Use Claude Haiku for entity recognition
+      - Consider fine-tuned smaller models for repeated tasks
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: overkill_for_translation
+    description: "Flag expensive models for simple translation"
+    match:
+      input.model: ["gpt-4", "claude-3-opus"]
+      task_type: "translation"
+      target_languages: ["es", "fr", "de", "it", "pt"]  # Common languages
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive model used for basic translation.
+      Cost-effective options:
+      - Use gpt-3.5-turbo for common language pairs
+      - Use specialized translation APIs (Google Translate, DeepL)
+      - Reserve premium models for nuanced/creative translation
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: premium_model_for_summaries
+    description: "Detect premium models used for basic summaries"
+    match:
+      input.model: ["gpt-4", "claude-3-opus"]
+      task_type: "summarization"
+      input.content_length: "<5000"  # characters
+    action: warn
+    severity: medium
+    suggestion: |
+      Premium model used for basic summarization.
+      Efficient alternatives:
+      - Use gpt-4o-mini for summaries under 10k characters
+      - Use Claude Haiku for bullet point summaries
+      - Consider abstractive vs extractive summarization needs
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: expensive_model_validation
+    description: "Block expensive models for simple validation tasks"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
+      task_type: ["validation", "verification", "fact_check"]
+      expected_output: ["yes", "no", "true", "false", "valid", "invalid"]
+    action: fail
+    severity: high
+    suggestion: |
+      Expensive model used for binary validation task.
+      Much cheaper alternatives:
+      - Use gpt-4o-mini for yes/no questions
+      - Use classification endpoints
+      - Implement rule-based validation where possible
+    cost_impact: "very_high"
+    requires_license: false

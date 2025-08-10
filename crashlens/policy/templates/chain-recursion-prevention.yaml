@@ -1,0 +1,115 @@
+# CrashLens Policy Template: Chain Recursion Prevention
+# Detects infinite loops, recursive calls, and chain explosions
+
+metadata:
+  name: "Chain Recursion Prevention"
+  description: "Prevent infinite loops and recursive API call patterns"
+  category: "system_stability"
+  severity_level: "critical"
+  estimated_savings: "20-70%"
+  
+rules:
+  - id: infinite_loop_detection
+    description: "Block potential infinite loops in API calls"
+    match:
+      call_depth: ">10"
+      same_prompt_hash_count: ">5"
+    action: fail
+    severity: critical
+    suggestion: |
+      Potential infinite loop detected!
+      Emergency measures:
+      - Implement maximum recursion depth limits
+      - Add circuit breakers for repeated identical calls
+      - Log and analyze call patterns for debugging
+      - Implement call deduplication
+    cost_impact: "catastrophic"
+    requires_license: false
+    
+  - id: recursive_chain_explosion
+    description: "Detect exponentially growing chain calls"
+    match:
+      chain_length: ">20"
+      calls_per_minute: ">50"
+      trace_id_variations: ">10"
+    action: fail
+    severity: critical
+    suggestion: |
+      Recursive chain explosion detected!
+      Immediate actions needed:
+      - Implement exponential backoff
+      - Add maximum chain length limits (5-10 calls)
+      - Use async processing for long chains
+      - Implement call batching
+    cost_impact: "catastrophic"
+    requires_license: false
+    
+  - id: nested_agent_loops
+    description: "Block deeply nested agent-to-agent calls"
+    match:
+      agent_call_depth: ">5"
+      metadata.agent_type: ["planning", "execution", "validation"]
+    action: fail
+    severity: high
+    suggestion: |
+      Deep agent nesting detected. This creates exponential cost growth.
+      Solutions:
+      - Limit agent call depth to 3-5 levels
+      - Use iterative instead of recursive patterns
+      - Implement agent call budgets
+      - Add loop detection in agent orchestration
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: prompt_feedback_loop
+    description: "Detect prompt feedback loops"
+    match:
+      prompt_similarity: ">0.95"
+      consecutive_similar_calls: ">3"
+      time_window: "<300"  # 5 minutes
+    action: warn
+    severity: high
+    suggestion: |
+      Prompt feedback loop detected - model generating prompts for itself.
+      Prevention strategies:
+      - Add prompt variation tracking
+      - Implement similarity thresholds
+      - Use deterministic prompts where possible
+      - Break cycles with external inputs
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: tool_calling_recursion
+    description: "Prevent infinite tool calling loops"
+    match:
+      tool_calls_count: ">15"
+      same_tool_consecutive: ">5"
+    action: fail
+    severity: critical
+    suggestion: |
+      Tool calling recursion detected!
+      Safety measures:
+      - Limit tool calls per request (10-15 max)
+      - Prevent consecutive identical tool calls
+      - Add tool call result caching
+      - Implement tool call circuit breakers
+    cost_impact: "catastrophic"
+    requires_license: false
+    
+  - id: reflection_spiral
+    description: "Detect reflection/self-critique spirals"
+    match:
+      reflection_iterations: ">5"
+      input_contains: ["improve", "better", "revise", "reflect"]
+      consecutive_refinements: ">3"
+    action: warn
+    severity: medium
+    suggestion: |
+      Reflection spiral detected - model endlessly refining its output.
+      Controls:
+      - Limit reflection iterations to 2-3 max
+      - Define clear stopping criteria
+      - Use satisfaction thresholds
+      - Implement diminishing returns detection
+    cost_impact: "high"
+    requires_license: false

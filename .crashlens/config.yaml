@@ -1,0 +1,7 @@
+created_at: '2025-08-10T15:40:10.306900'
+fail_on_violations: true
+logs_source: langfuse
+output_directory: .
+policy_template: retry-loop-prevention,model-overkill-detection
+severity_threshold: critical
+version: 1.1.7

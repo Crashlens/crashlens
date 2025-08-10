@@ -1,0 +1,117 @@
+# CrashLens Policy Template: Error Handling Efficiency
+# Optimize error handling patterns to reduce wasted API calls
+
+metadata:
+  name: "Error Handling Efficiency"
+  description: "Optimize error handling to prevent wasted API calls and improve reliability"
+  category: "error_management"
+  severity_level: "medium"
+  estimated_savings: "5-25%"
+  
+rules:
+  - id: retrying_permanent_errors
+    description: "Prevent retrying permanent error conditions"
+    match:
+      error_type: ["invalid_api_key", "insufficient_quota", "model_not_found", "invalid_model"]
+      retry_count: ">0"
+    action: fail
+    severity: high
+    suggestion: |
+      Retrying permanent error condition detected!
+      Error classification needed:
+      - 401/403: Don't retry, fix authentication
+      - 404: Don't retry, model doesn't exist
+      - 400: Don't retry, fix request format
+      - 5xx: Retry with exponential backoff
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: excessive_timeout_retries
+    description: "Flag excessive retries on timeout errors"
+    match:
+      error_type: "timeout"
+      retry_count: ">5"
+      timeout_duration: ">30"  # seconds
+    action: warn
+    severity: medium
+    suggestion: |
+      Excessive timeout retries detected.
+      Timeout optimization:
+      - Increase initial timeout before retrying
+      - Implement exponential backoff for timeouts
+      - Consider request complexity vs timeout settings
+      - Use async patterns for long-running requests
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: malformed_request_repetition
+    description: "Detect repetition of malformed requests"
+    match:
+      error_type: "bad_request"
+      same_request_hash: true
+      retry_count: ">2"
+    action: fail
+    severity: high
+    suggestion: |
+      Repeated malformed request detected!
+      Request validation needed:
+      - Validate request format before sending
+      - Log and analyze request structure
+      - Implement client-side validation
+      - Don't retry 400-level errors without fixing the request
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: context_length_exceeded_retry
+    description: "Prevent retrying context length exceeded errors without modification"
+    match:
+      error_type: "context_length_exceeded"
+      context_reduction_attempted: false
+      retry_count: ">0"
+    action: fail
+    severity: high
+    suggestion: |
+      Context length retry without reduction detected!
+      Context management:
+      - Truncate or summarize context before retrying
+      - Implement intelligent context windowing
+      - Use sliding window approaches
+      - Consider chunking large inputs
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: insufficient_error_details
+    description: "Flag insufficient error handling detail"
+    match:
+      error_logged: false
+      error_details: null
+      retry_attempted: true
+    action: warn
+    severity: low
+    suggestion: |
+      Insufficient error detail for debugging detected.
+      Error logging improvements:
+      - Log full error details for analysis
+      - Include request context in error logs
+      - Track error patterns over time
+      - Implement error categorization for better handling
+    cost_impact: "low"
+    requires_license: false
+    
+  - id: generic_error_handling
+    description: "Detect overly generic error handling"
+    match:
+      error_handling_strategy: "generic_retry"
+      error_types_handled: ">5"
+      differentiated_handling: false
+    action: warn
+    severity: medium
+    suggestion: |
+      Generic error handling detected - inefficient retry patterns.
+      Specific error handling:
+      - Implement error-specific retry strategies
+      - Use different backoff for different error types
+      - Don't treat all errors the same way
+      - Implement circuit breakers for specific error patterns
+    cost_impact: "medium"
+    requires_license: false

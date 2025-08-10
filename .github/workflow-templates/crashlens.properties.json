@@ -1,0 +1,19 @@
+{
+  "name": "Crashlens Policy Check",
+  "description": "Runs built-in Crashlens policy templates on logs to detect retry loops, model overkill, and other cost/stability issues.",
+  "iconName": "shield",
+  "categories": [
+    "Code Scanning",
+    "Continuous Integration"
+  ],
+  "filePatterns": [
+    "*.jsonl",
+    "**/*.jsonl",
+    "*.yaml",
+    "**/*.yaml",
+    "*.yml",
+    "**/*.yml",
+    "logs/**",
+    "data/**"
+  ]
+}
