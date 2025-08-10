@@ -42,6 +42,8 @@ crashlens scan path/to/your-logs.jsonl
 # Generates report.md with per-trace waste, cost, and suggestions
 ```
 
+**Current Version:** `2.2.1` • **Last Updated:** August 2025
+
 ---
 
 ## ⚠️ Python Requirement
@@ -127,12 +129,29 @@ Below is a sample of what the actual `report.md` looks like after running CrashL
 ---
 
 ## 🚀 Features
-- Detects token waste patterns: fallback failures, retry loops, overkill/short completions
-- Supports OpenAI, Anthropic, and Langfuse-style logs (JSONL)
-- Robust error handling for malformed or incomplete logs
-- Configurable model pricing and thresholds via `pricing.yaml`
-- Generates a professional Markdown report (`report.md`) after every scan
-- 100% local: No data leaves your machine
+
+### 🔍 **Detection Capabilities**
+- **Token waste patterns**: fallback failures, retry loops, overkill/short completions
+- **Production-grade suppression**: Prevents duplicate alerts across related traces
+- **Multi-format support**: OpenAI, Anthropic, and Langfuse-style logs (JSONL)
+- **Smart model detection**: Identifies expensive models used for simple tasks
+
+### 📊 **Reporting & Output**
+- **Multiple output formats**: Slack, Markdown, JSON
+- **Detailed trace reports**: Per-trace JSON files with issue breakdown
+- **Cost summaries**: With and without trace IDs
+- **Professional Markdown reports**: Generated as `report.md` after every scan
+
+### ⚙️ **Configuration & Flexibility**
+- **Custom pricing config**: Configure model costs and detection thresholds
+- **Input methods**: File, stdin, clipboard, demo data
+- **Flexible output directories**: Customize where reports are saved
+- **Robust error handling**: Works with malformed or incomplete logs
+
+### 🔒 **Privacy & Security**
+- **100% local processing**: No data leaves your machine
+- **No external dependencies**: Works offline
+- **CLI-first design**: Integrate into any workflow or CI/CD pipeline
 
 ---
 
@@ -149,7 +168,7 @@ cd crashlens
 
 ## 2. Install Python & Poetry
 
-CrashLens requires **Python 3.8+** and [Poetry](https://python-poetry.org/) for dependency management.
+CrashLens requires **Python 3.12+** and [Poetry](https://python-poetry.org/) for dependency management.
 
 ### MacOS
 - Install Python (if not already):
@@ -356,32 +375,81 @@ crashlens scan --paste
 ```
 - Reads JSONL data from clipboard (paste and press Enter to finish).
 
-### 5. **Generate detailed category reports**
+### 5. **Output format options**
 ```sh
-crashlens scan --detailed
+crashlens scan logs.jsonl --format slack      # Slack-friendly format (default)
+crashlens scan logs.jsonl --format markdown   # Markdown format
+crashlens scan logs.jsonl --format json       # JSON output
 ```
-- Creates grouped JSON files in `detailed_output/` by issue type (fallback_failure.json, retry_loop.json, etc.).
+- Choose the format that best fits your workflow or team communication.
 
-### 6. **Get cost summaries**
+### 6. **Detailed reporting**
 ```sh
-crashlens scan --summary          # Cost summary with breakdown
-crashlens scan --summary-only     # Summary without trace IDs
+crashlens scan logs.jsonl --detailed
+crashlens scan logs.jsonl --detailed --detailed-dir custom_reports/
+```
+- Creates detailed JSON files in `detailed_output/` (or custom directory) by issue type.
+- Generates separate files: `fallback_failure.json`, `retry_loop.json`, etc.
+
+### 7. **Summary options**
+```sh
+crashlens scan logs.jsonl --summary          # Cost summary with breakdown
+crashlens scan logs.jsonl --summary-only     # Summary without trace IDs
 ```
 - Shows cost analysis with or without detailed trace information.
 
-### 7. **Change output format**
+### 8. **Custom pricing configuration**
 ```sh
-crashlens scan --format json      # JSON output
-crashlens scan --format markdown  # Markdown format  
+crashlens scan logs.jsonl --config custom-pricing.yaml
 ```
-- Default format is `slack` for team sharing.
+- Use custom model pricing and detection thresholds.
+- Default config is located in `crashlens/config/pricing.yaml`.
 
-### 8. **Get help**
+### 9. **Combined options**
 ```sh
-crashlens --help
-crashlens scan --help
+# Multiple options can be combined
+crashlens scan logs.jsonl --format json --detailed --summary --config custom.yaml
+```
+- Mix and match options for your specific analysis needs.
+
+### 10. **Get help**
+```sh
+crashlens --help          # Main help
+crashlens scan --help     # Scan command help
 ```
 - Shows all available options and usage details.
+
+---
+
+## 📖 Quick Command Reference
+
+```sh
+# Basic Usage
+crashlens scan <logfile>                    # Basic log analysis
+crashlens scan --demo                       # Test with demo data
+
+# Input Methods  
+crashlens scan --stdin                      # Read from pipe/stdin
+crashlens scan --paste                      # Read from clipboard
+crashlens scan logs.jsonl                   # Read from file
+
+# Output Formats
+crashlens scan logs.jsonl -f slack          # Slack format (default)
+crashlens scan logs.jsonl -f markdown       # Markdown format  
+crashlens scan logs.jsonl -f json           # JSON format
+
+# Reporting Options
+crashlens scan logs.jsonl --summary         # Show cost summary
+crashlens scan logs.jsonl --summary-only    # Summary without trace IDs
+crashlens scan logs.jsonl --detailed        # Generate detailed JSON reports
+
+# Advanced Options
+crashlens scan logs.jsonl -c custom.yaml    # Custom pricing config
+crashlens scan logs.jsonl --detailed-dir reports/  # Custom output directory
+
+# Version Info
+crashlens --version                         # Show current version
+```
 
 ---
 
