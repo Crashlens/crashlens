@@ -1,0 +1,90 @@
+name: Version Bump
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      bump_mode:
+        description: 'Version bump mode'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - manual
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Configure Git
+      run: |
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+    
+    - name: Determine bump mode
+      id: bump-mode
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          echo "mode=auto" >> $GITHUB_OUTPUT
+        else
+          echo "mode=${{ github.event.inputs.bump_mode }}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Echo version bump mode
+      run: |
+        echo "Version bump mode: ${{ steps.bump-mode.outputs.mode }}"
+    
+    - name: Auto version bump
+      if: steps.bump-mode.outputs.mode == 'auto'
+      run: |
+        # Increment patch version
+        poetry version patch
+        
+        # Get the new version
+        NEW_VERSION=$(poetry version -s)
+        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+        
+        # Commit the changes
+        git add pyproject.toml
+        git commit -m "chore: bump version to $NEW_VERSION"
+        
+        # Create and push tag
+        git tag "v$NEW_VERSION"
+        git push origin main
+        git push origin "v$NEW_VERSION"
+    
+    - name: Manual version bump
+      if: steps.bump-mode.outputs.mode == 'manual'
+      run: |
+        # Get current version without changing pyproject.toml
+        CURRENT_VERSION=$(poetry version -s)
+        echo "NEW_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+        
+        # Create and push tag for current commit
+        git tag "v$CURRENT_VERSION"
+        git push origin "v$CURRENT_VERSION"
+    
+    - name: Echo final version
+      run: |
+        echo "Final version: $NEW_VERSION"
