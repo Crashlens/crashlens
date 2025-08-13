@@ -216,3 +216,34 @@ jobs:
             strict-enforcement-report.md
             logs/*.jsonl
           retention-days: 7
+
+      # 🔔 Slack Integration - Add your SLACK_WEBHOOK_URL secret
+      - name: Send Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              "text": "⚠️ CrashLens Strict Enforcement Complete",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Strict CrashLens Enforcement*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Status: ${{ job.status }}\n• Limits: Daily $5, 20 slow traces, 10 expensive requests\n• Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "${{ job.status == 'success' && '✅ All limits enforced successfully' || '❌ Policy violations detected - build failed' }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}

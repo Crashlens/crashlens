@@ -42,7 +42,7 @@ jobs:
     
     env:
       # Support environment variable override with sensible default
-      LOG_PATH: ${{ github.event.inputs.log_path || env.LOG_PATH || 'logs/langfuse-latest.jsonl' }}
+      LOG_PATH: ${{ github.event.inputs.log_path || 'logs/langfuse-latest.jsonl' }}
       SCHEMA_VERSION: ${{ github.event.inputs.schema_version || matrix.schema-version }}
     
     steps:

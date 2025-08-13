@@ -4,16 +4,13 @@ This directory contains example GitHub Actions workflows that you can copy into 
 
 ## Available Examples
 
-### `crashlens-analysis.yml.example` - Comprehensive Analysis
+### `basic-crashlens.yml.example` - Minimal Setup
 **Features:**
-- Complete policy analysis with all rule templates
-- Cost monitoring and budget alerts
-- Performance analysis with configurable thresholds
-- Automatic log detection (`.llm_logs/`, `logs/`, or simulation)
-- Artifact uploads with detailed reports
-- Configurable via environment variables
+- Simple 10-line workflow for quick setup
+- Automatic log file detection
+- Basic cost analysis
 
-**Best for:** Production repositories with complex LLM workflows that need thorough monitoring.
+**Best for:** Getting started quickly, minimal configuration needed.
 
 ### `crashlens-starter.yml.example` - Basic Policy Check
 **Features:**
@@ -23,6 +20,16 @@ This directory contains example GitHub Actions workflows that you can copy into 
 - Essential policy checking only
 
 **Best for:** New projects or teams wanting to start with basic monitoring.
+
+### `crashlens-with-slack.yml.example` - 🔔 **NEW!** Slack Integration
+**Features:**
+- Complete CrashLens analysis with policy checking
+- **Automated Slack notifications** with results
+- Rich message formatting with status, costs, and links
+- Configurable via workflow inputs
+- PR comments and artifact uploads
+
+**Best for:** Teams that want real-time Slack notifications about token waste and policy violations.
 
 ### `crashlens-strict.yml.example` - Strict Enforcement (Build-Breaking)
 **Features:**

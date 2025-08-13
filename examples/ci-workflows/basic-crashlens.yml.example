@@ -1,0 +1,67 @@
+# Example: Basic CrashLens Analysis
+# Copy this file to your own repository at .github/workflows/crashlens.yml
+
+name: CrashLens Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  crashlens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install CrashLens
+        run: pip install crashlens
+      
+      - name: Run Analysis
+        run: |
+          # Check if you have log files
+          if ls *.jsonl 1> /dev/null 2>&1; then
+            crashlens scan *.jsonl --summary
+          elif [ -d "logs" ]; then
+            crashlens scan logs/*.jsonl --summary
+          elif [ -d ".llm_logs" ]; then
+            crashlens scan .llm_logs/*.jsonl --summary
+          else
+            echo "No log files found, generating demo data"
+            crashlens scan --demo
+          fi
+      
+      # 🔔 Slack Integration - Add your SLACK_WEBHOOK_URL secret
+      - name: Send Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              "text": "🔍 CrashLens Analysis Complete",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Basic CrashLens Analysis*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Status: ${{ job.status }}\n• Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "📊 Basic token waste analysis completed"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}

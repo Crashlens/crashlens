@@ -68,3 +68,34 @@ jobs:
             comprehensive-analysis-report.md
             logs/*.jsonl
           retention-days: 14
+
+      # 🔔 Slack Integration - Add your SLACK_WEBHOOK_URL secret
+      - name: Send Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              "text": "🔍 CrashLens Comprehensive Analysis Complete",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Comprehensive CrashLens Analysis*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Status: ${{ job.status }}\n• Templates: ${{ env.CRASHLENS_TEMPLATES }}\n• Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "📊 Full policy check and artifact upload completed"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}

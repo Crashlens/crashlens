@@ -1,0 +1,212 @@
+# Example: CrashLens Analysis with Slack Notifications
+# Copy this file to your own repository at .github/workflows/crashlens-analysis.yml
+
+name: CrashLens Analysis with Slack
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      policy_template:
+        description: 'Policy templates (comma-separated or "all")'
+        required: false
+        default: 'all'
+      severity_threshold:
+        description: 'Severity threshold'
+        required: false
+        default: 'medium'
+        type: choice
+        options: ['low', 'medium', 'high', 'critical']
+      fail_on_violations:
+        description: 'Fail on violations'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  crashlens-analysis:
+    runs-on: ubuntu-latest
+    name: CrashLens Analysis
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          
+      - name: Install CrashLens
+        run: |
+          pip install crashlens
+          crashlens --version
+          
+      - name: Prepare Log Files
+        run: |
+          # Check if .llm_logs directory exists (common for LLM projects)
+          if [ -d ".llm_logs" ]; then
+            echo "✅ Found .llm_logs directory"
+            mkdir -p logs && cp .llm_logs/*.jsonl logs/ 2>/dev/null || true
+          elif [ -d "logs" ]; then
+            echo "✅ Found existing logs directory"
+          else
+            echo "📝 No existing logs found, generating simulation data..."
+            mkdir -p logs
+            crashlens simulate --output logs/simulation-data.jsonl --count 100 --scenario mixed-errors
+            echo "✅ Generated simulation data for analysis"
+          fi
+          
+          # Validate log files exist
+          if ! ls logs/*.jsonl 1> /dev/null 2>&1; then
+            echo "❌ No log files available for analysis"
+            exit 1
+          fi
+          
+          wc -l logs/*.jsonl || true
+          
+      - name: Run CrashLens Analysis
+        id: analysis
+        continue-on-error: true
+        run: |
+          # Set default values
+          POLICY_TEMPLATE="${{ github.event.inputs.policy_template || 'all' }}"
+          SEVERITY="${{ github.event.inputs.severity_threshold || 'medium' }}"
+          FAIL_ON="${{ github.event.inputs.fail_on_violations || 'false' }}"
+          
+          echo "🔍 Running CrashLens analysis..."
+          echo "  Policy templates: $POLICY_TEMPLATE"
+          echo "  Severity threshold: $SEVERITY"
+          echo "  Fail on violations: $FAIL_ON"
+          
+          # Run policy check on all log files
+          for log_file in logs/*.jsonl; do
+            if [ -f "$log_file" ]; then
+              filename=$(basename "$log_file" .jsonl)
+              echo "📋 Analyzing $log_file..."
+              
+              # Run analysis and save results
+              crashlens policy-check "$log_file" \
+                --policy-template "$POLICY_TEMPLATE" \
+                --severity-threshold "$SEVERITY" > "analysis-${filename}.md" 2>&1 || true
+                
+              # Also run scan for cost analysis
+              crashlens scan "$log_file" --summary >> "analysis-${filename}.md" 2>&1 || true
+              
+              echo "✅ Analysis completed for $filename"
+            fi
+          done
+          
+          # Create combined report
+          echo "# 🔍 CrashLens Analysis Report" > combined-analysis.md
+          echo "" >> combined-analysis.md
+          echo "**Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> combined-analysis.md
+          echo "**Repository:** ${{ github.repository }}" >> combined-analysis.md
+          echo "**Branch:** ${{ github.ref_name }}" >> combined-analysis.md
+          echo "" >> combined-analysis.md
+          
+          for report in analysis-*.md; do
+            if [ -f "$report" ]; then
+              echo "## $(basename "$report" .md)" >> combined-analysis.md
+              echo "" >> combined-analysis.md
+              cat "$report" >> combined-analysis.md
+              echo "" >> combined-analysis.md
+              echo "---" >> combined-analysis.md
+              echo "" >> combined-analysis.md
+            fi
+          done
+          
+          # Set output for Slack step
+          if [ "$FAIL_ON" == "true" ]; then
+            # Check if any violations were found
+            if grep -q "policy violations found" analysis-*.md 2>/dev/null; then
+              echo "analysis_status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            else
+              echo "analysis_status=success" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "analysis_status=success" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Upload Analysis Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crashlens-analysis-${{ github.run_number }}
+          path: |
+            combined-analysis.md
+            analysis-*.md
+            logs/*.jsonl
+          retention-days: 14
+          
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 🔍 CrashLens Analysis Results\n\n';
+            comment += `**Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+            
+            // Try to read analysis results
+            try {
+              if (fs.existsSync('combined-analysis.md')) {
+                const analysisResults = fs.readFileSync('combined-analysis.md', 'utf8');
+                const lines = analysisResults.split('\n').slice(0, 10);
+                comment += `**Analysis Preview:**\n\`\`\`\n${lines.join('\n')}\n\`\`\`\n`;
+              } else {
+                comment += '✅ Analysis completed successfully\n';
+              }
+            } catch (error) {
+              comment += '⚠️ Analysis results available in workflow artifacts.\n';
+            }
+            
+            comment += '\n📁 **View detailed reports in the [workflow artifacts](' + 
+                      `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}` + ')**';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+            
+      # 🔔 Slack Integration - Add your SLACK_WEBHOOK_URL secret
+      - name: Send Slack Notification
+        if: always()  # Run even if previous steps fail
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              "text": "🔍 CrashLens Analysis Complete",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*CrashLens Analysis Results*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Status: ${{ job.status }}\n• Analysis: ${{ steps.analysis.outputs.analysis_status || 'completed' }}\n• Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "📊 Check the artifacts for detailed analysis reports • Policy: ${{ github.event.inputs.policy_template || 'all' }} • Severity: ${{ github.event.inputs.severity_threshold || 'medium' }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}

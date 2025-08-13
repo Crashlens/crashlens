@@ -139,6 +139,7 @@ python crashlens_webhook.py scan daily-logs.jsonl --policy-template all --fail-o
 
 ### CI/CD Integration:
 ```yaml
+# Copy examples/ci-workflows/crashlens-with-slack.yml.example to your repo
 # GitHub Actions example
 - name: Run CrashLens with Webhook
   run: |
@@ -147,6 +148,8 @@ python crashlens_webhook.py scan daily-logs.jsonl --policy-template all --fail-o
     CRASHLENS_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     PYTHONIOENCODING: utf-8
 ```
+
+**📁 See `examples/ci-workflows/crashlens-with-slack.yml.example` for a complete GitHub Actions workflow with Slack integration.**
 
 ## 🚨 Troubleshooting
 
