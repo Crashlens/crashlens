@@ -17,6 +17,8 @@ Crashlens is a powerful CLI tool that detects token waste and inefficient patter
 
 ## 🚀 **QUICK START (5 MINUTES)**
 
+> **⚠️ Before Starting**: CrashLens analyzes your LLM usage logs. Ensure you have `*.jsonl` log files in `.llm_logs/` or `logs/` directory, or use `--simulate` for testing.
+
 ### **Step 1: Install Crashlens**
 ```bash
 # Using pip
@@ -58,6 +60,57 @@ crashlens policy-check test-logs.jsonl --policy-template retry-loop-prevention
 - Python 3.8+ (3.12 recommended)
 - Git repository with GitHub Actions enabled
 - Basic familiarity with YAML configuration files
+
+### **📁 LOG FILE REQUIREMENTS**
+
+**CrashLens requires LLM usage logs in JSONL format to analyze.** Here's what you need:
+
+#### **Required Log Structure**
+Your logs should be in one of these locations:
+- `.llm_logs/` directory (recommended - common for LangChain/LangFuse projects)
+- `logs/` directory
+- Any directory with `*.jsonl` files
+
+#### **Log File Format**
+Each line should be a JSON object containing LLM API call data:
+```json
+{"trace_id": "abc123", "model": "gpt-4", "usage": {"total_tokens": 1500}, "cost": 0.03, "timestamp": "2025-01-15T10:30:00Z"}
+```
+
+#### **Getting Your Logs**
+**From LangFuse:**
+```bash
+# Export traces from LangFuse
+mkdir -p .llm_logs
+curl -X GET "https://cloud.langfuse.com/api/public/traces" \
+  -H "Authorization: Bearer YOUR_LANGFUSE_KEY" > .llm_logs/traces.jsonl
+```
+
+**From OpenAI/Custom Logging:**
+```python
+# Example: Save API calls to .llm_logs/
+import json
+import os
+
+def log_api_call(response, model, cost):
+    os.makedirs('.llm_logs', exist_ok=True)
+    log_entry = {
+        "model": model,
+        "usage": response.usage.dict(),
+        "cost": cost,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    with open('.llm_logs/api_calls.jsonl', 'a') as f:
+        f.write(json.dumps(log_entry) + '\n')
+```
+
+**No Logs Yet?** CrashLens can generate simulation data for testing:
+```bash
+mkdir -p .llm_logs
+crashlens --simulate --source local --count 50 > .llm_logs/demo.jsonl
+```
+
+> 💡 **Important**: Without real log files, CrashLens workflows will use simulation data. For meaningful analysis, ensure you have actual LLM usage logs in `.llm_logs/` or `logs/` directory.
 
 ### **Installation Methods**
 

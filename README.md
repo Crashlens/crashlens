@@ -36,11 +36,15 @@ CrashLens is a developer tool to **analyze GPT API logs** and uncover hidden **t
 
 ## TL;DR
 
+**Requirements**: You need LLM usage logs in JSONL format (`.llm_logs/*.jsonl` or `logs/*.jsonl`)
+
 ```sh
 pip install crashlens
-crashlens scan path/to/your-logs.jsonl
-# Generates report.md with per-trace waste, cost, and suggestions
+crashlens policy-check .llm_logs/*.jsonl --policy-template all
+# Generates report with token waste, cost analysis, and optimization suggestions
 ```
+
+**No logs yet?** Generate test data: `crashlens --simulate --count 50 > demo-logs.jsonl`
 
 **Current Version:** `2.2.1` • **Last Updated:** August 2025
 
@@ -460,13 +464,47 @@ crashlens --version                         # Show current version
    pip install crashlens
    # OR clone and install from source as above
    ```
-2. **Scan your logs:**
+
+2. **Prepare your log files:**
+   
+   **Required**: CrashLens needs LLM usage logs in JSONL format. Place them in:
+   - `.llm_logs/` directory (recommended)
+   - `logs/` directory  
+   - Or specify any `*.jsonl` file path
+
+   **Getting logs from LangFuse:**
    ```sh
-   crashlens scan path/to/your-logs.jsonl
-   # OR
-   python -m crashlens scan path/to/your-logs.jsonl
+   mkdir -p .llm_logs
+   # Export your traces from LangFuse dashboard or API
    ```
-3. **Open `report.md`** in your favorite Markdown viewer or editor to review the findings and suggestions.
+
+   **Getting logs from OpenAI/custom usage:**
+   ```python
+   # Example: Log API calls to .llm_logs/usage.jsonl
+   import json
+   log_entry = {
+       "model": "gpt-4",
+       "usage": {"total_tokens": 1500},
+       "cost": 0.03,
+       "timestamp": "2025-01-15T10:30:00Z"
+   }
+   with open('.llm_logs/usage.jsonl', 'a') as f:
+       f.write(json.dumps(log_entry) + '\n')
+   ```
+
+   **No logs yet?** Generate test data:
+   ```sh
+   crashlens --simulate --count 50 > .llm_logs/demo.jsonl
+   ```
+
+3. **Scan your logs:**
+3. **Scan your logs:**
+   ```sh
+   crashlens policy-check .llm_logs/*.jsonl --policy-template all
+   # OR for a specific file
+   crashlens policy-check path/to/your-logs.jsonl
+   ```
+4. **Review the results:** Open the generated markdown report to review findings and optimization suggestions.
 
 ---
 
