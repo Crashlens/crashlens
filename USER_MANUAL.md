@@ -11,6 +11,8 @@ Crashlens is a powerful CLI tool that detects token waste and inefficient patter
 - 📈 **Cost Optimization**: Prevents budget overruns and inefficient API usage
 - 🛡️ **Quality Assurance**: Ensures optimal GPT API usage patterns
 
+> 📋 **GitHub Actions Templates**: Ready-to-use workflow examples are available in `examples/ci-workflows/`
+
 ---
 
 ## 🚀 **QUICK START (5 MINUTES)**
@@ -161,7 +163,7 @@ api_keys:
 
 When running `crashlens init`, select "Yes" for GitHub workflow creation. This generates:
 
-**`.github/workflows/crashlens.yml`**
+**`.github/workflows/crashlens.yml`** (copied from examples)
 
 ```yaml
 name: 'Crashlens Token Waste Detection'
@@ -309,16 +311,68 @@ jobs:
           }
 ```
 
-### **Method 2: Manual Workflow Setup**
+### **Method 2: Pre-configured Workflows (Recommended)**
 
-Create the workflow file manually in your repository:
+CrashLens provides pre-built GitHub Actions workflows that you can copy directly to your repository:
+
+#### **Option A: Comprehensive Analysis Workflow**
+For production repositories with complex LLM workflows:
+```bash
+# Copy the comprehensive workflow
+curl -o .github/workflows/crashlens-analysis.yml https://raw.githubusercontent.com/Crashlens/crashlens/main/examples/ci-workflows/crashlens-analysis.yml.example
+```
+
+**Features:**
+- Complete policy analysis with all rule templates
+- Cost monitoring and budget alerts  
+- Security dependency scanning
+- Performance analysis
+- PR comments with detailed results
+- Comprehensive reporting and artifacts
+
+#### **Option B: Starter Workflow**
+For basic monitoring needs or new projects:
+```bash
+# Copy the starter workflow  
+curl -o .github/workflows/crashlens-starter.yml https://raw.githubusercontent.com/Crashlens/crashlens/main/examples/ci-workflows/crashlens-starter.yml.example
+```
+
+**Features:**
+- Basic policy checking (retry loops, model overkill)
+- Simple PR comments
+- Lightweight and fast
+- Perfect for getting started
+
+#### **Workflow Configuration**
+Both workflows include configurable environment variables:
+```yaml
+env:
+  # Policy Configuration
+  CRASHLENS_TEMPLATES: "retry-loop-prevention,model-overkill-detection,budget-protection"
+  CRASHLENS_SEVERITY: "high"                    # low/medium/high/critical
+  CRASHLENS_FAIL_ON_VIOLATIONS: "false"        # "true" to break CI
+  
+  # Cost Monitoring
+  DAILY_COST_LIMIT: "10.00"                    # Maximum daily cost
+  EXPENSIVE_REQUEST_THRESHOLD: "0.05"          # Flag requests over $0.05
+  
+  # Performance Limits
+  SLOW_RESPONSE_THRESHOLD_MS: "3000"           # Flag slow responses
+  ERROR_RATE_THRESHOLD: "0.20"                 # Flag high error rates
+```
+
+**📖 Complete Setup Guide:** See `examples/ci-workflows/README.md` for detailed configuration options and troubleshooting.
+
+### **Method 3: Manual Workflow Setup**
+
+Create a custom workflow file manually in your repository:
 
 1. **Create directory structure:**
    ```bash
    mkdir -p .github/workflows
    ```
 
-2. **Create workflow file:** Copy the workflow YAML above to `.github/workflows/crashlens.yml`
+2. **Create workflow file:** Copy a workflow example from `examples/ci-workflows/` to `.github/workflows/crashlens.yml`
 
 3. **Commit and push:**
    ```bash
@@ -327,7 +381,7 @@ Create the workflow file manually in your repository:
    git push
    ```
 
-### **Method 3: Integration with Existing Workflows**
+### **Method 4: Integration with Existing Workflows**
 
 Add Crashlens to your existing CI/CD workflow:
 

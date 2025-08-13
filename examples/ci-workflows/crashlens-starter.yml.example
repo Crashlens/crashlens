@@ -1,0 +1,49 @@
+# Example: Starter CrashLens GitHub Actions Workflow
+# Copy to .github/workflows/crashlens.yml (or similar) in your own repo.
+
+name: CrashLens Analysis (Starter)
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  crashlens-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CrashLens
+        run: |
+          pip install crashlens
+          crashlens --version
+      - name: Prepare Log Data
+        run: |
+          if [ -d ".llm_logs" ]; then
+            mkdir -p logs && cp .llm_logs/*.jsonl logs/ 2>/dev/null || true
+          fi
+          if ! ls logs/*.jsonl 1>/dev/null 2>&1; then
+            echo "Generating simulation logs...";
+            mkdir -p logs
+            crashlens --simulate --source local --count 40 > logs/simulated.jsonl
+          fi
+      - name: Run Policy Check
+        run: |
+          crashlens policy-check logs/*.jsonl \
+            --policy-template retry-loop-prevention,model-overkill-detection \
+            --severity-threshold medium \
+            --format markdown > crashlens-report.md || true
+      - name: Show Report
+        run: |
+          sed -n '1,160p' crashlens-report.md || true
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: crashlens-starter-report
+          path: |
+            crashlens-report.md
+            logs/*.jsonl
+          retention-days: 7

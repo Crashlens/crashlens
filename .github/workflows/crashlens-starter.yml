@@ -1,0 +1,95 @@
+name: CrashLens Analysis (Starter)
+
+on:
+  # Run on pull requests to main
+  pull_request:
+    branches: [ main ]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  crashlens-check:
+    runs-on: ubuntu-latest
+    name: CrashLens Policy Check
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install CrashLens
+        run: |
+          pip install crashlens==2.0.0
+          crashlens --version
+          
+      - name: Prepare Log Data
+        run: |
+          # Check if logs exist, otherwise create simulation data
+          if [ ! -d "logs" ] && [ ! -d ".llm_logs" ]; then
+            echo "📝 No logs found, creating simulation data for demonstration..."
+            mkdir -p logs
+            crashlens --simulate --source local --count 50 > logs/demo-logs.jsonl
+          elif [ -d ".llm_logs" ]; then
+            echo "✅ Using existing .llm_logs directory"
+            mkdir -p logs
+            cp .llm_logs/*.jsonl logs/ 2>/dev/null || true
+          fi
+          
+          echo "📊 Log files prepared:"
+          ls -la logs/
+          
+      - name: Run CrashLens Policy Check
+        run: |
+          # Run basic policy check
+          crashlens policy-check logs/*.jsonl \
+            --policy-template retry-loop-prevention,model-overkill-detection \
+            --severity-threshold medium \
+            --format markdown > crashlens-report.md
+            
+          echo "✅ Policy check completed"
+          
+      - name: Display Results
+        run: |
+          echo "📋 CrashLens Analysis Results:"
+          echo "================================"
+          cat crashlens-report.md
+          
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: crashlens-results
+          path: |
+            crashlens-report.md
+            logs/*.jsonl
+          retention-days: 7
+          
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            if (fs.existsSync('crashlens-report.md')) {
+              const report = fs.readFileSync('crashlens-report.md', 'utf8');
+              const comment = `## 🔍 CrashLens Policy Check Results
+              
+            **Workflow:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ${report}
+
+            ---
+            *Powered by CrashLens v2.0.0*`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }

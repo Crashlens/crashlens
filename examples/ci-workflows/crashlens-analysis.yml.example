@@ -1,0 +1,70 @@
+# Example: Comprehensive CrashLens GitHub Actions Workflow
+# Copy to .github/workflows/crashlens-analysis.yml in your own repo and adjust as needed.
+
+name: CrashLens Analysis (Comprehensive)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of scan to perform'
+        required: true
+        default: 'full'
+        type: choice
+        options: [full, logs-only, security]
+      count:
+        description: 'Number of test traces to generate'
+        required: false
+        default: '100'
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  crashlens-analysis:
+    runs-on: ubuntu-latest
+    env:
+      CRASHLENS_TEMPLATES: "retry-loop-prevention,model-overkill-detection,budget-protection"
+      CRASHLENS_SEVERITY: "high"
+      CRASHLENS_FAIL_ON_VIOLATIONS: "false"
+      DAILY_COST_LIMIT: "10.00"
+      EXPENSIVE_REQUEST_THRESHOLD: "0.05"
+      SLOW_RESPONSE_THRESHOLD_MS: "3000"
+      ERROR_RATE_THRESHOLD: "0.20"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install CrashLens
+        run: |
+          pip install crashlens
+          crashlens --version
+      - name: Prepare Logs
+        run: |
+          if [ -d ".llm_logs" ]; then
+            mkdir -p logs && cp .llm_logs/*.jsonl logs/ 2>/dev/null || true
+          fi
+          if ! ls logs/*.jsonl 1>/dev/null 2>&1; then
+            echo "Generating simulation logs...";
+            mkdir -p logs
+            crashlens --simulate --source local --count 80 > logs/simulated.jsonl
+          fi
+          wc -l logs/*.jsonl || true
+      - name: Policy Check (All)
+        run: |
+          crashlens policy-check logs/*.jsonl \
+            --policy-template all \
+            --severity-threshold medium > comprehensive-analysis-report.md 2>&1 || true
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: crashlens-comprehensive-report
+          path: |
+            comprehensive-analysis-report.md
+            logs/*.jsonl
+          retention-days: 14
