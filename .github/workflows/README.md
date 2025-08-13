@@ -122,16 +122,31 @@ To analyze different environments separately:
 ```
 
 ### Slack Integration
-To send results to Slack, add your webhook URL as a repository secret:
+To send results to Slack, add your webhook URL as a repository secret (`SLACK_WEBHOOK_URL`) and use the GitHub Actions Slack action:
 
 ```yaml
 - name: Send to Slack
   if: always()
-  run: |
-    crashlens policy-check logs/*.jsonl \
-      --format slack \
-      --slack-webhook ${{ secrets.SLACK_WEBHOOK_URL }}
+  uses: 8398a7/action-slack@v3
+  with:
+    status: ${{ job.status }}
+    webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+    custom_payload: |
+      {
+        "text": "🔍 CrashLens Analysis Complete",
+        "blocks": [
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn", 
+              "text": "*CrashLens Results*\n• Repository: ${{ github.repository }}\n• Status: ${{ job.status }}"
+            }
+          }
+        ]
+      }
 ```
+
+📖 **[See full Slack integration guide](../docs/SLACK_INTEGRATION.md)**
 
 ---
 

@@ -462,3 +462,37 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📊 **[View detailed analysis results in artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**" >> $GITHUB_STEP_SUMMARY
+
+      # 🔔 Slack Integration - Send notification to Slack channel
+      - name: Send Slack Notification
+        if: always()  # Run even if previous steps fail
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              "text": "🔍 CrashLens Analysis Complete",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*CrashLens Analysis Results*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Status: ${{ job.status }}\n• Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "📊 Check the artifacts for detailed analysis reports"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
