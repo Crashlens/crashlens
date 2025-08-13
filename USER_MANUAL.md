@@ -712,7 +712,7 @@ jobs:
       with:
         status: failure
         text: "⚠️ Token waste detected in yesterday's usage!"
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
 ---
@@ -1047,7 +1047,7 @@ jobs:
           }
         ]
       }
-    webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+    webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
 #### **Email Notifications**

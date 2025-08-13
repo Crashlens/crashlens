@@ -102,7 +102,7 @@ Allow deletions: ✗
 ### Secrets and Variables
 - **Repository secrets**:
   - `PYPI_TOKEN` (for publishing)
-  - `SLACK_WEBHOOK` (for notifications)
+  - `SLACK_WEBHOOK_URL` (for notifications)
   - `CODECOV_TOKEN` (for coverage reporting)
 - **Environment secrets** (per environment):
   - Production secrets
