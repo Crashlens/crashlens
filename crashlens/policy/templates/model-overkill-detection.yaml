@@ -12,11 +12,8 @@ rules:
   - id: gpt4_for_simple_tasks
     description: "Block GPT-4 usage for simple/short prompts"
     match:
-      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
-      OR:
-        - usage.prompt_tokens: "<50"
-        - input.prompt_length: "<200"
-        - task_complexity: "simple"
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      prompt_tokens: "<50"
     action: fail
     severity: high
     suggestion: |
@@ -27,27 +24,56 @@ rules:
     cost_impact: "very_high"
     requires_license: false
     
-  - id: claude_opus_overkill
-    description: "Prevent Claude Opus for basic tasks"
+  - id: gpt4_small_completions
+    description: "GPT-4 generating very small responses"
     match:
-      input.model: ["claude-3-opus"]
-      OR:
-        - usage.prompt_tokens: "<100"
-        - task_type: ["classification", "extraction", "translation"]
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      completion_tokens: "<20"
     action: fail
     severity: high
     suggestion: |
-      Claude Opus used for basic task. More efficient alternatives:
-      - Use Claude Haiku for simple tasks (50x cheaper)
-      - Use Claude Sonnet for moderate complexity
-      - Reserve Opus for complex analysis and reasoning
+      GPT-4 generated small response. More efficient alternatives:
+      - Use gpt-4o-mini for simple Q&A
+      - Use gpt-3.5-turbo for short responses
+      - Consider if the task really needs AI
     cost_impact: "very_high"
     requires_license: false
     
-  - id: expensive_model_for_keywords
-    description: "Block expensive models for keyword extraction"
+  - id: expensive_model_for_cheap_tasks
+    description: "Expensive models for tasks under $0.01"
     match:
-      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
+      model: ["gpt-4", "gpt-4-turbo"]
+      cost: "<0.01"
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive model used for very cheap task. Consider:
+      - Using gpt-4o-mini or gpt-3.5-turbo instead
+      - Batching multiple small requests
+      - Reviewing if AI is needed for this task
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: high_cost_per_token
+    description: "Very expensive cost per token ratio"
+    match:
+      cost: ">0.05"
+    action: fail
+    severity: critical
+    suggestion: |
+      Very expensive API call detected (over $0.05).
+      Immediate actions:
+      - Review if this cost is justified
+      - Check for prompt optimization opportunities
+      - Consider model downgrading
+      - Implement cost monitoring alerts
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: overkill_for_extraction
+    description: "Flag expensive models for structured data extraction"
+    match:
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o", "claude-3-opus", "claude-3-sonnet"]
       task_type: ["keyword_extraction", "entity_extraction", "classification"]
     action: fail
     severity: medium

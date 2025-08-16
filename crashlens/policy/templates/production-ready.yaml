@@ -1,0 +1,137 @@
+# CrashLens Policy Template: Production Ready Combined Rules
+# All working rules combined for production use
+
+metadata:
+  name: "Production Ready Combined"
+  description: "Production-ready policies with working field mappings"
+  category: "production"
+  severity_level: "critical"
+  estimated_savings: "40-60%"
+  
+rules:
+  # Model Overkill Detection Rules
+  - id: gpt4_for_simple_tasks
+    description: "Prevent expensive models for simple tasks"
+    match:
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      prompt_tokens: "<50"
+    action: fail
+    severity: high
+    suggestion: |
+      GPT-4 used for simple task. Cost optimization opportunities:
+      - Use gpt-4o-mini (90% cheaper, similar quality for simple tasks)
+      - Use gpt-3.5-turbo for classification, extraction, summaries <500 tokens
+      - Reserve GPT-4 for complex reasoning, code generation, creative tasks
+    cost_impact: "very_high"
+    requires_license: false
+
+  - id: gpt4_small_completions
+    description: "Flag GPT-4 usage for very small responses"
+    match:
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      completion_tokens: "<20"
+    action: fail
+    severity: high
+    suggestion: |
+      GPT-4 generated small response. More efficient alternatives:
+      - Use gpt-4o-mini for simple Q&A
+      - Use gpt-3.5-turbo for short responses
+      - Consider if the task really needs AI
+    cost_impact: "very_high"
+    requires_license: false
+
+  - id: expensive_model_for_cheap_tasks
+    description: "Expensive models used for very cheap tasks"
+    match:
+      model: ["gpt-4", "gpt-4-turbo"]
+      cost: "<0.01"
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive model used for very cheap task. Consider:
+      - Using gpt-4o-mini or gpt-3.5-turbo instead
+      - Batching multiple small requests
+      - Reviewing if AI is needed for this task
+    cost_impact: "high"
+    requires_license: false
+
+  - id: high_cost_per_token
+    description: "Flag extremely expensive API calls"
+    match:
+      cost: ">0.05"
+    action: fail
+    severity: critical
+    suggestion: |
+      Very expensive API call detected (over $0.05).
+      Immediate actions:
+      - Review if this cost is justified
+      - Check for prompt optimization opportunities
+      - Consider model downgrading
+      - Implement cost monitoring alerts
+    cost_impact: "very_high"
+    requires_license: false
+
+  # Retry Loop Prevention Rules
+  - id: expensive_single_call
+    description: "Very expensive single call (potential retry waste)"
+    match:
+      cost: ">0.02"
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive API call detected. If this is part of a retry pattern:
+      - Implement exponential backoff with jitter
+      - Add circuit breaker patterns
+      - Use cheaper models for retries
+      - Log retry reasons for debugging
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: expensive_model_usage
+    description: "Expensive model usage that could indicate retry patterns"
+    match:
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      cost: ">0.01"
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive model call detected. 
+      Solutions if part of retry pattern:
+      - Use gpt-4o-mini or gpt-3.5-turbo for retries
+      - Implement model degradation strategy
+      - Cache successful responses to avoid retries
+    cost_impact: "very_high"
+    requires_license: false
+
+  # Prompt Optimization Rules
+  - id: excessive_prompt_length
+    description: "Flag unnecessarily long prompts"
+    match:
+      prompt_tokens: ">4000"
+    action: warn
+    severity: medium
+    suggestion: |
+      Excessively long prompt detected.
+      Optimization strategies:
+      - Remove redundant instructions
+      - Use more concise language
+      - Break complex prompts into sequential calls
+      - Consider fine-tuning for repeated verbose prompts
+    cost_impact: "medium"
+    requires_license: false
+    
+  - id: inefficient_prompt_ratio
+    description: "Short responses from long prompts indicate inefficiency"
+    match:
+      prompt_tokens: ">1000"
+      completion_tokens: "<100"
+    action: warn
+    severity: medium
+    suggestion: |
+      Long prompt produced short response - potential inefficiency.
+      Consider:
+      - Simplifying the prompt
+      - Breaking into multiple focused requests
+      - Using more direct instructions
+    cost_impact: "medium"
+    requires_license: false

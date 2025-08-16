@@ -1,0 +1,75 @@
+# CrashLens Policy Template: Working Model Overkill Detection
+# Fixed to use actual log data structure
+
+metadata:
+  name: "Model Overkill Detection (Working)"
+  description: "Detect expensive models used for simple tasks - FIXED VERSION"
+  category: "cost_optimization"
+  severity_level: "high"
+  estimated_savings: "25-60%"
+  
+rules:
+  - id: gpt4_tiny_prompts
+    description: "GPT-4 used for very small prompts (under 20 tokens)"
+    match:
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      prompt_tokens: "<20"
+    action: fail
+    severity: high
+    suggestion: |
+      GPT-4 used for tiny prompt (under 20 tokens). This is wasteful.
+      Recommendations:
+      - Use gpt-4o-mini (90% cheaper, similar quality)
+      - Use gpt-3.5-turbo for simple tasks
+      - Reserve GPT-4 for complex reasoning tasks
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: gpt4_small_completions
+    description: "GPT-4 generating very small responses (under 10 tokens)"
+    match:
+      model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      completion_tokens: "<10"
+    action: fail
+    severity: high
+    suggestion: |
+      GPT-4 generated tiny response (under 10 tokens). Likely overkill.
+      Cost-effective alternatives:
+      - Use gpt-4o-mini for simple Q&A
+      - Use gpt-3.5-turbo for short responses
+      - Consider if the task really needs AI
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: expensive_model_low_total_tokens
+    description: "Expensive model used for very short interactions"
+    match:
+      model: ["gpt-4", "gpt-4-turbo"]
+      prompt_tokens: "<50"
+      completion_tokens: "<50"
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive model used for short interaction (under 50+50 tokens).
+      Consider cheaper alternatives:
+      - gpt-4o-mini for simple tasks
+      - gpt-3.5-turbo for basic completions
+      - Batch small requests together
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: high_cost_small_task
+    description: "High cost for small task (over $0.01 for under 100 total tokens)"
+    match:
+      cost: ">0.01"
+      prompt_tokens: "<100"
+    action: warn
+    severity: medium
+    suggestion: |
+      High cost ($0.01+) for small task (under 100 prompt tokens).
+      Optimization opportunities:
+      - Review model selection for cost efficiency
+      - Use cheaper models for simple tasks
+      - Consider prompt optimization
+    cost_impact: "high"
+    requires_license: false

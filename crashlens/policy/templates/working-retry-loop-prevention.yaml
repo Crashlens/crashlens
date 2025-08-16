@@ -1,0 +1,75 @@
+# CrashLens Policy Template: Working Retry Loop Prevention
+# Fixed to use actual log data structure
+
+metadata:
+  name: "Retry Loop Prevention (Working)"
+  description: "Detect retry patterns using actual log data - FIXED VERSION"
+  category: "cost_optimization"
+  severity_level: "critical"
+  estimated_savings: "15-40%"
+  
+rules:
+  - id: expensive_model_pattern
+    description: "Expensive model used repeatedly (potential retry pattern)"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      cost: ">0.02"
+    action: warn
+    severity: medium
+    suggestion: |
+      Expensive model call detected. If this is part of a retry pattern:
+      - Implement exponential backoff
+      - Use cheaper models for retries (gpt-4o-mini)
+      - Add circuit breaker patterns
+      - Log retry reasons for debugging
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: high_cost_call
+    description: "Very expensive single call (over $0.05)"
+    match:
+      cost: ">0.05"
+    action: fail
+    severity: critical
+    suggestion: |
+      Very expensive API call detected (over $0.05).
+      Immediate actions:
+      - Review if this cost is justified
+      - Check for prompt optimization opportunities
+      - Consider model downgrading for simpler tasks
+      - Implement cost monitoring alerts
+    cost_impact: "very_high"
+    requires_license: false
+    
+  - id: wasteful_large_prompts
+    description: "Large prompts with expensive models"
+    match:
+      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      usage.prompt_tokens: ">1000"
+    action: warn
+    severity: medium
+    suggestion: |
+      Large prompt (1000+ tokens) with expensive model.
+      Optimization strategies:
+      - Break down into smaller chunks
+      - Use cheaper models for preprocessing
+      - Implement prompt compression techniques
+      - Consider context window optimization
+    cost_impact: "high"
+    requires_license: false
+    
+  - id: inefficient_completion_ratio
+    description: "Very small completion for large prompt (inefficient)"
+    match:
+      usage.prompt_tokens: ">200"
+      usage.completion_tokens: "<20"
+    action: warn
+    severity: low
+    suggestion: |
+      Large prompt generated small completion. This may indicate:
+      - Overly verbose prompts
+      - Poor prompt engineering
+      - Task could be simplified
+      - Consider prompt optimization
+    cost_impact: "medium"
+    requires_license: false

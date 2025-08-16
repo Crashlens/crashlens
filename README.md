@@ -39,12 +39,21 @@ CrashLens is a developer tool to **analyze GPT API logs** and uncover hidden **t
 **Requirements**: You need LLM usage logs in JSONL format (`.llm_logs/*.jsonl` or `logs/*.jsonl`)
 
 ```sh
+# Quick setup
 pip install crashlens
+crashlens init  # Interactive setup wizard
+
+# For CI/CD (non-interactive)
+export CRASHLENS_TEMPLATES="all"
+export CRASHLENS_SEVERITY="medium"
+crashlens init --non-interactive
+
+# Run analysis
 crashlens policy-check .llm_logs/*.jsonl --policy-template all
 # Generates report with token waste, cost analysis, and optimization suggestions
 ```
 
-**No logs yet?** Generate test data: `crashlens --simulate --count 50 > demo-logs.jsonl`
+**No logs yet?** Generate test data: `crashlens scan --demo`
 
 **Current Version:** `2.2.1` • **Last Updated:** August 2025
 
@@ -151,11 +160,18 @@ Below is a sample of what the actual `report.md` looks like after running CrashL
 - **Input methods**: File, stdin, clipboard, demo data
 - **Flexible output directories**: Customize where reports are saved
 - **Robust error handling**: Works with malformed or incomplete logs
+- **Non-interactive setup**: Environment variable-based configuration for CI/CD and automation
 
 ### 🔒 **Privacy & Security**
 - **100% local processing**: No data leaves your machine
 - **No external dependencies**: Works offline
 - **CLI-first design**: Integrate into any workflow or CI/CD pipeline
+
+### 🤖 **Automation & CI/CD**
+- **Non-interactive init**: Zero-prompt setup for CI/CD pipelines
+- **Environment variable configuration**: CRASHLENS_TEMPLATES, CRASHLENS_SEVERITY, etc.
+- **GitHub Actions workflow generation**: Automated CI integration
+- **Cross-platform support**: PowerShell, Bash, and shell-agnostic commands
 
 ---
 
@@ -238,6 +254,88 @@ To activate the environment :
   ```sh
   poetry shell
   ```
+
+---
+
+## 🤖 Non-Interactive Setup & Automation
+
+CrashLens supports fully automated, environment variable-driven setup for CI/CD pipelines and headless environments.
+
+### Quick Start (Non-Interactive)
+
+Set environment variables and run init without prompts:
+
+**PowerShell:**
+```powershell
+$env:CRASHLENS_TEMPLATES = "all"
+$env:CRASHLENS_SEVERITY = "medium"
+$env:CRASHLENS_FAIL_ON_VIOLATIONS = "true"
+crashlens init --non-interactive
+```
+
+**Bash/Linux:**
+```bash
+export CRASHLENS_TEMPLATES="all"
+export CRASHLENS_SEVERITY="medium"
+export CRASHLENS_FAIL_ON_VIOLATIONS="true"
+crashlens init --non-interactive
+```
+
+This creates:
+- `.crashlens/config.yaml` - Configuration file
+- `.github/workflows/crashlens.yml` - GitHub Actions workflow (if applicable)
+
+### Environment Variables
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `CRASHLENS_TEMPLATES` | Policy templates to use | `"retry-loop-prevention"` | `"all"`, `"retry-loop-prevention,budget-control"` |
+| `CRASHLENS_SEVERITY` | Minimum severity threshold | `"medium"` | `"low"`, `"high"`, `"critical"` |
+| `CRASHLENS_FAIL_ON_VIOLATIONS` | Exit with error on violations | `"false"` | `"true"`, `"false"` |
+| `CRASHLENS_LOGS_SOURCE` | Default log source path | `"logs/"` | `"logs/"`, `".llm_logs/"`, `"traces.jsonl"` |
+| `CRASHLENS_OUTPUT_FORMAT` | Report output format | `"markdown"` | `"markdown"`, `"slack"`, `"json"` |
+| `CRASHLENS_CREATE_WORKFLOW` | Generate GitHub Actions workflow | `"true"` | `"true"`, `"false"` |
+
+### CI/CD Integration
+
+The generated `.github/workflows/crashlens.yml` provides automated log analysis on every commit:
+
+```yaml
+name: CrashLens Policy Check
+on: [push, pull_request]
+jobs:
+  crashlens-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - run: pip install crashlens
+      - run: crashlens policy-check logs.jsonl --policy-template all --severity-threshold medium --fail-on-violations
+```
+
+### Advanced Examples
+
+**Custom Configuration:**
+```bash
+# Strict monitoring with custom templates
+export CRASHLENS_TEMPLATES="retry-loop-prevention,budget-control"
+export CRASHLENS_SEVERITY="high"
+export CRASHLENS_FAIL_ON_VIOLATIONS="true"
+export CRASHLENS_LOGS_SOURCE=".llm_logs/production.jsonl"
+crashlens init --non-interactive
+```
+
+**Docker/Container Setup:**
+```dockerfile
+ENV CRASHLENS_TEMPLATES="all"
+ENV CRASHLENS_SEVERITY="medium"
+ENV CRASHLENS_FAIL_ON_VIOLATIONS="true"
+RUN crashlens init --non-interactive
+```
+
+For complete documentation, see [docs/NON-INTERACTIVE-GUIDE.md](docs/NON-INTERACTIVE-GUIDE.md) and [docs/NON-INTERACTIVE-QUICK-REFERENCE.md](docs/NON-INTERACTIVE-QUICK-REFERENCE.md).
 
 ---
 
@@ -409,19 +507,47 @@ crashlens scan logs.jsonl --config custom-pricing.yaml
 - Use custom model pricing and detection thresholds.
 - Default config is located in `crashlens/config/pricing.yaml`.
 
-### 9. **Combined options**
+### 14. **Combined options**
 ```sh
-# Multiple options can be combined
+# Multiple scan options can be combined
 crashlens scan logs.jsonl --format json --detailed --summary --config custom.yaml
+
+# Policy checking with custom settings
+crashlens policy-check logs.jsonl --policy-template all --severity-threshold high --fail-on-violations
+
+# Non-interactive setup with custom environment
+CRASHLENS_TEMPLATES="retry-loop-prevention,budget-control" crashlens init --non-interactive
 ```
 - Mix and match options for your specific analysis needs.
+- Environment variables can be combined with any command.
 
-### 10. **Get help**
+### 11. **Project setup and configuration**
+```sh
+crashlens init                               # Interactive setup wizard
+crashlens init --non-interactive            # Automated setup (uses environment variables)
+crashlens list-policy-templates             # List available policy templates
+```
+- Set up CrashLens configuration and GitHub Actions workflow.
+- Non-interactive mode uses environment variables for CI/CD integration.
+
+### 12. **Policy checking**
+```sh
+crashlens policy-check logs.jsonl --policy-template all                    # Check all policies
+crashlens policy-check logs.jsonl --policy-template retry-loop-prevention  # Specific policy
+crashlens policy-check logs.jsonl --fail-on-violations                     # Exit with error code
+crashlens policy-check logs.jsonl --severity-threshold high                # Filter by severity
+```
+- Validate logs against policy rules without running full waste detection.
+- Useful for CI/CD gate checks and compliance validation.
+
+### 13. **Get help**
 ```sh
 crashlens --help          # Main help
 crashlens scan --help     # Scan command help
+crashlens init --help     # Init command help
+crashlens policy-check --help  # Policy check help
 ```
-- Shows all available options and usage details.
+- Shows all available options and usage details for each command.
 
 ---
 
@@ -447,6 +573,16 @@ crashlens scan logs.jsonl --summary         # Show cost summary
 crashlens scan logs.jsonl --summary-only    # Summary without trace IDs
 crashlens scan logs.jsonl --detailed        # Generate detailed JSON reports
 
+# Policy Checking
+crashlens policy-check logs.jsonl --policy-template all    # Check against all policies
+crashlens policy-check logs.jsonl --policy-template retry-loop-prevention  # Specific policy
+crashlens policy-check logs.jsonl --fail-on-violations     # Exit with error on violations
+
+# Setup & Configuration
+crashlens init                               # Interactive setup wizard
+crashlens init --non-interactive            # Automated setup using environment variables
+crashlens list-policy-templates             # List available policy templates
+
 # Advanced Options
 crashlens scan logs.jsonl -c custom.yaml    # Custom pricing config
 crashlens scan logs.jsonl --detailed-dir reports/  # Custom output directory
@@ -465,7 +601,23 @@ crashlens --version                         # Show current version
    # OR clone and install from source as above
    ```
 
-2. **Prepare your log files:**
+2. **Set up CrashLens configuration:**
+   
+   **Interactive setup:**
+   ```sh
+   crashlens init
+   # Follow the prompts to configure policies, severity, etc.
+   ```
+   
+   **Non-interactive setup (for CI/CD):**
+   ```sh
+   export CRASHLENS_TEMPLATES="all"
+   export CRASHLENS_SEVERITY="medium" 
+   export CRASHLENS_FAIL_ON_VIOLATIONS="true"
+   crashlens init --non-interactive
+   ```
+
+3. **Prepare your log files:**
    
    **Required**: CrashLens needs LLM usage logs in JSONL format. Place them in:
    - `.llm_logs/` directory (recommended)
@@ -494,17 +646,23 @@ crashlens --version                         # Show current version
 
    **No logs yet?** Generate test data:
    ```sh
-   crashlens --simulate --count 50 > .llm_logs/demo.jsonl
+   crashlens scan --demo
    ```
 
+4. **Analyze your logs:**
 3. **Scan your logs:**
-3. **Scan your logs:**
+   ```sh
+4. **Analyze your logs:**
    ```sh
    crashlens policy-check .llm_logs/*.jsonl --policy-template all
    # OR for a specific file
    crashlens policy-check path/to/your-logs.jsonl
+   # OR for waste pattern analysis
+   crashlens scan .llm_logs/*.jsonl --format markdown --detailed
    ```
-4. **Review the results:** Open the generated markdown report to review findings and optimization suggestions.
+5. **Review the results:** Open the generated markdown report to review findings and optimization suggestions.
+
+6. **CI/CD Integration:** If you used `crashlens init`, a GitHub Actions workflow was created in `.github/workflows/crashlens.yml` for automated analysis.
 
 ---
 
