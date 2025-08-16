@@ -24,7 +24,7 @@ suppression_rules:
   # Overkill Model Detector - Enhanced thresholds
   overkill_model:
     enabled: true
-    suppress_if_retry_loop: false
+    suppress_if_retry_loop: true  # Should be suppressed by higher priority detectors
     token_threshold: 50  # Increased from 20
     expensive_models: ["gpt-4", "claude-3-opus", "gpt-4-turbo"]
 

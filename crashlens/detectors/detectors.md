@@ -1,12 +1,12 @@
-# 🔍 CrashLens Detectors Documentation
+# 🔍 Crashens Detector Detectors Documentation
 
-This document explains how each of the 4 detectors in CrashLens works to identify different types of token waste and inefficiencies in your LLM API usage.
+This document explains how each of the 4 detectors in Crashens Detector works to identify different types of token waste and inefficiencies in your LLM API usage.
 
 ---
 
 ## 📊 Detector Overview
 
-CrashLens uses **4 specialized detectors** that work together to identify different waste patterns:
+Crashens Detector uses **4 specialized detectors** that work together to identify different waste patterns:
 
 | Detector | Priority | Purpose | Waste Type |
 |----------|----------|---------|------------|
@@ -367,7 +367,7 @@ thresholds:
 
 ## 📊 Summary
 
-CrashLens's 4 detectors work together to provide comprehensive waste detection:
+Crashens Detector's 4 detectors work together to provide comprehensive waste detection:
 
 1. **RetryLoopDetector** - Catches token bleeding from failed calls
 2. **FallbackStormDetector** - Identifies chaotic model switching

@@ -122,14 +122,19 @@ class SuppressionEngine:
                 current_priority = DETECTOR_PRIORITY.get(detector_name, 999)
                 owner_priority = DETECTOR_PRIORITY.get(current_owner, 999)
                 
+                # Debug output
+                # print(f"DEBUG: {detector_name} (priority {current_priority}) checking trace {trace_id} owned by {current_owner} (priority {owner_priority})")
+                
                 # 🧰 3. Suppression Hook: Priority-based suppression (configurable)
                 if self._should_suppress_by_priority(detector_name, current_priority, owner_priority):
                     # Current detector has lower priority, suppress this detection
+                    # print(f"DEBUG: Suppressing {detector_name} detection for {trace_id} - owned by higher priority {current_owner}")
                     self._add_suppressed_detection(detection, detector_name, f"higher_priority_detector:{current_owner}")
                     continue
                 elif current_priority < owner_priority:
                     # Current detector has higher priority, it takes ownership
                     # Move previous owner's detections to suppressed (only if priority suppression enabled)
+                    # print(f"DEBUG: {detector_name} taking ownership of {trace_id} from {current_owner}")
                     if self._should_suppress_by_priority(current_owner, owner_priority, current_priority):
                         self._transfer_ownership(trace_id, current_owner, detector_name)
             
@@ -182,7 +187,8 @@ class SuppressionEngine:
         if not detector_config.get('suppress_if_retry_loop', True):
             return False
         
-        # Otherwise, use priority suppression
+        # Otherwise, use priority suppression (lower number = higher priority)
+        return current_priority > owner_priority
         return current_priority > owner_priority
     
     def _add_suppressed_detection(self, detection: Dict[str, Any], detector_name: str, reason: str):
@@ -240,8 +246,12 @@ def load_suppression_config(config_path: Optional[Path] = None) -> Dict[str, Any
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             policy = yaml.safe_load(f)
-            return policy.get('suppression_rules', {})
-    except Exception:
+            suppression_rules = policy.get('suppression_rules', {})
+            # Debug: Print loaded rules to verify they're loaded
+            # print(f"DEBUG: Loaded suppression rules: {suppression_rules}")
+            return suppression_rules
+    except Exception as e:
+        click.echo(f"⚠️  Warning: Could not load suppression config: {e}", err=True)
         return {}  # Default to no suppression rules
 
 

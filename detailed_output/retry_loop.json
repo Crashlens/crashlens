@@ -1,0 +1,1707 @@
+{
+  "detector_type": "Retry Loop Detector",
+  "summary": {
+    "total_issues": 187,
+    "affected_traces": 156,
+    "total_waste_cost": 859.523742,
+    "total_waste_tokens": 24555498,
+    "models_involved": [
+      "gpt-3.5-turbo",
+      "gpt-4"
+    ]
+  },
+  "issues": [
+    {
+      "trace_id": "trace_norm_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.172425,
+      "waste_tokens": 119790,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.23958,
+      "waste_tokens": 5808,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 20.1465,
+      "waste_tokens": 344850,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.052998,
+      "waste_tokens": 40656,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.055539,
+      "waste_tokens": 41382,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.052635,
+      "waste_tokens": 38478,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.092565,
+      "waste_tokens": 68970,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.064614,
+      "waste_tokens": 56628,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 3.44124,
+      "waste_tokens": 67518,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.2178,
+      "waste_tokens": 5808,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.005808,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.133947,
+      "waste_tokens": 93654,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.23958,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 22.19382,
+      "waste_tokens": 376794,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_07",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.166254,
+      "waste_tokens": 114708,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.022506,
+      "waste_tokens": 18876,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.022869,
+      "waste_tokens": 19602,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.9801,
+      "waste_tokens": 18150,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_08",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.005808,
+      "waste_tokens": 8712,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.169884,
+      "waste_tokens": 121968,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 1.26324,
+      "waste_tokens": 27588,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_01",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 11.3256,
+      "waste_tokens": 196020,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_09",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.198924,
+      "waste_tokens": 136488,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.19602,
+      "waste_tokens": 5808,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_10",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.219978,
+      "waste_tokens": 149556,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_11",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 26.54982,
+      "waste_tokens": 449394,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 1.21968,
+      "waste_tokens": 22506,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.058806,
+      "waste_tokens": 45012,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.060258,
+      "waste_tokens": 45012,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_12",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.005082,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_13",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.046101,
+      "waste_tokens": 34122,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.276606,
+      "waste_tokens": 190212,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 11.58696,
+      "waste_tokens": 197472,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_07",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.17424,
+      "waste_tokens": 5082,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_14",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.177507,
+      "waste_tokens": 122694,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_15",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 35.54496,
+      "waste_tokens": 604032,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_08",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.80586,
+      "waste_tokens": 15972,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_16",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.242484,
+      "waste_tokens": 165528,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.199287,
+      "waste_tokens": 137214,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.204732,
+      "waste_tokens": 140844,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.201828,
+      "waste_tokens": 139392,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_09",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.37026,
+      "waste_tokens": 8712,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_17",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.155364,
+      "waste_tokens": 107448,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.114708,
+      "waste_tokens": 84216,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 5.57568,
+      "waste_tokens": 98736,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_18",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_10",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.30492,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_19",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 30.8187,
+      "waste_tokens": 519090,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_20",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.090387,
+      "waste_tokens": 64614,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_11",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.19602,
+      "waste_tokens": 5808,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.091839,
+      "waste_tokens": 67518,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.93654,
+      "waste_tokens": 20328,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_02",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 5.1183,
+      "waste_tokens": 90750,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_21",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.006897,
+      "waste_tokens": 7986,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.30855,
+      "waste_tokens": 399300,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.31581,
+      "waste_tokens": 406560,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_12",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.60984,
+      "waste_tokens": 13068,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_22",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.274791,
+      "waste_tokens": 186582,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_23",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 9.08226,
+      "waste_tokens": 157542,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_13",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.19602,
+      "waste_tokens": 5808,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_24",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.188397,
+      "waste_tokens": 129954,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.221793,
+      "waste_tokens": 153186,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 11.12958,
+      "waste_tokens": 189486,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_14",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.17424,
+      "waste_tokens": 4356,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_25",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.210177,
+      "waste_tokens": 144474,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_26",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.276243,
+      "waste_tokens": 189486,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_15",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.23958,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_27",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 33.06204,
+      "waste_tokens": 557568,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_28",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.00726,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.245751,
+      "waste_tokens": 172062,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.80586,
+      "waste_tokens": 19602,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_03",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 15.6816,
+      "waste_tokens": 268620,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_16",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.17424,
+      "waste_tokens": 5082,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_29",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.144837,
+      "waste_tokens": 100914,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_30",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.308913,
+      "waste_tokens": 211266,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_17",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.30492,
+      "waste_tokens": 7986,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_31",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 15.72516,
+      "waste_tokens": 270072,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_32",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_33",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.013068,
+      "waste_tokens": 11616,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_18",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.17424,
+      "waste_tokens": 4356,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_34",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.221067,
+      "waste_tokens": 151734,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_35",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 13.35114,
+      "waste_tokens": 227238,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_19",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.17424,
+      "waste_tokens": 5082,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_36",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.003993,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_37",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.243936,
+      "waste_tokens": 168432,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_20",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.15246,
+      "waste_tokens": 4356,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_38",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 44.1045,
+      "waste_tokens": 744150,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_39",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.024684,
+      "waste_tokens": 20328,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_40",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.165528,
+      "waste_tokens": 113256,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.00726,
+      "waste_tokens": 8712,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.00726,
+      "waste_tokens": 8712,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.00726,
+      "waste_tokens": 8712,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_41",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 6.83892,
+      "waste_tokens": 119064,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_false_positive_1",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 13.2858,
+      "waste_tokens": 225060,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_false_positive_1",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 15.48558,
+      "waste_tokens": 262086,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_42",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.113256,
+      "waste_tokens": 78408,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_21",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.23958,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_43",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.274791,
+      "waste_tokens": 186582,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_07",
+      "problem": "Retry loop detected with 2904 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.076956,
+      "waste_tokens": 66792,
+      "severity": "high",
+      "retry_count": 2904,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_44",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 17.66358,
+      "waste_tokens": 298386,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_45",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.133221,
+      "waste_tokens": 92202,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.330693,
+      "waste_tokens": 225786,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 17.66358,
+      "waste_tokens": 298386,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_22",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.2178,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_46",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.219615,
+      "waste_tokens": 148830,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_47",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.331056,
+      "waste_tokens": 223608,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_23",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.23958,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_48",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 24.2847,
+      "waste_tokens": 410190,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_49",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.16698,
+      "waste_tokens": 116160,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_08",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.00726,
+      "waste_tokens": 7986,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_08",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.007623,
+      "waste_tokens": 9438,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_50",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_24",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.2178,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.059895,
+      "waste_tokens": 47190,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.7623,
+      "waste_tokens": 18150,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_04",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 3.74616,
+      "waste_tokens": 66792,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_51",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.133584,
+      "waste_tokens": 92928,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_52",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 35.26182,
+      "waste_tokens": 594594,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_25",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.58806,
+      "waste_tokens": 12342,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_53",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.198561,
+      "waste_tokens": 135762,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_09",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.111441,
+      "waste_tokens": 77682,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_09",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.116523,
+      "waste_tokens": 80586,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_54",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_55",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 19.90692,
+      "waste_tokens": 336864,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_26",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.37026,
+      "waste_tokens": 8712,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_56",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.111804,
+      "waste_tokens": 78408,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.019965,
+      "waste_tokens": 18150,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_06",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 1.089,
+      "waste_tokens": 21780,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_57",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.275154,
+      "waste_tokens": 187308,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_27",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.23958,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_58",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 26.39736,
+      "waste_tokens": 444312,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_59",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.309639,
+      "waste_tokens": 212718,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_10",
+      "problem": "Retry loop detected with 2904 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.018876,
+      "waste_tokens": 26136,
+      "severity": "high",
+      "retry_count": 2904,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_60",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.242847,
+      "waste_tokens": 166254,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_28",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.26136,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_61",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 9.12582,
+      "waste_tokens": 158994,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_62",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.329241,
+      "waste_tokens": 222882,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_false_positive_2",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 11.15136,
+      "waste_tokens": 190212,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_false_positive_2",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 13.30758,
+      "waste_tokens": 225786,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_63",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.005082,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_29",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.19602,
+      "waste_tokens": 5808,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_64",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.220341,
+      "waste_tokens": 150282,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_11",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.275154,
+      "waste_tokens": 187308,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_11",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.286044,
+      "waste_tokens": 194568,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_65",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 52.5987,
+      "waste_tokens": 882090,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_66",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.005808,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_overkill_30",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 0.26136,
+      "waste_tokens": 7260,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_07",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.111441,
+      "waste_tokens": 77682,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_success_07",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 5.37966,
+      "waste_tokens": 92202,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_67",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.242121,
+      "waste_tokens": 164802,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_68",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.198198,
+      "waste_tokens": 135036,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_69",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 13.41648,
+      "waste_tokens": 229416,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_70",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_71",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.165891,
+      "waste_tokens": 113982,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_retry_loop_12",
+      "problem": "Retry loop detected with 2178 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.056628,
+      "waste_tokens": 47916,
+      "severity": "high",
+      "retry_count": 2178,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_72",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 26.52804,
+      "waste_tokens": 448668,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_73",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.136125,
+      "waste_tokens": 98010,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 1.4157,
+      "waste_tokens": 29040,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_fallback_failure_05",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 6.83892,
+      "waste_tokens": 119064,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_74",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.219978,
+      "waste_tokens": 149556,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_75",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_76",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 65.7756,
+      "waste_tokens": 1103520,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_77",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_78",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.166617,
+      "waste_tokens": 115434,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_79",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_80",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 11.30382,
+      "waste_tokens": 195294,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_81",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_82",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.33033,
+      "waste_tokens": 225060,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_83",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_84",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 35.10936,
+      "waste_tokens": 589512,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_85",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_86",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.383328,
+      "waste_tokens": 258456,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_87",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_88",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 8.99514,
+      "waste_tokens": 154638,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_89",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_90",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.329241,
+      "waste_tokens": 222882,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_91",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_92",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 17.72892,
+      "waste_tokens": 300564,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_93",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_94",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.274791,
+      "waste_tokens": 186582,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_95",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_96",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 30.8187,
+      "waste_tokens": 519090,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_97",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_98",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.220704,
+      "waste_tokens": 151008,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_99",
+      "problem": "Retry loop detected with 726 identical calls using gpt-3.5-turbo for the same prompt.",
+      "estimated_cost": 0.004719,
+      "waste_tokens": 6534,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    },
+    {
+      "trace_id": "trace_norm_100",
+      "problem": "Retry loop detected with 726 identical calls using gpt-4 for the same prompt.",
+      "estimated_cost": 26.3538,
+      "waste_tokens": 442860,
+      "severity": "high",
+      "retry_count": 726,
+      "models_involved": []
+    }
+  ],
+  "suggestions": [
+    "Implement exponential backoff for retries",
+    "Add circuit breakers to prevent retry storms",
+    "Set maximum retry limits (e.g., 3 retries max)"
+  ],
+  "metadata": {
+    "generated_at": "2025-08-17T00:43:13.007402",
+    "detector_category": "retry_loop"
+  }
+}

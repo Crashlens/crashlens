@@ -1,0 +1,69 @@
+{
+  "detector_type": "Fallback Failure Detector",
+  "summary": {
+    "total_issues": 5,
+    "affected_traces": 5,
+    "total_waste_cost": 0.0,
+    "total_waste_tokens": 1275,
+    "models_involved": [
+      "gpt-3.5-turbo",
+      "gpt-4"
+    ]
+  },
+  "issues": [
+    {
+      "trace_id": "demo_fallback_01",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.0,
+      "waste_tokens": 175,
+      "severity": "medium",
+      "expensive_model": "",
+      "cheaper_model": ""
+    },
+    {
+      "trace_id": "demo_fallback_02",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.0,
+      "waste_tokens": 140,
+      "severity": "medium",
+      "expensive_model": "",
+      "cheaper_model": ""
+    },
+    {
+      "trace_id": "demo_fallback_03",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.0,
+      "waste_tokens": 230,
+      "severity": "medium",
+      "expensive_model": "",
+      "cheaper_model": ""
+    },
+    {
+      "trace_id": "demo_fallback_04",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.0,
+      "waste_tokens": 195,
+      "severity": "medium",
+      "expensive_model": "",
+      "cheaper_model": ""
+    },
+    {
+      "trace_id": "demo_fallback_05",
+      "problem": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "estimated_cost": 0.0,
+      "waste_tokens": 535,
+      "severity": "medium",
+      "expensive_model": "",
+      "cheaper_model": ""
+    }
+  ],
+  "suggestions": [
+    "Remove redundant expensive fallback calls",
+    "Use cheaper models as primary option",
+    "Only fallback when cheaper models actually fail"
+  ],
+  "metadata": {
+    "generated_at": "2025-08-16T23:40:27.809194",
+    "detector_category": "fallback_failure"
+  }
+}

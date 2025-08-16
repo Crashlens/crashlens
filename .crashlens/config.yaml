@@ -1,7 +1,7 @@
-created_at: '2025-08-10T17:35:12.464151'
+created_at: '2025-08-17T01:15:16.579308'
 fail_on_violations: true
-logs_source: langfuse
+logs_source: local
 output_directory: .
-policy_template: retry-loop-prevention
-severity_threshold: high
-version: 2.5.1
+policy_template: budget-protection
+severity_threshold: critical
+version: 2.9.5

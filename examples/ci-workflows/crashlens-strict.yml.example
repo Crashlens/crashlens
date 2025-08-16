@@ -177,7 +177,7 @@ jobs:
           ## 🎯 Enforcement Results
           
           This workflow enforces strict limits on:
-          - 💰 Daily cost limits ($5.00 maximum)
+          - 💰 Daily cost limits (5.00 maximum)
           - ⏱️ Response time performance (max 20 slow traces)
           - 💸 Expensive request limits (max 10 requests >$0.05)
           - ❗ Error rate thresholds (max 20% error rate)
@@ -197,7 +197,7 @@ jobs:
           ## 🔧 Configuration
           
           **Strict Limits Applied:**
-          - Maximum daily cost: $5.00
+          - Maximum daily cost: 5.00
           - Maximum slow traces: 20
           - Maximum expensive requests: 10  
           - Maximum error rate: 20%

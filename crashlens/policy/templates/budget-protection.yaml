@@ -12,7 +12,7 @@ rules:
   - id: daily_budget_exceeded
     description: "Block requests when daily budget is exceeded"
     match:
-      daily_spend: ">$100"  # Configurable per environment
+      daily_spend: ">100"  # Configurable per environment
     action: fail
     severity: critical
     suggestion: |
@@ -28,7 +28,7 @@ rules:
   - id: hourly_spend_spike
     description: "Detect unusual hourly spending spikes"
     match:
-      hourly_spend: ">$20"
+      hourly_spend: ">20"
       spend_increase_ratio: ">5x"  # 5x higher than average
     action: warn
     severity: high
@@ -45,7 +45,7 @@ rules:
   - id: expensive_single_request
     description: "Flag unusually expensive single requests"
     match:
-      cost: ">$5.00"
+      cost: ">5.00"
       single_request: true
     action: warn
     severity: high
@@ -79,7 +79,7 @@ rules:
   - id: token_efficiency_violation
     description: "Flag inefficient token usage patterns"
     match:
-      cost_per_output_token: ">$0.0001"
+      cost_per_output_token: ">0.0001"
       output_quality_score: "<0.8"
     action: warn
     severity: medium
