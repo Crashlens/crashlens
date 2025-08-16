@@ -42,7 +42,7 @@ crashlens policy-check examples-logs/demo-logs.jsonl --policy-template model-ove
 
 ### 2. **Budget String Parsing Error**
 ```
-WARNING:root:Policy match error: could not convert string to float: '$5.00'
+WARNING:root:Policy match error: could not convert string to float: '5.00'
 ```
 
 **Problem**: Budget thresholds with dollar signs can't be parsed.
@@ -81,7 +81,7 @@ The core functionality is broken - policies aren't matching log entries properly
 ### 2. **Fix Budget Parsing** (Priority 1)
 ```yaml
 # Change from:
-cost: ">$5.00"
+cost: ">5.00"
 # To:
 cost: ">5.00"
 ```
