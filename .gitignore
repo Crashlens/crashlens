@@ -74,6 +74,11 @@ Desktop.ini
 .idea/
 *.iml 
 
+# Legacy report output (replaced by organized folder structure)
 report.md
+
+# Policy violation outputs (optional - can be committed for audit trails)
+# Uncomment the next line if you don't want to commit violation reports
+# policy-violations/
 
 .copilot/

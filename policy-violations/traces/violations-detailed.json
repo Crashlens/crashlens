@@ -1,0 +1,60 @@
+{
+  "summary": {
+    "total_traces": 2,
+    "total_violations": 2,
+    "by_severity": {
+      "critical": 2
+    },
+    "estimated_spend_usd": 0.02,
+    "estimated_savings_usd": 0.01,
+    "generated_at": "2025-08-17T10:42:49.826466Z"
+  },
+  "violations_by_rule": [
+    {
+      "rule_id": "expensive_single_call",
+      "severity": "critical",
+      "count": 2,
+      "estimated_cost_usd": 0.02,
+      "traces": [
+        {
+          "trace_id": "demo_expensive_2",
+          "model": "gpt-4",
+          "cost_usd": 0.012,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "redactions": {
+            "content_removed": false,
+            "pii_removed": false
+          },
+          "violations": [
+            {
+              "reason": "cost=0.012 (rule: >0.005)",
+              "suggestion": "Call exceeds $0.005 threshold.\n- Review prompt optimization\n- Consider model downgrading\n- Break into smaller requests\n",
+              "action": "fail",
+              "line_number": 2
+            }
+          ]
+        },
+        {
+          "trace_id": "demo_expensive_1",
+          "model": "gpt-4",
+          "cost_usd": 0.008,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "redactions": {
+            "content_removed": false,
+            "pii_removed": false
+          },
+          "violations": [
+            {
+              "reason": "cost=0.008 (rule: >0.005)",
+              "suggestion": "Call exceeds $0.005 threshold.\n- Review prompt optimization\n- Consider model downgrading\n- Break into smaller requests\n",
+              "action": "fail",
+              "line_number": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

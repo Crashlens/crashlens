@@ -44,6 +44,8 @@ from .detectors.overkill_model_detector import OverkillModelDetector
 from .reporters.slack_formatter import SlackFormatter
 from .reporters.markdown_formatter import MarkdownFormatter
 from .reporters.summary_formatter import SummaryFormatter
+from .reporters.policy_report_markdown import PolicyReportMarkdown
+from .reporters.policy_report_json import PolicyReportJSON
 from .langfuse_client import LangfuseClient, save_logs_to_temp_file
 from .helicone_client import HeliconeClient
 from .policy.templates import get_template_manager
@@ -1084,6 +1086,49 @@ cli.add_command(fetch_langfuse)
 cli.add_command(fetch_helicone)
 
 
+def _resolve_output_paths(out_report: Path, out_detailed: Path, out_dir: Optional[Path], 
+                         detailed: bool, force: bool) -> Tuple[Path, Path]:
+    """
+    Resolve final output paths, handling --out-dir and file collision detection.
+    
+    Args:
+        out_report: Original markdown report path
+        out_detailed: Original detailed JSON path  
+        out_dir: Optional output directory override
+        detailed: Whether detailed report is requested
+        force: Whether to overwrite existing files
+        
+    Returns:
+        Tuple of (final_markdown_path, final_detailed_path)
+    """
+    from datetime import datetime
+    
+    # Handle --out-dir override
+    if out_dir:
+        # Use simple filenames when --out-dir is specified
+        final_out_report = out_dir / "violations-summary.md"
+        final_out_detailed = out_dir / "violations-detailed.json"
+    else:
+        final_out_report = out_report
+        final_out_detailed = out_detailed
+    
+    # Handle file collision detection for markdown report
+    if final_out_report.exists() and not force:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        stem = final_out_report.stem
+        suffix = final_out_report.suffix
+        final_out_report = final_out_report.parent / f"{stem}-{timestamp}{suffix}"
+    
+    # Handle file collision detection for detailed report (if needed)
+    if detailed and final_out_detailed.exists() and not force:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        stem = final_out_detailed.stem
+        suffix = final_out_detailed.suffix
+        final_out_detailed = final_out_detailed.parent / f"{stem}-{timestamp}{suffix}"
+    
+    return final_out_report, final_out_detailed
+
+
 @click.command()
 @click.argument('logfile', type=click.Path(path_type=Path))
 @click.option('--policy-template', help='Use built-in policy template(s) (comma-separated or "all")')
@@ -1092,15 +1137,39 @@ cli.add_command(fetch_helicone)
 @click.option('--severity-threshold', 
               type=click.Choice(['low', 'medium', 'high', 'critical'], case_sensitive=False),
               default='medium', help='Minimum severity level to report')
+@click.option('--out-report', type=click.Path(path_type=Path), default='policy-violations/reports/violations-summary.md',
+              help='Output path for markdown report')
+@click.option('--detailed', is_flag=True, help='Generate detailed JSON report in addition to markdown')
+@click.option('--out-detailed', type=click.Path(path_type=Path), default='policy-violations/traces/violations-detailed.json',
+              help='Output path for detailed JSON report')
+@click.option('--out-dir', type=click.Path(path_type=Path), 
+              help='Output directory for both reports (overrides individual paths)')
+@click.option('--force', is_flag=True, help='Overwrite existing files without timestamp suffix')
+@click.option('--quiet', is_flag=True, help='Print only summary line to stdout')
+@click.option('--no-content', is_flag=True, help='Exclude prompt/response content from reports')
+@click.option('--strip-pii', is_flag=True, help='Remove personally identifiable information from reports')
 def policy_check(logfile: Path, policy_template: Optional[str] = None, policy_file: Optional[Path] = None, 
-                 fail_on_violations: bool = False, severity_threshold: str = 'medium'):
-    """🔍 Check logs against policy rules without running waste detection
+                 fail_on_violations: bool = False, severity_threshold: str = 'medium',
+                 out_report: Path = Path('policy-violations/reports/violations-summary.md'), detailed: bool = False, 
+                 out_detailed: Path = Path('policy-violations/traces/violations-detailed.json'),
+                 out_dir: Optional[Path] = None, force: bool = False,
+                 quiet: bool = False, no_content: bool = False, strip_pii: bool = False):
+    """🔍 Check logs against policy rules and generate reports
     
     📦 Examples:
     
     crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
-    crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+    crashlens policy-check logs.jsonl --policy-template all --fail-on-violations --detailed
     crashlens policy-check logs.jsonl --policy-file my-policy.yaml --severity-threshold high
+    crashlens policy-check logs.jsonl --policy-file my-policy.yaml --detailed --out-report policy-violations/reports/custom-summary.md
+    
+    📁 Output Structure:
+    - policy-violations/reports/violations-summary.md (default summary)
+    - policy-violations/traces/violations-detailed.json (detailed analysis with --detailed)
+    
+    🗂️ New Directory Options:
+    - --out-dir crashlens-reports/  (places both files in custom directory)
+    - --force (overwrite existing files instead of adding timestamp)
     """
     
     # Validate inputs
@@ -1117,18 +1186,21 @@ def policy_check(logfile: Path, policy_template: Optional[str] = None, policy_fi
         policy_engine = None
         
         if policy_file:
-            click.echo(f"📋 Loading custom policy from {policy_file}...")
+            if not quiet:
+                click.echo(f"📋 Loading custom policy from {policy_file}...")
             policy_engine = PolicyEngine(policy_file)
             
         elif policy_template:
             template_manager = get_template_manager()
             
             if policy_template.lower() == "all":
-                click.echo("📋 Loading all policy templates...")
+                if not quiet:
+                    click.echo("📋 Loading all policy templates...")
                 policy_engine = template_manager.load_all_templates()
             else:
                 template_names = [name.strip() for name in policy_template.split(",")]
-                click.echo(f"📋 Loading policy templates: {', '.join(template_names)}...")
+                if not quiet:
+                    click.echo(f"📋 Loading policy templates: {', '.join(template_names)}...")
                 
                 if len(template_names) == 1:
                     policy_engine = template_manager.load_template(template_names[0])
@@ -1155,7 +1227,8 @@ def policy_check(logfile: Path, policy_template: Optional[str] = None, policy_fi
             else:
                 log_entries.append(trace_data)
         
-        click.echo(f"🔍 Checking {len(log_entries)} log entries against policy rules...")
+        if not quiet:
+            click.echo(f"🔍 Checking {len(log_entries)} log entries against policy rules...")
         
         # Evaluate policies
         violations, skipped_rules = policy_engine.evaluate_logs(log_entries)
@@ -1169,42 +1242,67 @@ def policy_check(logfile: Path, policy_template: Optional[str] = None, policy_fi
             if severity_order.index(v.severity.value) >= min_severity_index
         ]
         
-        # Report results
-        if not filtered_violations:
-            click.echo("✅ No policy violations found! Your usage patterns look compliant.")
-            if skipped_rules:
-                click.echo(f"ℹ️  Note: Skipped {len(skipped_rules)} premium rules (upgrade for full coverage)")
+        # Handle output directory and file collision detection
+        final_out_report, final_out_detailed = _resolve_output_paths(
+            out_report, out_detailed, out_dir, detailed, force
+        )
+        
+        # Generate markdown report
+        # Ensure output directory exists
+        final_out_report.parent.mkdir(parents=True, exist_ok=True)
+        
+        markdown_writer = PolicyReportMarkdown(
+            violations=filtered_violations,
+            log_entries=log_entries,
+            strip_pii=strip_pii,
+            no_content=no_content
+        )
+        markdown_writer.generate_report(final_out_report)
+        
+        # Generate detailed JSON report if requested
+        if detailed:
+            # Ensure output directory exists
+            final_out_detailed.parent.mkdir(parents=True, exist_ok=True)
+            
+            json_writer = PolicyReportJSON(
+                violations=filtered_violations,
+                log_entries=log_entries,
+                strip_pii=strip_pii,
+                no_content=no_content
+            )
+            json_writer.generate_report(final_out_detailed)
+        
+        # Output results to stdout
+        if not quiet:
+            if not filtered_violations:
+                click.echo("✅ No policy violations found! Your usage patterns look compliant.")
+                if skipped_rules:
+                    click.echo(f"ℹ️  Note: Skipped {len(skipped_rules)} premium rules")
+            else:
+                # Show brief summary
+                by_severity = {}
+                for violation in filtered_violations:
+                    severity = violation.severity.value
+                    by_severity[severity] = by_severity.get(severity, 0) + 1
+                
+                severity_summary = []
+                for severity in ['critical', 'high', 'medium', 'low']:
+                    if severity in by_severity:
+                        severity_summary.append(f"{severity}: {by_severity[severity]}")
+                
+                click.echo(f"⚠️  Found {len(filtered_violations)} policy violations ({', '.join(severity_summary)})")
+                if skipped_rules:
+                    click.echo(f"ℹ️  Skipped {len(skipped_rules)} premium rules")
+        
+        # Print output file locations
+        if quiet:
+            click.echo(f"Saved report to {final_out_report}")
+            if detailed:
+                click.echo(f"Saved detailed JSON to {final_out_detailed}")
         else:
-            click.echo(f"\n⚠️  Found {len(filtered_violations)} policy violations:")
-            click.echo("=" * 60)
-            
-            # Group by severity
-            by_severity = {}
-            for violation in filtered_violations:
-                severity = violation.severity.value
-                if severity not in by_severity:
-                    by_severity[severity] = []
-                by_severity[severity].append(violation)
-            
-            # Show violations by severity (high to low)
-            for severity in ['critical', 'high', 'medium', 'low']:
-                if severity in by_severity:
-                    emoji = "🚨" if severity == "critical" else "⚠️" if severity == "high" else "💡"
-                    click.echo(f"\n{emoji} {severity.upper()} SEVERITY ({len(by_severity[severity])} violations):")
-                    
-                    for i, violation in enumerate(by_severity[severity][:5], 1):  # Show up to 5 per severity
-                        line_info = f" (line {violation.line_number})" if violation.line_number else ""
-                        click.echo(f"  {i}. {violation.rule_id}{line_info}")
-                        click.echo(f"     Reason: {violation.reason}")
-                        click.echo(f"     Action: {violation.action.value}")
-                        click.echo(f"     Suggestion: {violation.suggestion}")
-                        click.echo()
-                    
-                    if len(by_severity[severity]) > 5:
-                        click.echo(f"     ... and {len(by_severity[severity]) - 5} more {severity} violations")
-            
-            if skipped_rules:
-                click.echo(f"\nℹ️  Skipped {len(skipped_rules)} premium rules (upgrade for full policy coverage)")
+            click.echo(f"📄 Saved markdown report to {final_out_report}")
+            if detailed:
+                click.echo(f"📊 Saved detailed JSON to {final_out_detailed}")
         
         # Exit with appropriate code
         if fail_on_violations and filtered_violations:

@@ -126,8 +126,15 @@ crashlens scan logs.jsonl                     # Auto-sends to Slack when configu
 
 ### 🛡️ **Policy Enforcement**
 ```bash
-# Check logs against all policies
+# Check logs against all policies (generates report.md)
 crashlens policy-check logs.jsonl --policy-template all
+
+# Generate detailed JSON report for CI/CD integration
+crashlens policy-check logs.jsonl --policy-template all --detailed
+
+# Custom output paths and quiet mode
+crashlens policy-check logs.jsonl --policy-template all --detailed \
+  --out-report violations.md --out-detailed violations.json --quiet
 
 # Use specific policy templates
 crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention
@@ -137,7 +144,16 @@ crashlens policy-check logs.jsonl --policy-file my-policy.yaml
 
 # Fail on violations (CI/CD mode)
 crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+
+# Privacy-safe reports (strip PII, exclude content)
+crashlens policy-check logs.jsonl --policy-template all --strip-pii --no-content
 ```
+
+**📁 Output Organization:**
+Policy violation reports are automatically organized in the `policy-violations/` folder:
+- `policy-violations/reports/` - Concise Markdown summaries
+- `policy-violations/traces/` - Detailed JSON analysis files
+- See `policy-violations/README.md` for complete documentation
 
 ### 🛠️ **Management & Simulation**
 
