@@ -1,2 +1,0 @@
-{"input": {"model": "gpt-4"}, "usage": {"promptTokens": 100, "completionTokens": 50}, "calculatedTotalCost": 0.003, "traceId": "langfuse_test_1"}
-{"input": {"model": "gpt-3.5-turbo"}, "usage": {"promptTokens": 50, "completionTokens": 25}, "calculatedTotalCost": 0.0001, "traceId": "langfuse_test_2"}

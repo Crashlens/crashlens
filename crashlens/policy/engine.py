@@ -6,7 +6,6 @@ from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 
-# License checker imports removed for open source version
 
 
 class PolicyAction(Enum):

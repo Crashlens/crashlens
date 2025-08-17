@@ -151,9 +151,6 @@ crashlens simulate --pattern retry-loop --count 100
 
 # Setup project with policies
 crashlens init
-
-# License validation
-crashlens license-check --license-file LICENSE
 ```
 
 ---

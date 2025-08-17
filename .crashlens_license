@@ -1,9 +1,0 @@
-# CrashLens Local License Override
-# This file allows developers to set a license key locally without environment variables
-# Add your license key below (this file should be in .gitignore)
-
-# Example:
-# FREE-TRIAL-123
-
-# Uncomment and replace with your actual license key:
-# YOUR-LICENSE-KEY-HERE

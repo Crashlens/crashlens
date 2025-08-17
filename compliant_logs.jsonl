@@ -1,2 +1,0 @@
-{"traceId": "compliant_1", "input": {"model": "gpt-3.5-turbo", "prompt": "This is a reasonable prompt that should be compliant with policies because it uses an efficient model for a reasonable task"}, "usage": {"prompt_tokens": 100, "completion_tokens": 80, "total_tokens": 180}, "cost": 0.0002}
-{"traceId": "compliant_2", "input": {"model": "gpt-4o-mini", "prompt": "Another compliant prompt using a cost-effective model"}, "usage": {"prompt_tokens": 75, "completion_tokens": 60, "total_tokens": 135}, "cost": 0.0001}

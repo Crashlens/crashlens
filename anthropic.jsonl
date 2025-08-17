@@ -1,2 +1,0 @@
-{"traceId": "anthropic_test_1", "model": "claude-3-opus", "usage": {"input_tokens": 100, "output_tokens": 50}, "cost": 0.002}
-{"traceId": "anthropic_test_2", "model": "claude-3-sonnet", "usage": {"input_tokens": 75, "output_tokens": 25}, "cost": 0.0005}
