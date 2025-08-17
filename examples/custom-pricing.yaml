@@ -1,0 +1,14 @@
+models:
+  gpt-3.5-turbo:
+    input_cost_per_1m: 100.00    # Artificially high (normal is ~$1.50)
+    output_cost_per_1m: 200.00   # Artificially high (normal is ~$2.00)
+    description: "Custom expensive GPT-3.5 pricing"
+  gpt-4:
+    input_cost_per_1m: 30.00
+    output_cost_per_1m: 60.00
+    description: "GPT-4 standard pricing"
+
+detection_thresholds:
+  overkill_prompt_length: 50
+  small_completion_threshold: 20
+  expensive_call_threshold: 0.05

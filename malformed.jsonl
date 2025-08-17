@@ -1,0 +1,5 @@
+{"traceId": "valid_1", "model": "gpt-4", "usage": {"prompt_tokens": 10, "completion_tokens": 5}, "cost": 0.001}
+{invalid json line
+{"traceId": "valid_2", "model": "gpt-3.5-turbo", "usage": {"prompt_tokens": 20, "completion_tokens": 10}, "cost": 0.0005}
+another invalid line {
+{"traceId": "valid_3", "model": "gpt-4", "usage": {"prompt_tokens": 15, "completion_tokens": 8}, "cost": 0.0012}

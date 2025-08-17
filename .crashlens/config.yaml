@@ -1,7 +1,7 @@
-created_at: '2025-08-17T01:24:40.131877'
+created_at: '2025-08-17T06:26:03.572133'
 fail_on_violations: true
 logs_source: local
 output_directory: .
 policy_template: all
-severity_threshold: high
-version: 2.9.5
+severity_threshold: medium
+version: 2.9.12

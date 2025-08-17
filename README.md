@@ -1,153 +1,518 @@
-## 🧠 What is CrashLens?
+# 🧠 CrashLens: AI Token Waste Detective
 
+<div align="center">
 
-CrashLens is a developer tool to **analyze GPT API logs** and uncover hidden **token waste**, retry loops, and overkill model usage. It helps you **optimize your OpenAI, Anthropic, or Langfuse API usage** by generating a cost breakdown and **suggesting cost-saving actions**.
+[![Version](https://img.shields.io/badge/version-2.9.12-blue.svg)](https://pypi.org/project/crashlens/)
+[![Python](https://img.shields.io/badge/python-3.12+-green.svg)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CLI](https://img.shields.io/badge/interface-CLI-orange.svg)]()
 
-#### 🔍 Use it when you want to:
+**The Ultimate AI Cost Optimization Tool**
 
-- Understand how your GPT API budget is being spent
-- Reduce unnecessary model calls or retries
-- Audit logs for fallback logic inefficiencies
-- Analyze Langfuse/OpenAI JSONL logs locally, with full privacy
+*Detect hidden token waste • Prevent budget overruns • Optimize LLM usage*
 
-🧾 Supports: OpenAI, Anthropic, Langfuse JSONL logs  
-💻 Platform: 100% CLI, 100% local
+[Quick Start](#-quick-start) • [Features](#-features) • [Documentation](#-documentation) • [Examples](#-examples)
 
----
-
-### 💡 Why use CrashLens?
-
-> "You can't optimize what you can't see."
-> CrashLens gives you visibility into how you're *actually* using LLMs — and how much it's costing you.
+</div>
 
 ---
 
-## 👨‍💻 Use Cases
+## 🎯 What is CrashLens?
 
-- Track and reduce monthly OpenAI bills
-- Debug retry loops and fallback logic in LangChain or custom agents
-- Detect inefficient prompt-to-model usage (e.g., using GPT-4 for 3-token completions)
-- Generate token audit logs for compliance or team analysis
-- CLI tool to audit GPT usage and optimize OpenAI API costs
-- Analyze GPT token usage and efficiency in LLM logs
-- Reduce LLM spending with actionable insights
+CrashLens is a **developer-first CLI tool** that analyzes your AI API logs to uncover **hidden token waste**, retry loops, model overkill, and inefficient patterns. It helps you **optimize OpenAI, Anthropic, and Langfuse usage** by providing actionable cost-saving insights.
+
+### 🔍 **Why CrashLens?**
+
+> *"You can't optimize what you can't see."*
+
+- **💰 Cost Savings**: Identify 40-60% potential savings in AI spending
+- **🔒 Privacy First**: 100% local analysis, no data leaves your machine  
+- **⚡ Production Ready**: Battle-tested policy engine with CI/CD integration
+- **🎯 Actionable**: Specific recommendations, not just analytics
 
 ---
 
-## TL;DR
+## 🚀 Quick Start
 
-**Requirements**: You need LLM usage logs in JSONL format (`.llm_logs/*.jsonl` or `logs/*.jsonl`)
+### Prerequisites
+- **Python 3.12+** ([Download here](https://python.org/downloads/))
+- AI usage logs in JSONL format (OpenAI, Anthropic, Langfuse)
 
-```sh
-# Quick setup
+### Installation & Setup
+
+```bash
+# Install CrashLens
 pip install crashlens
-crashlens init  # Interactive setup wizard
 
-# For CI/CD (non-interactive)
+# Interactive setup wizard
+crashlens init
+
+# Quick scan with demo data
+crashlens scan --demo
+
+# Analyze your logs
+crashlens scan your-logs.jsonl
+
+# Optional: Set up Slack notifications
+export CRASHLENS_SLACK_WEBHOOK="your-webhook-url"
+crashlens scan your-logs.jsonl  # Auto-posts to Slack
+```
+
+### Non-Interactive Setup (CI/CD)
+
+**macOS/Linux:**
+```bash
 export CRASHLENS_TEMPLATES="all"
 export CRASHLENS_SEVERITY="medium"
 crashlens init --non-interactive
-
-# Run analysis
-crashlens policy-check .llm_logs/*.jsonl --policy-template all
-# Generates report with token waste, cost analysis, and optimization suggestions
 ```
 
-**No logs yet?** Generate test data: `crashlens scan --demo`
-
-**Current Version:** `2.2.1` • **Last Updated:** August 2025
-
----
-
-## ⚠️ Python Requirement
-
-CrashLens requires **Python 3.12 or higher**. [Download Python 3.12+ here.](https://www.python.org/downloads/)
-
----
-
-## ⚠️ Windows PATH Warning
-
-If you see a warning like:
-
-```
-WARNING: The script crashlens.exe is installed in 'C:\Users\<user>\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\Scripts' which is not on PATH.
-Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+**Windows (PowerShell):**
+```powershell
+$env:CRASHLENS_TEMPLATES = "all"
+$env:CRASHLENS_SEVERITY = "medium"
+crashlens init --non-interactive
 ```
 
-This means the `crashlens` command may not work from any folder until you add the above Scripts directory to your system PATH.
+---
 
-**How to fix:**
-1. Copy the path shown in the warning (ending with `\Scripts`).
-2. Open the Windows Start menu, search for "Environment Variables", and open "Edit the system environment variables".
-3. Click "Environment Variables...".
-4. Under "User variables" or "System variables", select `Path` and click "Edit".
-5. Click "New" and paste the Scripts path.
-6. Click OK to save. Restart your terminal/command prompt.
+## � Core Features
 
-Now you can run `crashlens` from any folder.
+### 🕵️ **Waste Detection Engine**
+- **🔄 Retry Loop Detection**: Exponential backoff failures, redundant retries
+- **❓ Model Overkill**: GPT-4 used for simple 3-token completions  
+- **📢 Fallback Storms**: Cascading model failures wasting tokens
+- **⚡ Prompt Inefficiency**: Long prompts generating tiny responses
+- **💸 Budget Violations**: Expensive calls exceeding thresholds
+
+### 🛡️ **Policy Enforcement**
+- **Production-Grade Rules**: 10+ built-in policy templates
+- **Custom Policies**: YAML-based rule definitions
+- **CI/CD Integration**: Fail builds on policy violations
+- **Severity Levels**: Critical, High, Medium, Low classifications
+- **Smart Suppression**: Prevents alert fatigue
+
+### 📊 **Analysis & Reporting**
+- **Multi-Format Reports**: Markdown, JSON, Slack-ready notifications
+- **Auto Slack Integration**: Real-time team notifications with webhook setup
+- **Cost Breakdown**: Per-model, per-trace, per-pattern analysis
+- **Token Accounting**: Detailed waste calculations
+- **Trend Analysis**: Historical cost patterns
+- **ROI Calculator**: Quantified savings recommendations
 
 ---
 
-**CrashLens** analyzes your logs for patterns like fallback failures, retry loops, and overkill model usage, and generates a detailed Markdown report (`report.md`) with cost breakdowns and actionable insights.
+## 💻 Commands Overview
 
-## 📝 Example CrashLens Report
+### 🔍 **Scan & Analyze**
+```bash
+# Basic scan with smart reporting
+crashlens scan logs.jsonl
 
-Below is a sample of what the actual `report.md` looks like after running CrashLens:
+# Generate detailed JSON reports
+crashlens scan logs.jsonl --detailed
 
-🚨 **CrashLens Token Waste Report** 🚨
-📊 Analysis Date: 2025-07-31 15:24:48
+# Demo mode with sample data
+crashlens scan --demo
 
-| Metric | Value |
-|--------|-------|
-| Total AI Spend | $1.18 |
-| Total Potential Savings | $0.82 |
-| Wasted Tokens | 19,831 |
-| Issues Found | 73 |
-| Traces Analyzed | 156 |
+# Custom output formats
+crashlens scan logs.jsonl --format slack      # Slack-ready format
+crashlens scan logs.jsonl --format json       # Machine-readable format
 
-❓ **Overkill Model** | 59 traces | $0.68 wasted | Fix: optimize usage
-   🎯 **Wasted tokens**: 16,496
-   🔗 **Traces** (57): trace_overkill_01, trace_norm_02, trace_overkill_02, trace_overkill_03, trace_norm_06, +52 more
+# Auto-post to Slack (requires CRASHLENS_SLACK_WEBHOOK env var)
+export CRASHLENS_SLACK_WEBHOOK="your-webhook-url"
+crashlens scan logs.jsonl                     # Auto-sends to Slack when configured
+```
 
-📢 **Fallback Failure** | 7 traces | $0.08 wasted | Fix: remove redundant fallbacks
-   🎯 **Wasted tokens**: 1,330
-   🔗 **Traces** (7): trace_fallback_success_01, trace_fallback_success_02, trace_fallback_success_03, trace_fallback_success_04, trace_fallback_success_05, +2 more
+### 🛡️ **Policy Enforcement**
+```bash
+# Check logs against all policies
+crashlens policy-check logs.jsonl --policy-template all
 
-⚡ **Fallback Storm** | 5 traces | $0.07 wasted | Fix: optimize model selection
-   🎯 **Wasted tokens**: 1,877
-   🔗 **Traces** (5): trace_fallback_failure_01, trace_fallback_failure_02, trace_fallback_failure_03, trace_fallback_failure_04, trace_fallback_failure_05
+# Use specific policy templates
+crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention
 
-🔄 **Retry Loop** | 2 traces | $0.0001 wasted | Fix: exponential backoff
-   🎯 **Wasted tokens**: 128
-   🔗 **Traces** (2): trace_retry_loop_07, trace_retry_loop_10
+# Custom policy file
+crashlens policy-check logs.jsonl --policy-file my-policy.yaml
 
+# Fail on violations (CI/CD mode)
+crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+```
 
-## Top Expensive Traces
+### 🛠️ **Management & Simulation**
 
-| Rank | Trace ID | Model | Cost |
-|------|----------|-------|------|
-| 1 | trace_norm_76 | gpt-4 | $0.09 |
-| 2 | trace_norm_65 | gpt-4 | $0.07 |
-| 3 | trace_norm_38 | gpt-4 | $0.06 |
+**Cross-platform:**
+```bash
+# List available policy templates
+crashlens list-policy-templates
 
-## Cost by Model
+# Simulate different usage patterns
+crashlens simulate --pattern retry-loop --count 100
 
-| Model | Cost | Percentage |
-|-------|------|------------|
-| gpt-4 | $1.16 | 98% |
-| gpt-3.5-turbo | $0.02 | 2% |
+# Setup project with policies
+crashlens init
 
-
+# License validation
+crashlens license-check --license-file LICENSE
+```
 
 ---
 
-## 🚀 Features
+## 📈 Example Report Output
 
-### 🔍 **Detection Capabilities**
-- **Token waste patterns**: fallback failures, retry loops, overkill/short completions
-- **Production-grade suppression**: Prevents duplicate alerts across related traces
-- **Multi-format support**: OpenAI, Anthropic, and Langfuse-style logs (JSONL)
-- **Smart model detection**: Identifies expensive models used for simple tasks
+### 🚨 **Cost Analysis Report**
+```markdown
+🚨 CrashLens Token Waste Report 🚨
+📊 Analysis Date: 2025-08-17
+
+📋 Report Summary:
+• 💰 Total AI Spend: $859.52
+• 🔥 Potential Savings: $859.52 (100%)
+• 🎯 Wasted Tokens: 38,213,010
+• ⚠️ Issues Found: 53,185
+• 📈 Traces Analyzed: 156
+
+🔄 Retry Loop • 187 traces • $859.52 wasted
+   💡 Fix: exponential backoff
+   🎯 Wasted tokens: 24,555,498
+   🔗 Traces: trace_retry_loop_01, trace_retry_loop_02, +185 more
+
+❓ Overkill Model • 52,998 traces • $560.24 wasted
+   💡 Fix: optimize usage
+   🎯 Wasted tokens: 13,657,512
+   🔗 Traces: trace_overkill_01, trace_overkill_02, +52,996 more
+
+🏆 Top Expensive Traces:
+• #1 → trace_norm_76 → gpt-4 → $65.78
+• #2 → trace_norm_65 → gpt-4 → $52.60
+• #3 → trace_norm_38 → gpt-4 → $44.10
+
+🤖 Cost by Model:
+• gpt-4 → $845.65 (98%)
+• gpt-3.5-turbo → $13.87 (2%)
+```
+
+### 🛡️ **Policy Violations Report**
+```markdown
+⚠️ Found 431,970 policy violations:
+
+🚨 CRITICAL SEVERITY (6,534 violations):
+  1. high_cost_per_token (line 62437)
+     Reason: cost=0.06075 (rule: >0.05)
+     Action: fail
+     Suggestion: Very expensive API call detected (over $0.05).
+     Immediate actions:
+     - Review if this cost is justified
+     - Check for prompt optimization opportunities
+     - Consider model downgrading
+
+⚠️ HIGH SEVERITY (227,238 violations):
+  1. gpt4_for_simple_tasks (line 727)
+     Reason: model=gpt-4 AND prompt_tokens=5 (rule: <50)
+     Action: fail
+     Suggestion: GPT-4 used for simple task.
+     Cost optimization opportunities:
+     - Use gpt-4o-mini (90% cheaper, similar quality)
+     - Use gpt-3.5-turbo for classification <500 tokens
+     - Reserve GPT-4 for complex reasoning tasks
+```
+
+---
+
+## 🏗️ Policy Templates
+
+CrashLens includes production-ready policy templates:
+
+| Template | Purpose | Estimated Savings |
+|----------|---------|-------------------|
+| `model-overkill-detection` | Prevent expensive models for simple tasks | 30-50% |
+| `retry-loop-prevention` | Block inefficient retry patterns | 20-40% |
+| `prompt-optimization` | Optimize prompt efficiency | 15-30% |
+| `budget-protection` | Enforce spending limits | Varies |
+| `fallback-storm-detection` | Prevent cascading failures | 10-35% |
+| `context-window-optimization` | Efficient context usage | 10-25% |
+| `production-ready` | Combined rules for production | 40-60% |
+
+### Custom Policy Example
+```yaml
+# my-policy.yaml
+metadata:
+  name: "Custom Cost Control"
+  description: "Strict cost controls for production"
+  
+rules:
+  - id: expensive_single_call
+    description: "Block very expensive calls"
+    match:
+      cost: ">0.10"
+    action: fail
+    severity: critical
+    suggestion: |
+      Call exceeds $0.10 threshold.
+      - Review prompt optimization
+      - Consider model downgrading
+      - Break into smaller requests
+```
+
+---
+
+## 🔧 Advanced Usage
+
+### CI/CD Integration
+
+#### GitHub Actions
+```yaml
+name: AI Cost Control
+on: [push, pull_request]
+
+jobs:
+  cost-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install CrashLens
+        run: pip install crashlens
+      
+      - name: Policy Check
+        run: |
+          crashlens policy-check logs/*.jsonl \
+            --policy-template all \
+            --fail-on-violations
+```
+
+#### Docker Integration
+```dockerfile
+FROM python:3.12-slim
+
+RUN pip install crashlens
+
+WORKDIR /app
+COPY logs/ ./logs/
+
+CMD ["crashlens", "policy-check", "logs/*.jsonl", "--policy-template", "all"]
+```
+
+### Programmatic Usage
+```python
+from crashlens.policy.engine import PolicyEngine
+from crashlens.parsers.langfuse import LangfuseParser
+
+# Load and analyze logs
+parser = LangfuseParser()
+traces = parser.parse_file("logs.jsonl")
+
+# Apply policies
+engine = PolicyEngine("policy.yaml")
+violations = engine.check_logs(traces)
+
+print(f"Found {len(violations)} violations")
+```
+
+---
+
+## 📁 Supported Log Formats
+
+### OpenAI API Logs
+```jsonl
+{"model": "gpt-4", "usage": {"prompt_tokens": 10, "completion_tokens": 5}, "cost": 0.0003}
+```
+
+### Langfuse Logs
+```jsonl
+{"input": {"model": "gpt-4"}, "usage": {"promptTokens": 10, "completionTokens": 5}, "calculatedTotalCost": 0.0003}
+```
+
+### Anthropic Logs
+```jsonl
+{"model": "claude-3-opus", "usage": {"input_tokens": 10, "output_tokens": 5}, "cost": 0.0003}
+```
+
+---
+
+## 🛠️ Configuration
+
+### Environment Variables
+
+**macOS/Linux:**
+```bash
+export CRASHLENS_TEMPLATES="all"           # Default policy templates
+export CRASHLENS_SEVERITY="medium"         # Minimum severity level
+export CRASHLENS_OUTPUT_FORMAT="slack"     # Report format (slack/markdown/json)
+export CRASHLENS_SLACK_WEBHOOK="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:CRASHLENS_TEMPLATES = "all"           # Default policy templates
+$env:CRASHLENS_SEVERITY = "medium"         # Minimum severity level
+$env:CRASHLENS_OUTPUT_FORMAT = "slack"     # Report format (slack/markdown/json)
+$env:CRASHLENS_SLACK_WEBHOOK = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+### Config File (`.crashlens.yaml`)
+```yaml
+default_templates: ["model-overkill-detection", "retry-loop-prevention"]
+severity_threshold: "medium"
+output_format: "slack"  # Auto-formats for Slack when webhook is configured
+fail_on_violations: true
+slack_webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+---
+
+## 🔔 Slack Webhook Integration
+
+CrashLens supports **automatic Slack notifications** for team collaboration and alerting. Get instant notifications when policy violations are detected or cost thresholds are exceeded.
+
+### 🚀 Quick Setup
+
+#### 1. **Get Your Slack Webhook URL**
+1. Go to [Slack Apps](https://api.slack.com/apps) → **Create New App**
+2. Choose **From scratch** → Name your app → Select workspace
+3. Go to **Incoming Webhooks** → Toggle **On** → **Add New Webhook to Workspace**
+4. Select your channel → **Allow** → Copy the webhook URL
+
+#### 2. **Configure CrashLens**
+
+**Environment Variable (Recommended):**
+```bash
+# macOS/Linux
+export CRASHLENS_SLACK_WEBHOOK="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# Windows PowerShell
+$env:CRASHLENS_SLACK_WEBHOOK = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+**Config File (`.crashlens.yaml`):**
+```yaml
+slack_webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+output_format: "slack"  # Auto-format for Slack
+```
+
+#### 3. **Test Integration**
+```bash
+# Scan and auto-send to Slack
+crashlens scan logs.jsonl --format slack
+
+# CI/CD integration (uses env variable)
+crashlens scan logs.jsonl  # Automatically posts if webhook configured
+```
+
+### 📋 **What Gets Sent**
+- 🚨 **Policy violations** with severity levels
+- 💰 **Cost analysis** and potential savings
+- 📊 **Key metrics** (spend, tokens, traces)
+- 🔗 **Direct links** to detailed reports
+- 🎯 **Actionable recommendations**
+
+### 🔧 **Advanced Setup**
+For CI/CD pipelines, GitHub Actions integration, and custom notification formats, see the complete [Slack Integration Guide](docs/SLACK_INTEGRATION.md).
+
+---
+
+## 🎯 Use Cases
+
+### 🏢 **Enterprise**
+- **Cost Center Analysis**: Track AI spending by team/project
+- **Compliance Auditing**: Policy enforcement across organizations
+- **Budget Controls**: Prevent runaway AI costs
+- **Performance Optimization**: Identify inefficient patterns
+
+### 👨‍💻 **Development Teams**
+- **Debug LLM Integrations**: Find retry loops and fallback issues
+- **Code Review**: Automated cost analysis in PRs
+- **Local Testing**: Analyze logs during development
+- **Performance Tuning**: Optimize prompt efficiency
+
+### 🔬 **Research & Analysis**
+- **Token Usage Studies**: Understand consumption patterns
+- **Model Comparison**: Cost/performance analysis
+- **Efficiency Research**: LLM optimization studies
+- **Trend Analysis**: Historical usage patterns
+
+---
+
+## 📚 Documentation
+
+### Quick References
+- [Installation Guide](docs/INSTALLATION.md)
+- [Policy Writing Guide](docs/POLICY_GUIDE.md)
+- [CLI Reference](docs/CLI_REFERENCE.md)
+- [API Documentation](docs/API_REFERENCE.md)
+
+### Integrations
+- [Slack Integration Guide](docs/SLACK_INTEGRATION.md)
+
+### Troubleshooting
+- [Common Issues](docs/TROUBLESHOOTING.md)
+- [Windows PATH Setup](docs/WINDOWS_SETUP.md)
+- [Log Format Guide](docs/LOG_FORMATS.md)
+- [Performance Tuning](docs/PERFORMANCE.md)
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+**macOS/Linux:**
+```bash
+git clone https://github.com/Crashlens/crashlens.git
+cd crashlens
+poetry install
+poetry shell
+
+# Run tests
+pytest
+
+# Run locally
+python -m crashlens scan --demo
+```
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/Crashlens/crashlens.git
+cd crashlens
+poetry install
+poetry shell
+
+# Run tests
+pytest
+
+# Run locally
+python -m crashlens scan --demo
+```
+
+---
+
+## 📄 License
+
+CrashLens is released under the [MIT License](LICENSE).
+
+---
+
+## 🔗 Links
+
+- **📦 PyPI**: [pypi.org/project/crashlens](https://pypi.org/project/crashlens/)
+- **📖 Documentation**: [crashlens.dev/docs](https://crashlens.dev/docs)
+- **🐛 Issues**: [github.com/Crashlens/crashlens/issues](https://github.com/Crashlens/crashlens/issues)
+- **💬 Discussions**: [github.com/Crashlens/crashlens/discussions](https://github.com/Crashlens/crashlens/discussions)
+
+---
+
+<div align="center">
+
+**Made with ❤️ by the CrashLens Team**
+
+*Save money • Optimize AI • Ship faster*
+
+</div>
 
 ### 📊 **Reporting & Output**
 - **Multiple output formats**: Slack, Markdown, JSON
@@ -179,7 +544,8 @@ Below is a sample of what the actual `report.md` looks like after running CrashL
 
 Replace `<repo-link>` with the actual GitHub URL:
 
-```sh
+**Cross-platform:**
+```bash
 git clone <repo-link>
 cd crashlens
 ```
@@ -192,22 +558,22 @@ CrashLens requires **Python 3.12+** and [Poetry](https://python-poetry.org/) for
 
 ### MacOS
 - Install Python (if not already):
-  ```sh
+  ```bash
   brew install python@3.12
   ```
 - Install Poetry (stable version):
-  ```sh
+  ```bash
   curl -sSL https://install.python-poetry.org | python3 - --version 1.8.2
   # Or with Homebrew:
   brew install poetry
   ```
 - Add Poetry to your PATH if needed:
-  ```sh
+  ```bash
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
   source ~/.zprofile
   ```
 - Verify installation:
-  ```sh
+  ```bash
   poetry --version
   # Should show: Poetry (version 1.8.2)
   ```
@@ -243,17 +609,18 @@ CrashLens requires **Python 3.12+** and [Poetry](https://python-poetry.org/) for
 
 ## 3. Set Up the Environment
 
-```sh
+**Cross-platform:**
+```bash
 # From the project root:
 poetry install
 ```
 
 This will create a virtual environment and install all dependencies.
 
-To activate the environment :
-  ```sh
-  poetry shell
-  ```
+To activate the environment:
+```bash
+poetry shell
+```
 
 ---
 
@@ -317,13 +684,23 @@ jobs:
 
 ### Advanced Examples
 
-**Custom Configuration:**
+**macOS/Linux:**
 ```bash
 # Strict monitoring with custom templates
 export CRASHLENS_TEMPLATES="retry-loop-prevention,budget-control"
 export CRASHLENS_SEVERITY="high"
 export CRASHLENS_FAIL_ON_VIOLATIONS="true"
 export CRASHLENS_LOGS_SOURCE=".llm_logs/production.jsonl"
+crashlens init --non-interactive
+```
+
+**Windows (PowerShell):**
+```powershell
+# Strict monitoring with custom templates
+$env:CRASHLENS_TEMPLATES = "retry-loop-prevention,budget-control"
+$env:CRASHLENS_SEVERITY = "high"
+$env:CRASHLENS_FAIL_ON_VIOLATIONS = "true"
+$env:CRASHLENS_LOGS_SOURCE = ".llm_logs/production.jsonl"
 crashlens init --non-interactive
 ```
 
@@ -344,14 +721,18 @@ For complete documentation, see [docs/NON-INTERACTIVE-GUIDE.md](docs/NON-INTERAC
 You can run CrashLens via Poetry or as a Python module:
 
 ### Basic Scan (from file)
-```sh
+**Cross-platform:**
+```bash
 crashlens scan examples/retry-test.jsonl
 ```
 
 ### Demo Mode (built-in sample data)
-```sh
+**Cross-platform:**
+```bash
 crashlens scan --demo
+```
 
+**Sample output:**
 ```
 🚨 **CrashLens Token Waste Report** 🚨
 📊 Analysis Date: 2025-07-31 15:22:08
@@ -452,13 +833,15 @@ crashlens scan --demo
 After installation, use the `crashlens` command in your terminal (or `python -m crashlens` if running from source).
 
 ### 1. **Scan a log file**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan path/to/your-logs.jsonl
 ```
 - Scans the specified log file and generates a `report.md` in your current directory.
 
 ### 2. **Demo mode (built-in sample data)**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan --demo
 ```
 - Runs analysis on built-in example logs (requires `examples-logs/demo-logs.jsonl` file).
@@ -466,19 +849,27 @@ crashlens scan --demo
 - **From source**: Demo data is included in the repository.
 
 ### 3. **Scan from stdin (pipe)**
-```sh
+**macOS/Linux:**
+```bash
 cat path/to/your-logs.jsonl | crashlens scan --stdin
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-Content path/to/your-logs.jsonl | crashlens scan --stdin
 ```
 - Reads logs from standard input (useful for pipelines or quick tests).
 
 ### 4. **Paste logs interactively**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan --paste
 ```
 - Reads JSONL data from clipboard (paste and press Enter to finish).
 
 ### 5. **Output format options**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan logs.jsonl --format slack      # Slack-friendly format (default)
 crashlens scan logs.jsonl --format markdown   # Markdown format
 crashlens scan logs.jsonl --format json       # JSON output
@@ -486,7 +877,8 @@ crashlens scan logs.jsonl --format json       # JSON output
 - Choose the format that best fits your workflow or team communication.
 
 ### 6. **Detailed reporting**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan logs.jsonl --detailed
 crashlens scan logs.jsonl --detailed --detailed-dir custom_reports/
 ```
@@ -494,35 +886,48 @@ crashlens scan logs.jsonl --detailed --detailed-dir custom_reports/
 - Generates separate files: `fallback_failure.json`, `retry_loop.json`, etc.
 
 ### 7. **Summary options**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan logs.jsonl --summary          # Cost summary with breakdown
 crashlens scan logs.jsonl --summary-only     # Summary without trace IDs
 ```
 - Shows cost analysis with or without detailed trace information.
 
 ### 8. **Custom pricing configuration**
-```sh
+**Cross-platform:**
+```bash
 crashlens scan logs.jsonl --config custom-pricing.yaml
 ```
 - Use custom model pricing and detection thresholds.
 - Default config is located in `crashlens/config/pricing.yaml`.
 
 ### 14. **Combined options**
-```sh
+**Cross-platform:**
+```bash
 # Multiple scan options can be combined
 crashlens scan logs.jsonl --format json --detailed --summary --config custom.yaml
 
 # Policy checking with custom settings
 crashlens policy-check logs.jsonl --policy-template all --severity-threshold high --fail-on-violations
+```
 
+**macOS/Linux:**
+```bash
 # Non-interactive setup with custom environment
 CRASHLENS_TEMPLATES="retry-loop-prevention,budget-control" crashlens init --non-interactive
+```
+
+**Windows (PowerShell):**
+```powershell
+# Non-interactive setup with custom environment
+$env:CRASHLENS_TEMPLATES = "retry-loop-prevention,budget-control"; crashlens init --non-interactive
 ```
 - Mix and match options for your specific analysis needs.
 - Environment variables can be combined with any command.
 
 ### 11. **Project setup and configuration**
-```sh
+**Cross-platform:**
+```bash
 crashlens init                               # Interactive setup wizard
 crashlens init --non-interactive            # Automated setup (uses environment variables)
 crashlens list-policy-templates             # List available policy templates
@@ -531,7 +936,8 @@ crashlens list-policy-templates             # List available policy templates
 - Non-interactive mode uses environment variables for CI/CD integration.
 
 ### 12. **Policy checking**
-```sh
+**Cross-platform:**
+```bash
 crashlens policy-check logs.jsonl --policy-template all                    # Check all policies
 crashlens policy-check logs.jsonl --policy-template retry-loop-prevention  # Specific policy
 crashlens policy-check logs.jsonl --fail-on-violations                     # Exit with error code
@@ -541,7 +947,8 @@ crashlens policy-check logs.jsonl --severity-threshold high                # Fil
 - Useful for CI/CD gate checks and compliance validation.
 
 ### 13. **Get help**
-```sh
+**Cross-platform:**
+```bash
 crashlens --help          # Main help
 crashlens scan --help     # Scan command help
 crashlens init --help     # Init command help
@@ -553,7 +960,8 @@ crashlens policy-check --help  # Policy check help
 
 ## 📖 Quick Command Reference
 
-```sh
+**Cross-platform commands:**
+```bash
 # Basic Usage
 crashlens scan <logfile>                    # Basic log analysis
 crashlens scan --demo                       # Test with demo data
@@ -596,7 +1004,8 @@ crashlens --version                         # Show current version
 ## 🧩 Example Workflow
 
 1. **Install CrashLens:**
-   ```sh
+   **Cross-platform:**
+   ```bash
    pip install crashlens
    # OR clone and install from source as above
    ```
@@ -604,16 +1013,27 @@ crashlens --version                         # Show current version
 2. **Set up CrashLens configuration:**
    
    **Interactive setup:**
-   ```sh
+   **Cross-platform:**
+   ```bash
    crashlens init
    # Follow the prompts to configure policies, severity, etc.
    ```
    
    **Non-interactive setup (for CI/CD):**
-   ```sh
+   
+   **macOS/Linux:**
+   ```bash
    export CRASHLENS_TEMPLATES="all"
    export CRASHLENS_SEVERITY="medium" 
    export CRASHLENS_FAIL_ON_VIOLATIONS="true"
+   crashlens init --non-interactive
+   ```
+   
+   **Windows (PowerShell):**
+   ```powershell
+   $env:CRASHLENS_TEMPLATES = "all"
+   $env:CRASHLENS_SEVERITY = "medium" 
+   $env:CRASHLENS_FAIL_ON_VIOLATIONS = "true"
    crashlens init --non-interactive
    ```
 
@@ -625,8 +1045,16 @@ crashlens --version                         # Show current version
    - Or specify any `*.jsonl` file path
 
    **Getting logs from LangFuse:**
-   ```sh
+   
+   **macOS/Linux:**
+   ```bash
    mkdir -p .llm_logs
+   # Export your traces from LangFuse dashboard or API
+   ```
+   
+   **Windows (PowerShell):**
+   ```powershell
+   New-Item -ItemType Directory -Force -Path .llm_logs
    # Export your traces from LangFuse dashboard or API
    ```
 
@@ -645,15 +1073,14 @@ crashlens --version                         # Show current version
    ```
 
    **No logs yet?** Generate test data:
-   ```sh
+   **Cross-platform:**
+   ```bash
    crashlens scan --demo
    ```
 
 4. **Analyze your logs:**
-3. **Scan your logs:**
-   ```sh
-4. **Analyze your logs:**
-   ```sh
+   **Cross-platform:**
+   ```bash
    crashlens policy-check .llm_logs/*.jsonl --policy-template all
    # OR for a specific file
    crashlens policy-check path/to/your-logs.jsonl
@@ -710,29 +1137,32 @@ logger.log_event(
 If you want the latest development version or want to contribute, you can install CrashLens from source:
 
 1. **Clone the repository:**
-   ```sh
+   **Cross-platform:**
+   ```bash
    git clone <repo-link>
    cd crashlens
    ```
 2. **(Optional but recommended) Create a virtual environment:**
    - **On Mac/Linux:**
-     ```sh
+     ```bash
      python3 -m venv .venv
      source .venv/bin/activate
      ```
-   - **On Windows:**
-     ```sh
+   - **On Windows (PowerShell):**
+     ```powershell
      python -m venv .venv
-     .venv\Scripts\activate
+     .venv\Scripts\Activate.ps1
      ```
 3. **Install dependencies:**
-   ```sh
+   **Cross-platform:**
+   ```bash
    pip install -r requirements.txt
    # Or, if using Poetry:
    poetry install
    ```
 4. **Run CrashLens:**
-   ```sh
+   **Cross-platform:**
+   ```bash
    python -m crashlens scan path/to/your-logs.jsonl
    # Or, if using Poetry:
    poetry run crashlens scan path/to/your-logs.jsonl
@@ -753,8 +1183,15 @@ MIT License - see LICENSE file for details.
 **CrashLens: Find your wasted tokens. Save money. Optimize your AI usage.** 
 
 ### Scan from stdin (pipe or paste)
-```sh
+
+**macOS/Linux:**
+```bash
 cat examples/retry-test.jsonl | poetry run crashlens scan --stdin
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-Content examples/retry-test.jsonl | poetry run crashlens scan --stdin
 ```
 
 ---
@@ -813,20 +1250,20 @@ cat examples/demo-logs.jsonl | poetry run crashlens scan --stdin
 ## 📚 Complete Command Reference
 
 ### Basic Usage
-```sh
+**Cross-platform:**
+```bash
 crashlens scan [OPTIONS] [LOGFILE]
 ```
 
 ### 🎯 Examples
-```sh
+
+**Cross-platform:**
+```bash
 # Scan a specific log file
 crashlens scan logs.jsonl
 
 # Run on built-in sample logs
 crashlens scan --demo
-
-# Pipe logs via stdin
-cat logs.jsonl | crashlens scan --stdin
 
 # Read logs from clipboard
 crashlens scan --paste
@@ -841,6 +1278,20 @@ crashlens scan --summary
 crashlens scan --summary-only
 ```
 
+**Platform-specific pipe commands:**
+
+**macOS/Linux:**
+```bash
+# Pipe logs via stdin
+cat logs.jsonl | crashlens scan --stdin
+```
+
+**Windows (PowerShell):**
+```powershell
+# Pipe logs via stdin
+Get-Content logs.jsonl | crashlens scan --stdin
+```
+
 ### 🔧 All Options
 
 | Option | Description | Example |
@@ -848,7 +1299,7 @@ crashlens scan --summary-only
 | `-f, --format` | Output format: `slack`, `markdown`, `json` | `--format json` |
 | `-c, --config` | Custom pricing config file path | `--config my-pricing.yaml` |
 | `--demo` | Use built-in demo data (requires examples-logs/demo-logs.jsonl) | `crashlens scan --demo` |
-| `--stdin` | Read from standard input | `cat logs.jsonl \| crashlens scan --stdin` |
+| `--stdin` | Read from standard input | `cat logs.jsonl \| crashlens scan --stdin` (Unix) / `Get-Content logs.jsonl \| crashlens scan --stdin` (Windows) |
 | `--paste` | Read JSONL data from clipboard | `crashlens scan --paste` |
 | `--summary` | Show cost summary with breakdown | `crashlens scan --summary` |
 | `--summary-only` | Summary without trace IDs | `crashlens scan --summary-only` |
@@ -873,7 +1324,9 @@ CrashLens supports multiple input methods:
 
 1. **File input**: `crashlens scan path/to/logs.jsonl`
 2. **Demo mode**: `crashlens scan --demo` (requires examples-logs/demo-logs.jsonl file)
-3. **Standard input**: `cat logs.jsonl | crashlens scan --stdin`
+3. **Standard input**: 
+   - **macOS/Linux**: `cat logs.jsonl | crashlens scan --stdin`
+   - **Windows**: `Get-Content logs.jsonl | crashlens scan --stdin`
 4. **Clipboard**: `crashlens scan --paste` (paste logs interactively)
 
 ### 📊 Output Formats

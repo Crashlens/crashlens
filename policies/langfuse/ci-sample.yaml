@@ -9,7 +9,6 @@ rules:
     action: fail
     severity: critical
     suggestion: "CI cost limit exceeded - review model selection for testing"
-    requires_license: false
     
   - id: ci_model_allowlist
     description: "Restrict to approved models in CI"
@@ -18,7 +17,6 @@ rules:
     action: fail
     severity: critical
     suggestion: "Unauthorized model in CI - use approved models: gpt-4o-mini, gpt-3.5-turbo, claude-3-haiku"
-    requires_license: false
     
   - id: ci_token_limit
     description: "Prevent large token usage in CI"
@@ -27,7 +25,6 @@ rules:
     action: warn
     severity: medium
     suggestion: "High token count in CI - consider shorter test prompts"
-    requires_license: false
     
   - id: ci_response_time
     description: "Monitor response times in CI"
@@ -36,7 +33,6 @@ rules:
     action: warn
     severity: low
     suggestion: "Slow response in CI - may impact build times"
-    requires_license: false
     
   - id: ci_error_detection
     description: "Catch API errors in CI"
@@ -45,7 +41,6 @@ rules:
     action: fail
     severity: critical
     suggestion: "API error in CI - check model availability and API keys"
-    requires_license: false
 
 global:
   max_violations_per_rule: 5

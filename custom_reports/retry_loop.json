@@ -46,7 +46,7 @@
     "Set maximum retry limits (e.g., 3 retries max)"
   ],
   "metadata": {
-    "generated_at": "2025-08-17T06:01:30.941608",
+    "generated_at": "2025-08-17T06:02:10.615666",
     "detector_category": "retry_loop"
   }
 }

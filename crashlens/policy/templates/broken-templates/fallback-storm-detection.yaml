@@ -24,7 +24,6 @@ rules:
       - Use health checks before fallback attempts
       - Add exponential backoff between fallbacks
     cost_impact: "very_high"
-    requires_license: false
     
   - id: fallback_to_expensive_model
     description: "Prevent fallbacks to more expensive models"
@@ -41,7 +40,6 @@ rules:
       - Implement graceful degradation, not escalation
       - Cache successful responses to avoid fallbacks
     cost_impact: "very_high"
-    requires_license: false
     
   - id: rapid_fallback_storm
     description: "Detect rapid fallback storms"
@@ -59,7 +57,6 @@ rules:
       - Switch to cached responses where available
       - Alert on-call team for manual intervention
     cost_impact: "catastrophic"
-    requires_license: false
     
   - id: cross_provider_storm
     description: "Detect cross-provider fallback storms"
@@ -78,7 +75,6 @@ rules:
       - Use static fallback responses for critical paths
       - Enable maintenance mode if all providers failing
     cost_impact: "catastrophic"
-    requires_license: false
     
   - id: model_unavailability_cascade
     description: "Detect model unavailability cascades"
@@ -96,7 +92,6 @@ rules:
       - Implement request queuing during capacity issues
       - Add automatic retry with exponential backoff
     cost_impact: "high"
-    requires_license: false
     
   - id: persistent_fallback_failure
     description: "Detect persistent fallback failures"
@@ -114,4 +109,3 @@ rules:
       - Validate fallback prompt compatibility
       - Consider temporary service degradation
     cost_impact: "medium"
-    requires_license: false

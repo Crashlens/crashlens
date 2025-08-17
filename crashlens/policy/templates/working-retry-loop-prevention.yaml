@@ -23,7 +23,6 @@ rules:
       - Add circuit breaker patterns
       - Log retry reasons for debugging
     cost_impact: "high"
-    requires_license: false
     
   - id: high_cost_call
     description: "Very expensive single call (over $0.05)"
@@ -39,7 +38,6 @@ rules:
       - Consider model downgrading for simpler tasks
       - Implement cost monitoring alerts
     cost_impact: "very_high"
-    requires_license: false
     
   - id: wasteful_large_prompts
     description: "Large prompts with expensive models"
@@ -56,7 +54,6 @@ rules:
       - Implement prompt compression techniques
       - Consider context window optimization
     cost_impact: "high"
-    requires_license: false
     
   - id: inefficient_completion_ratio
     description: "Very small completion for large prompt (inefficient)"
@@ -72,4 +69,3 @@ rules:
       - Task could be simplified
       - Consider prompt optimization
     cost_impact: "medium"
-    requires_license: false

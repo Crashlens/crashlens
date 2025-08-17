@@ -10,7 +10,6 @@ rules:
     action: fail
     severity: critical
     suggestion: "Excessive fallbacks to expensive models detected. Review primary model reliability."
-    requires_license: false
     
   - id: fallback_storm_detection
     description: "Detect fallback storms indicating system issues"
@@ -19,7 +18,6 @@ rules:
     action: fail
     severity: critical
     suggestion: "Fallback storm detected - investigate primary model availability and error handling"
-    requires_license: false
     
   - id: reverse_fallback_pattern
     description: "Flag inappropriate fallback patterns (cheap to expensive)"
@@ -30,7 +28,6 @@ rules:
     action: warn
     severity: high
     suggestion: "Fallback from cheap to expensive model detected - review fallback logic"
-    requires_license: false
     
   - id: high_cost_fallback_chain
     description: "Monitor cost impact of fallback chains"
@@ -40,7 +37,6 @@ rules:
     action: warn
     severity: high
     suggestion: "High-cost fallback chain detected - consider fallback to cheaper models"
-    requires_license: false
     
   - id: frequent_fallback_user
     description: "Flag users/sessions with frequent fallback usage"
@@ -50,7 +46,6 @@ rules:
     action: warn
     severity: medium
     suggestion: "User experiencing frequent fallbacks - may need support or different model configuration"
-    requires_license: false
 
 global:
   max_violations_per_rule: 15

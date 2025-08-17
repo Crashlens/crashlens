@@ -1,0 +1,2 @@
+{"traceId": "medium_violation", "input": {"model": "gpt-4", "prompt": "This is a medium severity issue - expensive model for cheap task"}, "usage": {"prompt_tokens": 75, "completion_tokens": 50, "total_tokens": 125}, "cost": 0.008}
+{"traceId": "critical_violation", "input": {"model": "gpt-4", "prompt": "Hi"}, "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4}, "cost": 0.001}

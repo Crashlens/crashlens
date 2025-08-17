@@ -1,0 +1,17 @@
+metadata:
+  name: "Custom Cost Control"
+  description: "Strict cost controls for testing"
+  severity: "critical"
+  
+rules:
+  - id: expensive_single_call
+    description: "Block very expensive calls"
+    match:
+      cost: ">0.005"
+    action: fail
+    severity: critical
+    suggestion: |
+      Call exceeds $0.005 threshold.
+      - Review prompt optimization
+      - Consider model downgrading
+      - Break into smaller requests

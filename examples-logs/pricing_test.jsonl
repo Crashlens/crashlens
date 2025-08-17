@@ -1,0 +1,2 @@
+{"traceId": "pricing_test_1", "input": {"model": "gpt-3.5-turbo", "prompt": "This is a test of custom pricing"}, "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}, "cost": 0.001}
+{"traceId": "pricing_test_2", "input": {"model": "gpt-3.5-turbo", "prompt": "Another test"}, "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75}, "cost": 0.0005}

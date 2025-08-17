@@ -1,0 +1,2 @@
+{"traceId": "overkill_test_1", "input": {"model": "gpt-4", "prompt": "Hi"}, "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7}, "cost": 0.002}
+{"traceId": "overkill_test_2", "input": {"model": "gpt-4", "prompt": "Yes"}, "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4}, "cost": 0.001}

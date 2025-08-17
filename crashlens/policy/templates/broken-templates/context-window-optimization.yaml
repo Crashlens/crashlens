@@ -25,7 +25,6 @@ rules:
       - Consider gpt-4o-mini (128k) instead of gpt-4-turbo (128k) for cost savings
       - Bundle related requests to utilize context efficiently
     cost_impact: "low"
-    requires_license: false
     
   - id: context_window_near_limit
     description: "Detect frequent context window limit approaches"
@@ -43,7 +42,6 @@ rules:
       - Prioritize most relevant context sections
       - Consider upgrading to larger context models
     cost_impact: "medium"
-    requires_license: false
     
   - id: inefficient_context_chunking
     description: "Flag inefficient context chunking patterns"
@@ -61,7 +59,6 @@ rules:
       - Implement intelligent boundary detection
       - Consider map-reduce patterns for large documents
     cost_impact: "medium"
-    requires_license: false
     
   - id: redundant_context_repetition
     description: "Detect redundant context being repeated across calls"
@@ -79,7 +76,6 @@ rules:
       - Reference previous context instead of repeating
       - Consider using assistant/thread-based APIs
     cost_impact: "medium"
-    requires_license: false
     
   - id: large_context_simple_task
     description: "Flag large context usage for simple tasks"
@@ -97,7 +93,6 @@ rules:
       - Consider if full context is actually needed
       - Implement task-appropriate context selection
     cost_impact: "medium"
-    requires_license: false
     
   - id: context_thrashing
     description: "Detect context thrashing patterns"
@@ -115,4 +110,3 @@ rules:
       - Use persistent context where appropriate
       - Minimize unnecessary context changes
     cost_impact: "high"
-    requires_license: false

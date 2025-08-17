@@ -24,7 +24,6 @@ rules:
       - Log and analyze call patterns for debugging
       - Implement call deduplication
     cost_impact: "catastrophic"
-    requires_license: false
     
   - id: recursive_chain_explosion
     description: "Detect exponentially growing chain calls"
@@ -42,7 +41,6 @@ rules:
       - Use async processing for long chains
       - Implement call batching
     cost_impact: "catastrophic"
-    requires_license: false
     
   - id: nested_agent_loops
     description: "Block deeply nested agent-to-agent calls"
@@ -59,7 +57,6 @@ rules:
       - Implement agent call budgets
       - Add loop detection in agent orchestration
     cost_impact: "very_high"
-    requires_license: false
     
   - id: prompt_feedback_loop
     description: "Detect prompt feedback loops"
@@ -77,7 +74,6 @@ rules:
       - Use deterministic prompts where possible
       - Break cycles with external inputs
     cost_impact: "very_high"
-    requires_license: false
     
   - id: tool_calling_recursion
     description: "Prevent infinite tool calling loops"
@@ -94,7 +90,6 @@ rules:
       - Add tool call result caching
       - Implement tool call circuit breakers
     cost_impact: "catastrophic"
-    requires_license: false
     
   - id: reflection_spiral
     description: "Detect reflection/self-critique spirals"
@@ -112,4 +107,3 @@ rules:
       - Use satisfaction thresholds
       - Implement diminishing returns detection
     cost_impact: "high"
-    requires_license: false

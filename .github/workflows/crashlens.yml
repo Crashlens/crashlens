@@ -38,7 +38,7 @@ jobs:
         # Find and check .jsonl files
         if find . -name "*.jsonl" -type f | grep -q .; then
           echo "Found .jsonl files, running policy check..."
-          find . -name "*.jsonl" -type f -exec crashlens policy-check {{}} --policy-template budget-protection --severity-threshold critical --fail-on-violations \;
+          find . -name "*.jsonl" -type f -exec crashlens policy-check {{}} --policy-template all --severity-threshold medium --fail-on-violations \;
         else
           echo "No .jsonl log files found. Add your log files and re-run."
           echo "Expected: .jsonl files containing your API logs"

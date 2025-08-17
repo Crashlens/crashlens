@@ -22,7 +22,6 @@ rules:
       - Use gpt-3.5-turbo for classification, extraction, summaries <500 tokens
       - Reserve GPT-4 for complex reasoning, code generation, creative tasks
     cost_impact: "very_high"
-    requires_license: false
     
   - id: gpt4_small_completions
     description: "GPT-4 generating very small responses"
@@ -37,7 +36,6 @@ rules:
       - Use gpt-3.5-turbo for short responses
       - Consider if the task really needs AI
     cost_impact: "very_high"
-    requires_license: false
     
   - id: expensive_model_for_cheap_tasks
     description: "Expensive models for tasks under $0.01"
@@ -52,7 +50,6 @@ rules:
       - Batching multiple small requests
       - Reviewing if AI is needed for this task
     cost_impact: "medium"
-    requires_license: false
     
   - id: high_cost_per_token
     description: "Very expensive cost per token ratio"
@@ -68,7 +65,6 @@ rules:
       - Consider model downgrading
       - Implement cost monitoring alerts
     cost_impact: "very_high"
-    requires_license: false
     
   - id: overkill_for_extraction
     description: "Flag expensive models for structured data extraction"
@@ -84,7 +80,6 @@ rules:
       - Use Claude Haiku for entity recognition
       - Consider fine-tuned smaller models for repeated tasks
     cost_impact: "high"
-    requires_license: false
     
   - id: overkill_for_translation
     description: "Flag expensive models for simple translation"
@@ -101,7 +96,6 @@ rules:
       - Use specialized translation APIs (Google Translate, DeepL)
       - Reserve premium models for nuanced/creative translation
     cost_impact: "high"
-    requires_license: false
     
   - id: premium_model_for_summaries
     description: "Detect premium models used for basic summaries"
@@ -118,7 +112,6 @@ rules:
       - Use Claude Haiku for bullet point summaries
       - Consider abstractive vs extractive summarization needs
     cost_impact: "medium"
-    requires_license: false
     
   - id: expensive_model_validation
     description: "Block expensive models for simple validation tasks"
@@ -135,4 +128,3 @@ rules:
       - Use classification endpoints
       - Implement rule-based validation where possible
     cost_impact: "very_high"
-    requires_license: false

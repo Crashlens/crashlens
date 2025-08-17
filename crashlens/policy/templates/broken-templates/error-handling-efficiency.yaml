@@ -24,7 +24,6 @@ rules:
       - 400: Don't retry, fix request format
       - 5xx: Retry with exponential backoff
     cost_impact: "high"
-    requires_license: false
     
   - id: excessive_timeout_retries
     description: "Flag excessive retries on timeout errors"
@@ -42,7 +41,6 @@ rules:
       - Consider request complexity vs timeout settings
       - Use async patterns for long-running requests
     cost_impact: "medium"
-    requires_license: false
     
   - id: malformed_request_repetition
     description: "Detect repetition of malformed requests"
@@ -60,7 +58,6 @@ rules:
       - Implement client-side validation
       - Don't retry 400-level errors without fixing the request
     cost_impact: "high"
-    requires_license: false
     
   - id: context_length_exceeded_retry
     description: "Prevent retrying context length exceeded errors without modification"
@@ -78,7 +75,6 @@ rules:
       - Use sliding window approaches
       - Consider chunking large inputs
     cost_impact: "high"
-    requires_license: false
     
   - id: insufficient_error_details
     description: "Flag insufficient error handling detail"
@@ -96,7 +92,6 @@ rules:
       - Track error patterns over time
       - Implement error categorization for better handling
     cost_impact: "low"
-    requires_license: false
     
   - id: generic_error_handling
     description: "Detect overly generic error handling"
@@ -114,4 +109,3 @@ rules:
       - Don't treat all errors the same way
       - Implement circuit breakers for specific error patterns
     cost_impact: "medium"
-    requires_license: false

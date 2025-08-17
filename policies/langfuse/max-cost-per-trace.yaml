@@ -9,7 +9,6 @@ rules:
     action: fail
     severity: critical
     suggestion: "Trace cost exceeds $0.50 limit. Break down complex requests or use cheaper models."
-    requires_license: false
     
   - id: trace_cost_warning_limit
     description: "Warn on traces approaching cost limits"
@@ -18,7 +17,6 @@ rules:
     action: warn
     severity: high
     suggestion: "Trace cost is high ($0.20+). Consider optimizing context length or model selection."
-    requires_license: false
     
   - id: development_cost_limit
     description: "Stricter limits for development environment"
@@ -28,7 +26,6 @@ rules:
     action: fail
     severity: high
     suggestion: "Development environment cost limit exceeded. Use cheaper models for testing."
-    requires_license: false
     
   - id: token_efficiency_check
     description: "Flag traces with poor cost-to-token ratios"
@@ -38,7 +35,6 @@ rules:
     action: warn
     severity: medium
     suggestion: "Poor cost efficiency detected - high cost for low token count. Check model selection."
-    requires_license: false
     
   - id: large_context_cost_warning
     description: "Warn on expensive large context requests"
@@ -48,7 +44,6 @@ rules:
     action: warn
     severity: medium
     suggestion: "Large context with high cost detected. Consider context compression or cheaper models."
-    requires_license: false
 
 global:
   max_violations_per_rule: 20

@@ -23,7 +23,6 @@ rules:
       - Break complex prompts into sequential calls
       - Consider fine-tuning for repeated verbose prompts
     cost_impact: "medium"
-    requires_license: false
     
   - id: inefficient_prompt_ratio
     description: "Detect prompts that generate small completions (inefficient)"
@@ -39,7 +38,6 @@ rules:
       - Consider breaking into smaller prompts
       - Check if task could be simplified
     cost_impact: "medium" 
-    requires_license: false
     
   - id: expensive_long_prompts
     description: "Very expensive prompts with premium models"
@@ -57,7 +55,6 @@ rules:
       - Optimize prompt structure
       - Consider prompt compression techniques
     cost_impact: "very_high"
-    requires_license: false
     
   - id: small_task_long_prompt
     description: "Short responses from long prompts indicate inefficiency"
@@ -73,4 +70,3 @@ rules:
       - Breaking into multiple focused requests
       - Using more direct instructions
     cost_impact: "medium"
-    requires_license: false

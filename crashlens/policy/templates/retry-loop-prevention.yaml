@@ -22,7 +22,6 @@ rules:
       - Use cheaper models for retries
       - Log retry reasons for debugging
     cost_impact: "high"
-    requires_license: false
     
   - id: expensive_model_usage
     description: "Expensive model usage that could indicate retry patterns"
@@ -38,7 +37,6 @@ rules:
       - Implement model degradation strategy
       - Cache successful responses to avoid retries
     cost_impact: "very_high"
-    requires_license: false
     
   - id: wasteful_large_prompts
     description: "Large prompts with expensive models"
@@ -55,7 +53,6 @@ rules:
       - Implement prompt compression techniques
       - Consider context window optimization
     cost_impact: "high"
-    requires_license: false
     
   - id: inefficient_completion_ratio
     description: "Very small completion for large prompt (inefficient)"
@@ -71,12 +68,10 @@ rules:
       - Task could be simplified
       - Consider prompt optimization
     cost_impact: "medium"
-    requires_license: false
     suggestion: |
       Rapid retries detected without proper backoff.
       Implement exponential backoff: 2s, 4s, 8s, 16s delays
     cost_impact: "medium"
-    requires_license: false
     
   - id: high_cost_retry_cascade
     description: "Block retry cascades burning budget"
@@ -92,7 +87,6 @@ rules:
       - Switch to cheaper fallback models
       - Add request queuing and deduplication
     cost_impact: "very_high"
-    requires_license: false
     
   - id: persistent_failure_retry
     description: "Detect persistent failures being retried"
@@ -108,4 +102,3 @@ rules:
       - Stop retrying permanent failures (4xx errors)
       - Use different strategies for different error types
     cost_impact: "high"
-    requires_license: false

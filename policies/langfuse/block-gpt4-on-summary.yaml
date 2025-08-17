@@ -9,7 +9,6 @@ rules:
     action: fail
     severity: high
     suggestion: "Use gpt-3.5-turbo or gpt-4o-mini for summarization tasks - they're 10x cheaper and equally effective"
-    requires_license: false
     
   - id: warn_gpt4_short_prompts
     description: "Warn when GPT-4 is used for very short prompts"
@@ -19,7 +18,6 @@ rules:
     action: warn
     severity: medium
     suggestion: "Consider gpt-3.5-turbo for short prompts to reduce costs by ~90%"
-    requires_license: false
     
   - id: detect_summary_keywords
     description: "Flag potential summary tasks in prompt content"
@@ -28,7 +26,6 @@ rules:
     action: warn
     severity: low
     suggestion: "Short prompt detected - ensure you're using cost-effective models"
-    requires_license: false
 
 global:
   max_violations_per_rule: 25

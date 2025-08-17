@@ -26,7 +26,6 @@ rules:
       - Group related text processing
       - Use array inputs where supported
     cost_impact: "medium"
-    requires_license: false
     
   - id: suboptimal_batch_size
     description: "Detect suboptimal batch sizes"
@@ -44,7 +43,6 @@ rules:
       - Use optimal batch sizes per model (typically 5-20 items)
       - Consider memory and latency requirements
     cost_impact: "low"
-    requires_license: false
     
   - id: excessive_batch_overhead
     description: "Flag batches with excessive formatting overhead"
@@ -61,7 +59,6 @@ rules:
       - Minimize instructional overhead per item
       - Consider JSON mode for structured batch processing
     cost_impact: "medium"
-    requires_license: false
     
   - id: batch_size_context_mismatch
     description: "Detect batch sizes that don't utilize available context efficiently"
@@ -79,7 +76,6 @@ rules:
       - Monitor processing time vs batch size trade-offs
       - Use context-aware dynamic batch sizing
     cost_impact: "low"
-    requires_license: false
     
   - id: sequential_dependency_batching
     description: "Flag inappropriate batching of sequential dependencies"
@@ -97,7 +93,6 @@ rules:
       - Implement proper dependency graph execution
       - Consider streaming processing for dependent chains
     cost_impact: "high"
-    requires_license: false
     
   - id: mixed_complexity_batching
     description: "Detect batches mixing different complexity tasks"
@@ -115,4 +110,3 @@ rules:
       - Use different models for different complexity levels
       - Implement complexity-based batch routing
     cost_impact: "medium"
-    requires_license: false

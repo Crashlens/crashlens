@@ -23,7 +23,6 @@ rules:
       - Alert finance and engineering teams
       - Review spending patterns for anomalies
     cost_impact: "budget_protection"
-    requires_license: false
     
   - id: hourly_spend_spike
     description: "Detect unusual hourly spending spikes"
@@ -40,7 +39,6 @@ rules:
       - Analyze request patterns for anomalies
       - Consider temporary rate limiting
     cost_impact: "very_high"
-    requires_license: false
     
   - id: expensive_single_request
     description: "Flag unusually expensive single requests"
@@ -57,7 +55,6 @@ rules:
       - Consider prompt optimization
       - Implement cost warnings for users
     cost_impact: "very_high"
-    requires_license: false
     
   - id: model_cost_ratio_violation
     description: "Detect inappropriate model cost ratios"
@@ -74,7 +71,6 @@ rules:
       - Implement intelligent model selection
       - Regular cost review meetings
     cost_impact: "high"
-    requires_license: false
     
   - id: token_efficiency_violation
     description: "Flag inefficient token usage patterns"
@@ -91,7 +87,6 @@ rules:
       - Consider fine-tuning for frequent tasks
       - Implement output quality monitoring
     cost_impact: "medium"
-    requires_license: false
     
   - id: weekend_spending_anomaly
     description: "Detect unusual weekend spending patterns"
@@ -108,4 +103,3 @@ rules:
       - Validate emergency-only weekend usage policies
       - Consider weekend budget limits
     cost_impact: "medium"
-    requires_license: false

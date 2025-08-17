@@ -141,7 +141,7 @@ def generate_roi_report(log_file: Path, policy_file: Path, output_format: str = 
                     log_entries.append(json.loads(line))
         
         # Evaluate violations
-        violations, _ = engine.evaluate_logs(log_entries, strict_license=False)
+        violations, _ = engine.evaluate_logs(log_entries)
         
         # Calculate ROI
         calculator = ROICalculator({})

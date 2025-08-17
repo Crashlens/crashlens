@@ -23,7 +23,6 @@ rules:
       - Use gpt-3.5-turbo for simple tasks
       - Reserve GPT-4 for complex reasoning tasks
     cost_impact: "very_high"
-    requires_license: false
     
   - id: gpt4_small_completions
     description: "GPT-4 generating very small responses (under 10 tokens)"
@@ -39,7 +38,6 @@ rules:
       - Use gpt-3.5-turbo for short responses
       - Consider if the task really needs AI
     cost_impact: "very_high"
-    requires_license: false
     
   - id: expensive_model_low_total_tokens
     description: "Expensive model used for very short interactions"
@@ -56,7 +54,6 @@ rules:
       - gpt-3.5-turbo for basic completions
       - Batch small requests together
     cost_impact: "high"
-    requires_license: false
     
   - id: high_cost_small_task
     description: "High cost for small task (over $0.01 for under 100 total tokens)"
@@ -72,4 +69,3 @@ rules:
       - Use cheaper models for simple tasks
       - Consider prompt optimization
     cost_impact: "high"
-    requires_license: false

@@ -6,13 +6,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 
-# Import license checker
-try:
-    from ..license_checker import get_license_checker, requires_license_warning, get_upgrade_message
-    _HAS_LICENSE_CHECKER = True
-except ImportError:
-    # Fallback for testing or if module not available
-    _HAS_LICENSE_CHECKER = False
+# License checker imports removed for open source version
 
 
 class PolicyAction(Enum):
@@ -147,7 +141,6 @@ class PolicyRule:
     severity: PolicySeverity
     suggestion: str
     description: Optional[str] = None
-    requires_license: bool = False  # New field for license gating
     
     def evaluate(self, log_entry: Dict[str, Any], line_number: Optional[int] = None) -> Optional[PolicyViolation]:
         """
@@ -215,8 +208,7 @@ class PolicyEngine:
                         action=PolicyAction(rule_data['action']),
                         severity=PolicySeverity(rule_data['severity']),
                         suggestion=rule_data['suggestion'],
-                        description=rule_data.get('description'),
-                        requires_license=rule_data.get('requires_license', False)
+                        description=rule_data.get('description')
                     )
                     self.rules.append(rule)
                 except (KeyError, ValueError) as e:
@@ -227,15 +219,13 @@ class PolicyEngine:
         except Exception as e:
             raise ValueError(f"Failed to load policy file {policy_file}: {e}")
     
-    def evaluate_log_entry(self, log_entry: Dict[str, Any], line_number: Optional[int] = None, 
-                          strict_license: bool = False) -> Tuple[List[PolicyViolation], List[str]]:
+    def evaluate_log_entry(self, log_entry: Dict[str, Any], line_number: Optional[int] = None) -> Tuple[List[PolicyViolation], List[str]]:
         """
         Evaluate a single log entry against all policy rules.
         
         Args:
             log_entry: The log entry to check
             line_number: Optional line number for better error reporting
-            strict_license: If True, treat license-gated rules as violations when unlicensed
             
         Returns:
             Tuple of (violations, skipped_rule_ids)
@@ -243,31 +233,7 @@ class PolicyEngine:
         violations = []
         skipped_rules = []
         
-        # Get license checker if available
-        license_checker = None
-        is_licensed = True  # Default to licensed if checker not available
-        if _HAS_LICENSE_CHECKER:
-            license_checker = get_license_checker()
-            is_licensed = license_checker.is_licensed()
-        
         for rule in self.rules:
-            # Check if rule requires license
-            if rule.requires_license and not is_licensed:
-                skipped_rules.append(rule.id)
-                if strict_license:
-                    # Create a special violation for unlicensed rule usage
-                    violation = PolicyViolation(
-                        rule_id=rule.id,
-                        reason=f"Rule requires CrashLens Pro license",
-                        suggestion=get_upgrade_message() if _HAS_LICENSE_CHECKER else "Upgrade required",
-                        severity=PolicySeverity.HIGH,
-                        action=PolicyAction.WARN,
-                        log_entry=log_entry,
-                        line_number=line_number
-                    )
-                    violations.append(violation)
-                continue
-            
             # Evaluate rule normally
             violation = rule.evaluate(log_entry, line_number)
             if violation:
@@ -275,13 +241,12 @@ class PolicyEngine:
                 
         return violations, skipped_rules
     
-    def evaluate_logs(self, log_entries: List[Dict[str, Any]], strict_license: bool = False) -> Tuple[List[PolicyViolation], List[str]]:
+    def evaluate_logs(self, log_entries: List[Dict[str, Any]]) -> Tuple[List[PolicyViolation], List[str]]:
         """
         Evaluate multiple log entries against all policy rules.
         
         Args:
             log_entries: List of log entries to check
-            strict_license: If True, treat license-gated rules as violations when unlicensed
             
         Returns:
             Tuple of (all_violations, all_skipped_rule_ids)
@@ -290,7 +255,7 @@ class PolicyEngine:
         all_skipped_rules = set()
         
         for line_number, log_entry in enumerate(log_entries, 1):
-            violations, skipped_rules = self.evaluate_log_entry(log_entry, line_number, strict_license)
+            violations, skipped_rules = self.evaluate_log_entry(log_entry, line_number)
             all_violations.extend(violations)
             all_skipped_rules.update(skipped_rules)
             
@@ -298,28 +263,15 @@ class PolicyEngine:
     
     def get_summary(self) -> Dict[str, Any]:
         """Get a summary of loaded policy rules."""
-        # Get license checker if available
-        license_checker = None
-        is_licensed = True
-        if _HAS_LICENSE_CHECKER:
-            license_checker = get_license_checker()
-            is_licensed = license_checker.is_licensed()
-        
-        licensed_rules = [r for r in self.rules if not r.requires_license or is_licensed]
-        gated_rules = [r for r in self.rules if r.requires_license and not is_licensed]
-        
         return {
             'total_rules': len(self.rules),
-            'active_rules': len(licensed_rules),
-            'gated_rules': len(gated_rules),
-            'license_status': 'licensed' if is_licensed else 'unlicensed',
+            'active_rules': len(self.rules),
             'rules_by_severity': {
-                severity.value: len([r for r in licensed_rules if r.severity == severity])
+                severity.value: len([r for r in self.rules if r.severity == severity])
                 for severity in PolicySeverity
             },
             'rules_by_action': {
-                action.value: len([r for r in licensed_rules if r.action == action])
+                action.value: len([r for r in self.rules if r.action == action])
                 for action in PolicyAction
-            },
-            'gated_rule_ids': [r.id for r in gated_rules]
+            }
         }
