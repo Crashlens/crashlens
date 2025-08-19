@@ -17,9 +17,12 @@ orjson = "^3.10.18"
 pyperclip = "^1.8.2"
 requests = "^2.31.0"
 faker = "^25.2.0"
+jsonschema = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
+ruff = "^0.4.0"
+black = "^24.0.0"
 
 [tool.poetry.scripts]
 crashlens = "crashlens.cli:cli"
