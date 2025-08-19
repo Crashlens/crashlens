@@ -198,6 +198,9 @@ class LangfuseParser:
                        if extracted.get(field) is None]
         if missing_warn:
             self.logger.warning(f"Missing optional field(s) for {schema_version}: {missing_warn}")
+            # Track warnings as data quality issues
+            self.parsing_stats['warning_records'] += 1
+            self.parsing_stats['has_errors'] = True
         
         # Add trace duration if both timestamps exist
         if extracted['startTime'] and extracted['endTime']:
@@ -369,6 +372,14 @@ class LangfuseParser:
         Returns:
             Dictionary mapping trace IDs to lists of normalized records
         """
+        # Initialize parsing statistics
+        self.parsing_stats = {
+            'valid_records': 0,
+            'skipped_records': 0,
+            'warning_records': 0,
+            'has_errors': False
+        }
+        
         valid_records = 0
         skipped_records = 0
         
@@ -431,6 +442,14 @@ class LangfuseParser:
                     raise
                 continue
         
+        # Store parsing statistics
+        self.parsing_stats = {
+            'valid_records': valid_records,
+            'skipped_records': skipped_records,
+            'warning_records': self.parsing_stats.get('warning_records', 0),
+            'has_errors': skipped_records > 0 or self.parsing_stats.get('warning_records', 0) > 0
+        }
+        
         self.logger.info(f"Parsing complete: {valid_records} valid records, {skipped_records} skipped")
         return self.traces
     
@@ -480,6 +499,30 @@ class LangfuseParser:
             Dictionary mapping model names to token usage statistics
         """
         return self.model_costs.copy()
+    
+    def get_parsing_stats(self) -> Dict[str, Any]:
+        """
+        Get parsing statistics including error counts.
+        
+        Returns:
+            Dictionary with parsing statistics
+        """
+        return getattr(self, 'parsing_stats', {
+            'valid_records': 0,
+            'skipped_records': 0,
+            'warning_records': 0,
+            'has_errors': False
+        })
+    
+    def has_parsing_errors(self) -> bool:
+        """
+        Check if there were any parsing errors during the last parse operation.
+        
+        Returns:
+            True if there were parsing errors, False otherwise
+        """
+        stats = self.get_parsing_stats()
+        return stats.get('has_errors', False)
 
     def sort_by_timestamp(self) -> None:
         """

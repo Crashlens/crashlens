@@ -549,6 +549,22 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
             click.echo("📥 Reading JSONL data from standard input...")
             try:
                 traces = parser.parse_stdin() or {}
+                
+                # Check for parsing errors and stop if there are problems
+                if parser.has_parsing_errors():
+                    parsing_stats = parser.get_parsing_stats()
+                    error_msg = []
+                    if parsing_stats['skipped_records'] > 0:
+                        error_msg.append(f"❌ {parsing_stats['skipped_records']} lines had JSON parsing errors")
+                    if parsing_stats['warning_records'] > 0:
+                        error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
+                    
+                    click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                    click.echo(" ".join(error_msg))
+                    click.echo("💡 Please fix the input data issues before running the analysis.")
+                    click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                    sys.exit(1)
+                    
             except KeyboardInterrupt:
                 click.echo("\n⚠️  Input cancelled by user")
                 sys.exit(1)
@@ -581,6 +597,14 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                 jsonl_text = '\n'.join(lines)
                 traces = parser.parse_string(jsonl_text) or {}
                 
+                # Check for parsing errors and stop if there are problems
+                if parser.has_parsing_errors():
+                    parsing_stats = parser.get_parsing_stats()
+                    click.echo(f"❌ Parsing errors detected! {parsing_stats['skipped_records']} lines had errors.")
+                    click.echo("💡 Please fix the malformed clipboard data before running the analysis.")
+                    click.echo("🔍 Check the error messages above for specific line numbers and issues.")
+                    sys.exit(1)
+                
             except ImportError:
                 click.echo("❌ Error: pyperclip library not available")
                 click.echo("💡 Install with: pip install pyperclip")
@@ -606,6 +630,24 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                 # Save to temporary file and parse
                 temp_path = save_logs_to_temp_file(logs)
                 traces = parser.parse_file(temp_path) or {}
+                
+                # Check for parsing errors and stop if there are problems
+                if parser.has_parsing_errors():
+                    parsing_stats = parser.get_parsing_stats()
+                    error_msg = []
+                    if parsing_stats['skipped_records'] > 0:
+                        error_msg.append(f"❌ {parsing_stats['skipped_records']} lines had JSON parsing errors")
+                    if parsing_stats['warning_records'] > 0:
+                        error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
+                    
+                    click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                    click.echo(" ".join(error_msg))
+                    click.echo("💡 Please fix the Langfuse data issues before running the analysis.")
+                    click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                    # Clean up temp file
+                    temp_path.unlink()
+                    sys.exit(1)
+                
                 # Clean up temp file
                 temp_path.unlink()
                 
@@ -630,6 +672,24 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                 # Save to temporary file and parse
                 temp_path = save_logs_to_temp_file(logs)
                 traces = parser.parse_file(temp_path) or {}
+                
+                # Check for parsing errors and stop if there are problems
+                if parser.has_parsing_errors():
+                    parsing_stats = parser.get_parsing_stats()
+                    error_msg = []
+                    if parsing_stats['skipped_records'] > 0:
+                        error_msg.append(f"❌ {parsing_stats['skipped_records']} lines had JSON parsing errors")
+                    if parsing_stats['warning_records'] > 0:
+                        error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
+                    
+                    click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                    click.echo(" ".join(error_msg))
+                    click.echo("💡 Please fix the Helicone data issues before running the analysis.")
+                    click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                    # Clean up temp file
+                    temp_path.unlink()
+                    sys.exit(1)
+                
                 # Clean up temp file
                 temp_path.unlink()
                 
@@ -641,6 +701,21 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         elif logfile:
             # Read from specified file
             traces = parser.parse_file(logfile) or {}
+            
+            # Check for parsing errors and stop if there are problems
+            if parser.has_parsing_errors():
+                parsing_stats = parser.get_parsing_stats()
+                error_msg = []
+                if parsing_stats['skipped_records'] > 0:
+                    error_msg.append(f"❌ {parsing_stats['skipped_records']} lines had JSON parsing errors")
+                if parsing_stats['warning_records'] > 0:
+                    error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
+                
+                click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                click.echo(" ".join(error_msg))
+                click.echo("💡 Please fix the log file issues before running the analysis.")
+                click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                sys.exit(1)
         
     except Exception as e:
         click.echo(f"❌ Error reading input: {e}", err=True)
