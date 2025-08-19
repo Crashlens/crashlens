@@ -1,0 +1,11 @@
+{
+  "summary": {
+    "total_traces": 1,
+    "total_violations": 0,
+    "by_severity": {},
+    "estimated_spend_usd": 0.04,
+    "estimated_savings_usd": 0.0,
+    "generated_at": "2025-08-19T19:14:56.381051Z"
+  },
+  "violations_by_rule": []
+}

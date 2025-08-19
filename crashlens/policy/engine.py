@@ -1,7 +1,7 @@
 import yaml
 import re
 import logging
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Union, Tuple, Set
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
@@ -180,6 +180,9 @@ class PolicyEngine:
     def __init__(self, policy_file: Optional[Path] = None):
         self.rules: List[PolicyRule] = []
         self.logger = logging.getLogger(__name__)
+        self.global_config: Dict[str, Any] = {}
+        self.violation_counts: Dict[str, int] = {}
+        self.traces_flagged: Set[str] = set()
         
         if policy_file:
             self.load_policy(policy_file)
@@ -197,7 +200,12 @@ class PolicyEngine:
                 
             if 'rules' not in policy_data:
                 raise ValueError("Policy file must contain a 'rules' section")
-                
+            
+            # Load global configuration
+            self.global_config = policy_data.get('global', {})
+            max_violations_per_rule = self.global_config.get('max_violations_per_rule', 100)
+            
+            # Initialize violation counters
             self.rules = []
             for rule_data in policy_data['rules']:
                 try:
@@ -210,17 +218,20 @@ class PolicyEngine:
                         description=rule_data.get('description')
                     )
                     self.rules.append(rule)
+                    # Initialize violation counter for this rule
+                    self.violation_counts[rule.id] = 0
                 except (KeyError, ValueError) as e:
                     self.logger.error(f"Invalid rule '{rule_data.get('id', 'unknown')}': {e}")
                     
             self.logger.info(f"Loaded {len(self.rules)} policy rules from {policy_file}")
+            self.logger.info(f"Global config: max_violations_per_rule={max_violations_per_rule}")
             
         except Exception as e:
             raise ValueError(f"Failed to load policy file {policy_file}: {e}")
     
     def evaluate_log_entry(self, log_entry: Dict[str, Any], line_number: Optional[int] = None) -> Tuple[List[PolicyViolation], List[str]]:
         """
-        Evaluate a single log entry against all policy rules.
+        Evaluate a single log entry against all policy rules with lazy evaluation.
         
         Args:
             log_entry: The log entry to check
@@ -232,11 +243,34 @@ class PolicyEngine:
         violations = []
         skipped_rules = []
         
+        # Get trace ID for early exit tracking
+        trace_id = log_entry.get('traceId', f'line_{line_number}')
+        
+        # Check if this trace is already flagged (early exit)
+        if trace_id in self.traces_flagged:
+            self.logger.debug(f"Trace {trace_id} already flagged, skipping additional rule checks")
+            return violations, skipped_rules
+        
+        max_violations_per_rule = self.global_config.get('max_violations_per_rule', 100)
+        
         for rule in self.rules:
-            # Evaluate rule normally
+            # Check if rule has reached its violation limit
+            if self.violation_counts[rule.id] >= max_violations_per_rule:
+                skipped_rules.append(rule.id)
+                continue
+            
+            # Evaluate rule
             violation = rule.evaluate(log_entry, line_number)
             if violation:
                 violations.append(violation)
+                self.violation_counts[rule.id] += 1
+                
+                # Mark trace as flagged for early exit on future evaluations
+                self.traces_flagged.add(trace_id)
+                
+                # Early exit: once a trace is flagged, don't check remaining rules
+                self.logger.debug(f"Trace {trace_id} flagged by rule {rule.id}, skipping remaining rules")
+                break
                 
         return violations, skipped_rules
     
@@ -272,5 +306,14 @@ class PolicyEngine:
             'rules_by_action': {
                 action.value: len([r for r in self.rules if r.action == action])
                 for action in PolicyAction
-            }
+            },
+            'violation_counts': self.violation_counts.copy(),
+            'traces_flagged': len(self.traces_flagged),
+            'max_violations_per_rule': self.global_config.get('max_violations_per_rule', 100)
         }
+    
+    def reset_counters(self) -> None:
+        """Reset violation counters and flagged traces for reuse."""
+        self.violation_counts = {rule.id: 0 for rule in self.rules}
+        self.traces_flagged.clear()
+        self.logger.debug("Reset violation counters and flagged traces")

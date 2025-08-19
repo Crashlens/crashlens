@@ -1,5 +1,6 @@
 # CrashLens Policy: Retry Loop Detector
 # Designed for Langfuse traces - detects expensive retry patterns
+# yaml-language-server: $schema=../../crashlens/config/policy-schema.json
 
 rules:
   - id: excessive_retry_pattern

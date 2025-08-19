@@ -1,0 +1,69 @@
+{
+  "summary": {
+    "total_traces": 5,
+    "total_violations": 2,
+    "by_severity": {
+      "critical": 1,
+      "high": 1
+    },
+    "estimated_spend_usd": 1.2,
+    "estimated_savings_usd": 0.51,
+    "generated_at": "2025-08-19T19:15:24.579309Z"
+  },
+  "violations_by_rule": [
+    {
+      "rule_id": "trace_cost_hard_limit",
+      "severity": "critical",
+      "count": 1,
+      "estimated_cost_usd": 0.6,
+      "traces": [
+        {
+          "trace_id": "test1",
+          "model": "gpt-4",
+          "cost_usd": 0.6,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "redactions": {
+            "content_removed": false,
+            "pii_removed": false
+          },
+          "violations": [
+            {
+              "reason": "cost=0.6 (rule: >0.50)",
+              "suggestion": "Trace cost exceeds $0.50 limit. Break down complex requests or use cheaper models.",
+              "action": "fail",
+              "line_number": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rule_id": "trace_cost_warning_limit",
+      "severity": "high",
+      "count": 1,
+      "estimated_cost_usd": 0.25,
+      "traces": [
+        {
+          "trace_id": "test2",
+          "model": "gpt-4",
+          "cost_usd": 0.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "redactions": {
+            "content_removed": false,
+            "pii_removed": false
+          },
+          "violations": [
+            {
+              "reason": "cost=0.25 (rule: >0.20)",
+              "suggestion": "Trace cost is high ($0.20+). Consider optimizing context length or model selection.",
+              "action": "warn",
+              "line_number": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
