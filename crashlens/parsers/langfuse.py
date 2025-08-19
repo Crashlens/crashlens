@@ -97,7 +97,7 @@ class LangfuseParser:
         if not self.logger.handlers:
             handler = logging.StreamHandler(sys.stderr)
             formatter = logging.Formatter(
-                '%(levelname)s [Line %(lineno)d]: %(message)s'
+                '%(levelname)s: %(message)s'
             )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
@@ -197,7 +197,8 @@ class LangfuseParser:
         missing_warn = [field for field in contract["warn_fields"] 
                        if extracted.get(field) is None]
         if missing_warn:
-            self.logger.warning(f"Missing optional field(s) for {schema_version}: {missing_warn}")
+            line_info = getattr(self, '_current_line_num', '?')
+            self.logger.warning(f"[Line {line_info}] Missing optional field(s) for {schema_version}: {missing_warn}")
             # Track warnings as data quality issues
             self.parsing_stats['warning_records'] += 1
             self.parsing_stats['has_errors'] = True
@@ -392,6 +393,8 @@ class LangfuseParser:
                 record = json.loads(line)
                 self.logger.debug(f"Line {line_num}: Parsing record")
                 
+                # Set current input line number for downstream logging context
+                self._current_line_num = line_num
                 parsed = self._normalize_record(record, self.default_schema)
                 if not parsed:
                     skipped_records += 1

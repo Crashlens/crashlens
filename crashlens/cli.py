@@ -559,10 +559,10 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                     if parsing_stats['warning_records'] > 0:
                         error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
                     
-                    click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                    click.echo("STOP: Data quality issues detected. Analysis cannot proceed.")
                     click.echo(" ".join(error_msg))
-                    click.echo("💡 Please fix the input data issues before running the analysis.")
-                    click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                    click.echo("HINT: Please fix the input data issues before running the analysis.")
+                    click.echo("INFO: Check the error/warning messages above for specific line numbers and issues.")
                     sys.exit(1)
                     
             except KeyboardInterrupt:
@@ -640,10 +640,10 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                     if parsing_stats['warning_records'] > 0:
                         error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
                     
-                    click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                    click.echo("STOP: Data quality issues detected. Analysis cannot proceed.")
                     click.echo(" ".join(error_msg))
-                    click.echo("💡 Please fix the Langfuse data issues before running the analysis.")
-                    click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                    click.echo("HINT: Please fix the Langfuse data issues before running the analysis.")
+                    click.echo("INFO: Check the error/warning messages above for specific line numbers and issues.")
                     # Clean up temp file
                     temp_path.unlink()
                     sys.exit(1)
@@ -682,10 +682,10 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                     if parsing_stats['warning_records'] > 0:
                         error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
                     
-                    click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                    click.echo("STOP: Data quality issues detected. Analysis cannot proceed.")
                     click.echo(" ".join(error_msg))
-                    click.echo("💡 Please fix the Helicone data issues before running the analysis.")
-                    click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                    click.echo("HINT: Please fix the Helicone data issues before running the analysis.")
+                    click.echo("INFO: Check the error/warning messages above for specific line numbers and issues.")
                     # Clean up temp file
                     temp_path.unlink()
                     sys.exit(1)
@@ -711,10 +711,10 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
                 if parsing_stats['warning_records'] > 0:
                     error_msg.append(f"⚠️ {parsing_stats['warning_records']} records had data quality issues (missing fields)")
                 
-                click.echo("🚫 Data quality issues detected! Analysis cannot proceed.")
+                click.echo("STOP: Data quality issues detected. Analysis cannot proceed.")
                 click.echo(" ".join(error_msg))
-                click.echo("💡 Please fix the log file issues before running the analysis.")
-                click.echo("🔍 Check the error/warning messages above for specific line numbers and issues.")
+                click.echo("HINT: Please fix the log file issues before running the analysis.")
+                click.echo("INFO: Check the error/warning messages above for specific line numbers and issues.")
                 sys.exit(1)
         
     except Exception as e:
