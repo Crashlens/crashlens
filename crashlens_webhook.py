@@ -2,6 +2,9 @@
 """
 CrashLens with Webhook Integration
 Run CrashLens and send results to Slack/Discord/Teams webhook
+
+This script automatically enforces Slack format output for webhook compatibility.
+All reports sent to webhook will be in Slack-formatted style, not Markdown.
 """
 
 import subprocess
@@ -13,26 +16,38 @@ from pathlib import Path
 from datetime import datetime
 
 def send_webhook_notification(webhook_url: str, report_content: str, status: str = "success"):
-    """Send CrashLens results to webhook"""
+    """Send CrashLens results to webhook - expects Slack-formatted content"""
     
-    # Parse the report for key metrics
+    # Parse the report for key metrics from Slack-formatted output
     lines = report_content.split('\n')
     total_cost = "Unknown"
     traces_analyzed = "Unknown"
+    potential_savings = "Unknown"
     
     for line in lines:
-        if "Cost:" in line and "$" in line:
-            # Extract cost from line like "📊 CrashLens Summary – 2025-08-14 03:44:46 | Traces: 13 | Cost: $0.10"
-            parts = line.split("Cost:")
-            if len(parts) > 1:
-                cost_part = parts[1].strip().split("|")[0].strip()
-                total_cost = cost_part
-        elif "Traces:" in line:
+        line_lower = line.lower().strip()
+        
+        # Look for Slack-formatted cost indicators
+        if ("cost:" in line_lower or "total" in line_lower) and ("$" in line or "₹" in line):
+            # Extract cost from various formats
+            import re
+            cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+            if cost_match:
+                total_cost = cost_match.group()
+                
+        elif "traces" in line_lower and ("analyzed" in line_lower or ":" in line):
             # Extract trace count
-            parts = line.split("Traces:")
-            if len(parts) > 1:
-                trace_part = parts[1].strip().split("|")[0].strip()
-                traces_analyzed = trace_part
+            import re
+            trace_match = re.search(r'\d+', line)
+            if trace_match:
+                traces_analyzed = trace_match.group()
+                
+        elif "savings" in line_lower or "waste" in line_lower:
+            # Extract potential savings
+            import re
+            savings_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+            if savings_match:
+                potential_savings = savings_match.group()
     
     # Determine emoji based on status
     status_emoji = {
@@ -41,7 +56,7 @@ def send_webhook_notification(webhook_url: str, report_content: str, status: str
         "warning": "⚠️"
     }.get(status, "ℹ️")
     
-    # Create Slack-compatible payload
+    # Create enhanced Slack payload with better structure
     payload = {
         "text": f"{status_emoji} CrashLens Analysis Complete",
         "blocks": [
@@ -49,7 +64,7 @@ def send_webhook_notification(webhook_url: str, report_content: str, status: str
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*CrashLens Token Waste Analysis*\n🔍 Status: {status.title()}\n📊 Traces Analyzed: {traces_analyzed}\n💰 Total Cost: {total_cost}\n⏰ Run Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    "text": f"*🔍 CrashLens Token Waste Analysis*\n📊 *Traces Analyzed:* {traces_analyzed}\n💰 *Total Cost:* {total_cost}\n🎯 *Potential Savings:* {potential_savings}\n⏰ *Analysis Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 }
             },
             {
@@ -59,7 +74,7 @@ def send_webhook_notification(webhook_url: str, report_content: str, status: str
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"```{report_content[:800]}{'...' if len(report_content) > 800 else ''}```"
+                    "text": f"*📋 Full Report (Slack Format):*\n```{report_content[:1500]}{'...' if len(report_content) > 1500 else ''}```"
                 }
             }
         ]
@@ -97,12 +112,26 @@ def main():
         print("Example: python crashlens_webhook.py policy-check logs.jsonl --policy-template all")
         sys.exit(1)
     
-    # Build crashlens command
+    # Build crashlens command - force Slack format for webhook integration
     crashlens_args = ['python', '-m', 'crashlens'] + sys.argv[1:]
     
+    # Force Slack format by modifying the arguments
+    if '--format' not in ' '.join(sys.argv[1:]) and '-f' not in ' '.join(sys.argv[1:]):
+        # Insert --format slack after the command but before other options
+        if len(sys.argv) > 2:  # Has command + arguments
+            crashlens_args = ['python', '-m', 'crashlens', sys.argv[1], '--format', 'slack'] + sys.argv[2:]
+        else:  # Just has command
+            crashlens_args = ['python', '-m', 'crashlens'] + sys.argv[1:] + ['--format', 'slack']
+    
     print(f"🔍 Running: {' '.join(crashlens_args)}")
+    print("📡 Webhook mode: Enforcing Slack format output")
     
     try:
+        # Set environment variables to handle Unicode properly
+        env = os.environ.copy()
+        env['PYTHONUTF8'] = '1'
+        env['PYTHONIOENCODING'] = 'utf-8'
+        
         # Run crashlens and capture output
         result = subprocess.run(
             crashlens_args,
@@ -110,7 +139,8 @@ def main():
             text=True,
             timeout=300,  # 5 minute timeout
             encoding='utf-8',
-            errors='replace'  # Replace problematic characters
+            errors='replace',  # Replace problematic characters
+            env=env
         )
         
         # Get the output
