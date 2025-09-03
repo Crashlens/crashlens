@@ -2587,30 +2587,30 @@ def notify(webhook_url: Optional[str], report_file: Path):
         report_content = report_file.read_text(encoding='utf-8')
         
         # Extract key metrics from report
-        total_spend = "Unknown"
-        potential_savings = "Unknown"
+        # total_spend = "Unknown"
+        # potential_savings = "Unknown"
         
-        lines = report_content.split('\n')
-        for line in lines:
-            line = line.strip()
-            if 'Total Spend' in line or 'total spend' in line.lower():
-                # Extract cost value (look for currency symbols and numbers)
-                import re
-                cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
-                if cost_match:
-                    total_spend = cost_match.group()
-            elif 'Potential Savings' in line or 'potential savings' in line.lower():
-                # Extract savings value
-                import re
-                savings_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
-                if savings_match:
-                    potential_savings = savings_match.group()
-            elif 'Cost:' in line and '$' in line:
-                # Extract from summary line like "Cost: $859.52"
-                import re
-                cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
-                if cost_match and total_spend == "Unknown":
-                    total_spend = cost_match.group()
+        # lines = report_content.split('\n')
+        # for line in lines:
+        #     line = line.strip()
+        #     if 'Total Spend' in line or 'total spend' in line.lower():
+        #         # Extract cost value (look for currency symbols and numbers)
+        #         import re
+        #         cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+        #         if cost_match:
+        #             total_spend = cost_match.group()
+        #     elif 'Potential Savings' in line or 'potential savings' in line.lower():
+        #         # Extract savings value
+        #         import re
+        #         savings_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+        #         if savings_match:
+        #             potential_savings = savings_match.group()
+        #     elif 'Cost:' in line and '$' in line:
+        #         # Extract from summary line like "Cost: $859.52"
+        #         import re
+        #         cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+        #         if cost_match and total_spend == "Unknown":
+        #             total_spend = cost_match.group()
         
         # Parse Slack-formatted content for better display
         def convert_slack_to_native(content):
@@ -2671,16 +2671,16 @@ def notify(webhook_url: Optional[str], report_file: Path):
                     "text": "🔍 *CrashLens Analysis Complete*"
                 }
             },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"💰 *Total Spend:* {total_spend}\n🎯 *Potential Savings:* {potential_savings}"
-                }
-            },
-            {
-                "type": "divider"
-            }
+            # {
+            #     "type": "section",
+            #     "text": {
+            #         "type": "mrkdwn",
+            #         "text": f"💰 *Total Spend:* {total_spend}\n🎯 *Potential Savings:* {potential_savings}"
+            #     }
+            # },
+            # {
+            #     "type": "divider"
+            # }
         ]
         
         # Add formatted sections
