@@ -12,6 +12,7 @@ import os
 import json
 import random
 import uuid
+import requests
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any, Set, Tuple
@@ -2555,11 +2556,174 @@ def _run_policy_check_on_file(output_path: Path):
         click.echo(f"❌ Error running policy check: {str(e)}", err=True)
 
 
+@click.group()
+def slack():
+    """Slack integration commands"""
+    pass
+
+
+@slack.command()
+@click.option('--webhook-url', type=str, help='Slack webhook URL (or set CRASHLENS_SLACK_WEBHOOK env var)')
+@click.option('--report-file', type=click.Path(exists=True, path_type=Path), 
+              default='report.md', help='Path to the report file (default: report.md)')
+def notify(webhook_url: Optional[str], report_file: Path):
+    """Send CrashLens report to Slack via webhook"""
+    
+    # Get webhook URL from option or environment variable
+    if not webhook_url:
+        webhook_url = os.getenv('CRASHLENS_SLACK_WEBHOOK')
+    
+    if not webhook_url:
+        click.echo("❌ Webhook URL required. Use --webhook-url or set CRASHLENS_SLACK_WEBHOOK env var", err=True)
+        sys.exit(1)
+    
+    # Check if report file exists
+    if not report_file.exists():
+        click.echo(f"❌ Report file not found: {report_file}", err=True)
+        sys.exit(1)
+    
+    try:
+        # Load the report file
+        report_content = report_file.read_text(encoding='utf-8')
+        
+        # Extract key metrics from report
+        # total_spend = "Unknown"
+        # potential_savings = "Unknown"
+        
+        # lines = report_content.split('\n')
+        # for line in lines:
+        #     line = line.strip()
+        #     if 'Total Spend' in line or 'total spend' in line.lower():
+        #         # Extract cost value (look for currency symbols and numbers)
+        #         import re
+        #         cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+        #         if cost_match:
+        #             total_spend = cost_match.group()
+        #     elif 'Potential Savings' in line or 'potential savings' in line.lower():
+        #         # Extract savings value
+        #         import re
+        #         savings_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+        #         if savings_match:
+        #             potential_savings = savings_match.group()
+        #     elif 'Cost:' in line and '$' in line:
+        #         # Extract from summary line like "Cost: $859.52"
+        #         import re
+        #         cost_match = re.search(r'[\$₹€£¥]?[\d,]+\.?\d*', line)
+        #         if cost_match and total_spend == "Unknown":
+        #             total_spend = cost_match.group()
+        
+        # Parse Slack-formatted content for better display
+        def convert_slack_to_native(content):
+            """Convert Slack-formatted markdown to native Slack formatting"""
+            lines = content.split('\n')
+            formatted_lines = []
+            
+            for line in lines:
+                # Convert headers
+                if line.startswith('🤖 **Model Breakdown**'):
+                    formatted_lines.append('🤖 *Model Breakdown*')
+                elif line.startswith('🏆 **Top Expensive Traces**'):
+                    formatted_lines.append('🏆 *Top Expensive Traces*')
+                elif line.startswith('🚨 **Waste Analysis**'):
+                    formatted_lines.append('🚨 *Waste Analysis*')
+                # Convert table headers and content
+                elif line.startswith('| Model | Cost | Percentage |'):
+                    formatted_lines.append('`Model          Cost       %`')
+                elif line.startswith('| Rank | Model | Cost |'):
+                    formatted_lines.append('`Rank  Model    Cost`')
+                elif line.startswith('| Issue Type | Count | Cost | Tokens |'):
+                    formatted_lines.append('`Issue Type    Count   Cost      Tokens`')
+                elif line.startswith('|---'):
+                    continue  # Skip separator lines
+                elif line.startswith('| ') and line.endswith(' |'):
+                    # Convert table rows to monospace format
+                    cells = [cell.strip() for cell in line.split('|')[1:-1]]
+                    if len(cells) >= 2:
+                        formatted_line = '`' + '  '.join(f"{cell:<12}" for cell in cells) + '`'
+                        formatted_lines.append(formatted_line)
+                else:
+                    # Keep other lines as-is, but remove excessive emojis in summary
+                    if not line.startswith('📊 CrashLens Summary'):
+                        formatted_lines.append(line)
+                    else:
+                        # Simplify summary line
+                        if 'Cost:' in line:
+                            import re
+                            cost_match = re.search(r'Cost: ([\$₹€£¥]?[\d,]+\.?\d*)', line)
+                            traces_match = re.search(r'Traces: (\d+)', line)
+                            if cost_match and traces_match:
+                                formatted_lines.append(f"📊 *Analysis Summary*\n• Traces: {traces_match.group(1)}\n• Total Cost: {cost_match.group(1)}")
+            
+            return '\n'.join(formatted_lines)
+        
+        # Convert the report content
+        formatted_content = convert_slack_to_native(report_content)
+        
+        # Split into sections for better display
+        sections = formatted_content.split('\n\n')
+        
+        # Construct Slack payload using blocks with native formatting
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "🔍 *CrashLens Analysis Complete*"
+                }
+            },
+            # {
+            #     "type": "section",
+            #     "text": {
+            #         "type": "mrkdwn",
+            #         "text": f"💰 *Total Spend:* {total_spend}\n🎯 *Potential Savings:* {potential_savings}"
+            #     }
+            # },
+            # {
+            #     "type": "divider"
+            # }
+        ]
+        
+        # Add formatted sections
+        for section in sections[:3]:  # Limit to first 3 sections to avoid message size limits
+            if section.strip():
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": section.strip()[:3000]  # Slack has text limits
+                    }
+                })
+        
+        payload = {"blocks": blocks}
+        
+        # Send to Slack
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers={'Content-Type': 'application/json'},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            click.echo("✅ Slack notification sent successfully")
+        else:
+            click.echo(f"❌ Failed to send Slack notification. Status: {response.status_code}, Response: {response.text}", err=True)
+            sys.exit(1)
+            
+    except requests.exceptions.RequestException as e:
+        click.echo(f"❌ Network error sending to Slack: {str(e)}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error processing report or sending to Slack: {str(e)}", err=True)
+        sys.exit(1)
+
+
 # Add commands to CLI
 cli.add_command(policy_check)
 cli.add_command(list_policy_templates)
 cli.add_command(init)
 cli.add_command(simulate)
+cli.add_command(slack)
 
 
 if __name__ == "__main__":
