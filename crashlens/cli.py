@@ -2565,7 +2565,7 @@ def slack():
 @slack.command()
 @click.option('--webhook-url', type=str, help='Slack webhook URL (or set CRASHLENS_SLACK_WEBHOOK env var)')
 @click.option('--report-file', type=click.Path(exists=True, path_type=Path), 
-              default='report.md', help='Path to the report file (default: report.md)')
+              default='crashlens-report.md', help='Path to the report file (default: crashlens-report.md)')
 def notify(webhook_url: Optional[str], report_file: Path):
     """Send CrashLens report to Slack via webhook"""
     
