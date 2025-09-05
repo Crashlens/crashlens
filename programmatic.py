@@ -6,7 +6,7 @@ parser = LangfuseParser()
 traces = parser.parse_file("cold-dev-test.jsonl")
 
 # Apply policies
-engine = PolicyEngine("policies\langfuse\ci-sample.yaml")
-violations = engine.check_logs(traces)
+engine = PolicyEngine(r"policies\langfuse\ci-sample.yaml")
+violations, skipped = engine.check_logs(traces)
 
 print(f"Found {len(violations)} violations")
