@@ -133,8 +133,7 @@ crashlens policy-check logs.jsonl --policy-template all
 crashlens policy-check logs.jsonl --policy-template all --detailed
 
 # Custom output paths and quiet mode
-crashlens policy-check logs.jsonl --policy-template all --detailed \
-  --out-report violations.md --out-detailed violations.json --quiet
+crashlens policy-check cold-dev-test.jsonl --policy-file my-policy.yaml --severity-threshold high
 
 # Use specific policy templates
 crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention
@@ -163,7 +162,7 @@ Policy violation reports are automatically organized in the `policy-violations/`
 crashlens list-policy-templates
 
 # Simulate different usage patterns
-crashlens simulate --pattern retry-loop --count 100
+crashlens simulate --output test.jsonl --count 500 --scenario retry-loop
 
 # Setup project with policies
 crashlens init
@@ -316,11 +315,14 @@ from crashlens.parsers.langfuse import LangfuseParser
 
 # Load and analyze logs
 parser = LangfuseParser()
-traces = parser.parse_file("logs.jsonl")
+traces_by_id = parser.parse_file("cold-dev-test.jsonl")
+
+# Flatten all records into a list
+traces = [record for records in traces_by_id.values() for record in records]
 
 # Apply policies
-engine = PolicyEngine("policy.yaml")
-violations = engine.check_logs(traces)
+engine = PolicyEngine(r"policies\langfuse\ci-sample.yaml")
+violations, skipped = engine.evaluate_logs(traces)
 
 print(f"Found {len(violations)} violations")
 ```
