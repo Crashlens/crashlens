@@ -163,7 +163,7 @@ Policy violation reports are automatically organized in the `policy-violations/`
 crashlens list-policy-templates
 
 # Simulate different usage patterns
-crashlens simulate --pattern retry-loop --count 100
+crashlens simulate --output test.jsonl --count 500 --scenario retry-loop
 
 # Setup project with policies
 crashlens init
