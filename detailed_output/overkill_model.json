@@ -1,10 +1,10 @@
 {
   "detector_type": "Overkill Model Detector",
   "summary": {
-    "total_issues": 8,
-    "affected_traces": 3,
-    "total_waste_cost": 0.010546,
-    "total_waste_tokens": 897,
+    "total_issues": 25,
+    "affected_traces": 25,
+    "total_waste_cost": 0.14489,
+    "total_waste_tokens": 8226,
     "models_involved": [
       "gpt-4",
       "gpt-4-turbo",
@@ -13,73 +13,226 @@
   },
   "issues": [
     {
-      "trace_id": "retry_522e59a7",
-      "problem": "Overkill: gpt-4o used for simple task (prompt too short (40 chars))",
-      "estimated_cost": 0.000361,
-      "waste_tokens": 103,
+      "trace_id": "mixed_469336a2",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (90 chars))",
+      "estimated_cost": 0.003122,
+      "waste_tokens": 314,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_522e59a7",
-      "problem": "Overkill: gpt-4o used for simple task (prompt too short (40 chars))",
-      "estimated_cost": 0.000353,
-      "waste_tokens": 101,
+      "trace_id": "mixed_69f7c11c",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (148 chars))",
+      "estimated_cost": 0.000728,
+      "waste_tokens": 208,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_522e59a7",
-      "problem": "Overkill: gpt-4o used for simple task (prompt too short (40 chars))",
-      "estimated_cost": 0.001277,
-      "waste_tokens": 151,
+      "trace_id": "mixed_9d2c3e6b",
+      "problem": "Overkill: gpt-4 used for simple task (prompt too short (89 chars))",
+      "estimated_cost": 0.014868,
+      "waste_tokens": 387,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_b4b67cc6",
-      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (94 chars))",
-      "estimated_cost": 0.000532,
-      "waste_tokens": 76,
+      "trace_id": "mixed_fe8ad1b1",
+      "problem": "Overkill: gpt-4 used for simple task (prompt too short (138 chars))",
+      "estimated_cost": 0.008799,
+      "waste_tokens": 216,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_b4b67cc6",
-      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (94 chars))",
-      "estimated_cost": 0.000651,
-      "waste_tokens": 93,
+      "trace_id": "mixed_6a89dd4f",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (145 chars))",
+      "estimated_cost": 0.005124,
+      "waste_tokens": 342,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_b4b67cc6",
-      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (94 chars))",
-      "estimated_cost": 0.002604,
-      "waste_tokens": 146,
+      "trace_id": "mixed_0b8557b6",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (123 chars))",
+      "estimated_cost": 0.008155,
+      "waste_tokens": 555,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_09411886",
-      "problem": "Overkill: gpt-4 used for simple task (prompt too short (60 chars))",
-      "estimated_cost": 0.001953,
-      "waste_tokens": 93,
+      "trace_id": "mixed_7bbaed41",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (145 chars))",
+      "estimated_cost": 0.004109,
+      "waste_tokens": 313,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
     },
     {
-      "trace_id": "retry_09411886",
-      "problem": "Overkill: gpt-4 used for simple task (prompt too short (60 chars))",
-      "estimated_cost": 0.002814,
-      "waste_tokens": 134,
+      "trace_id": "mixed_53e64a14",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (124 chars))",
+      "estimated_cost": 0.000644,
+      "waste_tokens": 172,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_408b3aae",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (95 chars))",
+      "estimated_cost": 0.000252,
+      "waste_tokens": 36,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_cf2b3a10",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (132 chars))",
+      "estimated_cost": 0.009352,
+      "waste_tokens": 586,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_de0d56cf",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (72 chars))",
+      "estimated_cost": 0.000959,
+      "waste_tokens": 137,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_325c9a25",
+      "problem": "Overkill: gpt-4 used for simple task (prompt too short (104 chars))",
+      "estimated_cost": 0.017892,
+      "waste_tokens": 539,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_2e6b6120",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (139 chars))",
+      "estimated_cost": 0.00371,
+      "waste_tokens": 324,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_d16182a0",
+      "problem": "Overkill: gpt-4 used for simple task (prompt starts with 'hi')",
+      "estimated_cost": 0.016464,
+      "waste_tokens": 512,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_8a7ffbb0",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (83 chars))",
+      "estimated_cost": 0.002922,
+      "waste_tokens": 351,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_c828e83a",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (45 chars))",
+      "estimated_cost": 0.004196,
+      "waste_tokens": 523,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_56d78701",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (122 chars))",
+      "estimated_cost": 0.000781,
+      "waste_tokens": 141,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_2148edd1",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (123 chars))",
+      "estimated_cost": 0.004571,
+      "waste_tokens": 283,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_668bec2a",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (78 chars))",
+      "estimated_cost": 0.004417,
+      "waste_tokens": 305,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_841aba11",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (90 chars))",
+      "estimated_cost": 0.006524,
+      "waste_tokens": 342,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_395fca1b",
+      "problem": "Overkill: gpt-4 used for simple task (prompt too short (130 chars))",
+      "estimated_cost": 0.005145,
+      "waste_tokens": 245,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_e809da73",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (125 chars))",
+      "estimated_cost": 0.004732,
+      "waste_tokens": 304,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_0955357a",
+      "problem": "Overkill: gpt-4 used for simple task (prompt too short (130 chars))",
+      "estimated_cost": 0.01155,
+      "waste_tokens": 316,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_a04c2496",
+      "problem": "Overkill: gpt-4-turbo used for simple task (prompt too short (110 chars))",
+      "estimated_cost": 0.001449,
+      "waste_tokens": 207,
+      "severity": "medium",
+      "expensive_model": "",
+      "suggested_model": "gpt-3.5-turbo"
+    },
+    {
+      "trace_id": "mixed_5a773587",
+      "problem": "Overkill: gpt-4o used for simple task (prompt too short (65 chars))",
+      "estimated_cost": 0.004424,
+      "waste_tokens": 568,
       "severity": "medium",
       "expensive_model": "",
       "suggested_model": "gpt-3.5-turbo"
@@ -91,7 +244,7 @@
     "Use GPT-4 only for complex reasoning tasks"
   ],
   "metadata": {
-    "generated_at": "2025-08-17T06:01:30.942617",
+    "generated_at": "2025-09-05T22:32:39.609156",
     "detector_category": "overkill_model"
   }
 }
