@@ -133,8 +133,7 @@ crashlens policy-check logs.jsonl --policy-template all
 crashlens policy-check logs.jsonl --policy-template all --detailed
 
 # Custom output paths and quiet mode
-crashlens policy-check logs.jsonl --policy-template all --detailed \
-  --out-report violations.md --out-detailed violations.json --quiet
+crashlens policy-check cold-dev-test.jsonl --policy-file my-policy.yaml --severity-threshold high
 
 # Use specific policy templates
 crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention
