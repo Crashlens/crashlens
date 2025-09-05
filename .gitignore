@@ -82,3 +82,8 @@ report.md
 # policy-violations/
 
 .copilot/
+
+
+/tests/
+/custom_reports/
+/detailed_output/
