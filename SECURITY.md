@@ -109,8 +109,24 @@ For security-related questions or concerns:
 - **GPG Key**: [Link to public GPG key if available]
 - **Response Time**: We aim to respond within 24 hours
 
+## Secrets
+
+- Never commit secrets. Use CI secret stores (GitHub Actions secrets) and environment variables.
+- Slack webhooks: pass via `CRASHLENS_SLACK_WEBHOOK`.
+
+## Redaction defaults
+
+- Reporters should default to redacting content in summary contexts.
+- Prefer summary-only outputs in CI unless explicitly configured otherwise.
+
+## Network access
+
+- Keep tests offline. No external calls in unit tests.
+- Roadmap: introduce `--deny-network` flag to prevent network access during CLI runs; CI templates will enable this by default once available.
+
+
 ## 🔄 Policy Updates
 
 This security policy may be updated periodically. Please check back regularly for the latest information.
 
-Last updated: August 10, 2025
+Last updated: September 6, 2025

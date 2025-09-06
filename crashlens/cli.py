@@ -1825,7 +1825,34 @@ def init(non_interactive: bool, dry_run_workflow: bool):
                 return
         
         # Create config directory
-        config_dir.mkdir(exist_ok=True)
+        try:
+            config_dir.mkdir(exist_ok=True)
+        except Exception as e:
+            click.echo(f"❌ Error during setup: cannot create {config_dir}: {e}", err=True)
+            sys.exit(1)
+
+        # Ensure directory is writable (cross-platform): first use os.access, then attempt a real write
+        import os as _os
+        import stat as _stat
+        if not _os.access(config_dir, _os.W_OK):
+            click.echo(f"❌ Error during setup: {config_dir} is not writable", err=True)
+            sys.exit(1)
+        # Also respect POSIX permission bits if present (helps tests using chmod)
+        try:
+            _mode = _os.stat(config_dir).st_mode
+            if (_mode & (_stat.S_IWUSR | _stat.S_IWGRP | _stat.S_IWOTH)) == 0:
+                click.echo(f"❌ Error during setup: {config_dir} is not writable (mode {_mode:o})", err=True)
+                sys.exit(1)
+        except Exception:
+            pass
+        try:
+            test_file = config_dir / ".perm_check"
+            with open(test_file, 'w', encoding='utf-8') as _f:
+                _f.write('ok')
+            test_file.unlink(missing_ok=True)
+        except Exception as e:
+            click.echo(f"❌ Error during setup: {config_dir} is not writable: {e}", err=True)
+            sys.exit(1)
         
         # Prepare configuration with validation
         cli_version = _get_current_cli_version()
