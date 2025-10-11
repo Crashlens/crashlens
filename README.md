@@ -94,10 +94,12 @@ crashlens init --non-interactive
 
 ### 📊 **Analysis & Reporting**
 - **Multi-Format Reports**: Markdown, JSON, Slack-ready notifications
+- **🆕 Structured JSON Output**: Frontend-optimized JSON with 9 comprehensive sections
+- **Schema Validation**: JSON Schema Draft 7 compliant with CLI validator
 - **Auto Slack Integration**: Real-time team notifications with webhook setup
 - **Cost Breakdown**: Per-model, per-trace, per-pattern analysis
 - **Token Accounting**: Detailed waste calculations
-- **Trend Analysis**: Historical cost patterns
+- **Trend Analysis**: Historical cost patterns with timeline visualization
 - **ROI Calculator**: Quantified savings recommendations
 
 ---
@@ -117,11 +119,41 @@ crashlens scan --demo
 
 # Custom output formats
 crashlens scan logs.jsonl --format slack      # Slack-ready format
-crashlens scan logs.jsonl --format json       # Machine-readable format
+crashlens scan logs.jsonl --format markdown   # Markdown format
+crashlens scan logs.jsonl --format json       # Structured JSON (report_format_json.json)
 
 # Auto-post to Slack (requires CRASHLENS_SLACK_WEBHOOK env var)
 export CRASHLENS_SLACK_WEBHOOK="your-webhook-url"
 crashlens scan logs.jsonl                     # Auto-sends to Slack when configured
+```
+
+### 🆕 **JSON Format Output**
+```bash
+# Generate structured JSON report (ideal for dashboards & automation)
+crashlens scan logs.jsonl --format json
+
+# Output: report_format_json.json in the same directory as input log file
+# Contains 9 sections: metadata, summary, issues, traces, models, 
+#                      timeline, recommendations, alerts, export_options
+
+# Validate JSON output against schema
+python -m crashlens.formatters.schema_validator report_format_json.json
+
+# Use with different input sources
+crashlens scan --demo --format json           # Demo data → examples-logs/report_format_json.json
+cat logs.jsonl | crashlens scan --stdin -f json  # stdin → ./report_format_json.json
+```
+
+**JSON Output Structure:**
+- **metadata**: Scan info, version, timestamps
+- **summary**: Totals, costs, savings, key metrics
+- **issues**: All detected issues with severity & suggestions
+- **traces**: Detailed trace analysis with costs
+- **models**: Per-model cost breakdown & statistics
+- **timeline**: Chronological events for visualization
+- **recommendations**: Prioritized optimization actions
+- **alerts**: Critical warnings & thresholds
+- **export_options**: Data export capabilities
 ```
 
 ### 🛡️ **Policy Enforcement**
@@ -228,6 +260,55 @@ crashlens init
      - Use gpt-3.5-turbo for classification <500 tokens
      - Reserve GPT-4 for complex reasoning tasks
 ```
+
+### 🆕 **JSON Format Output** (NEW)
+```json
+{
+  "metadata": {
+    "scan_time": "2025-10-11T14:30:00Z",
+    "crashlens_version": "2.9.12",
+    "schema_version": "1.0.0",
+    "log_file": "sample-logs/demo-logs.jsonl",
+    "total_traces": 156
+  },
+  "summary": {
+    "total_cost": 859.52,
+    "total_issues": 53185,
+    "potential_savings": 859.52,
+    "savings_percentage": 100.0,
+    "wasted_tokens": 38213010,
+    "issues_by_severity": {
+      "critical": 125,
+      "high": 1200,
+      "medium": 45000,
+      "low": 6860
+    }
+  },
+  "issues": [
+    {
+      "category": "retry_loop",
+      "severity": "high",
+      "count": 187,
+      "cost": 859.52,
+      "wasted_tokens": 24555498,
+      "suggestion": "Implement exponential backoff with jitter",
+      "fix_priority": 1
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": 1,
+      "title": "Implement Exponential Backoff",
+      "potential_savings": 859.52,
+      "implementation_effort": "medium",
+      "impact": "high"
+    }
+  ]
+}
+```
+
+**Benefits:** Frontend-ready, machine-readable, schema-validated, perfect for dashboards and automation. 
+See **[NEW_FEATURES.md](NEW_FEATURES.md)** for complete JSON structure documentation.
 
 ---
 
@@ -451,21 +532,42 @@ For CI/CD pipelines, GitHub Actions integration, and custom notification formats
 
 ---
 
+## 🆕 What's New
+
+Check out **[NEW_FEATURES.md](NEW_FEATURES.md)** for detailed documentation on the latest updates:
+
+- 🎯 **Structured JSON Output**: Frontend-optimized format with 9 comprehensive sections
+- 📊 **Schema Validation**: JSON Schema Draft 7 compliant with CLI validator
+- 🔄 **Smart Output Locations**: Reports saved alongside input files
+- 📈 **Timeline Visualization**: Chronological event data for charts
+- 🤖 **Per-Model Analytics**: Detailed cost attribution and optimization potential
+
+**Quick Example:**
+```bash
+crashlens scan logs.jsonl --format json
+# Output: report_format_json.json with metadata, summary, issues, 
+#         traces, models, timeline, recommendations, alerts, export_options
+```
+
+---
+
 ## 📚 Documentation
 
 ### Quick References
+- **[NEW_FEATURES.md](NEW_FEATURES.md)** 🆕 - Latest features & JSON output guide
 - [Installation Guide](docs/INSTALLATION.md)
 - [Policy Writing Guide](docs/POLICY_GUIDE.md)
 - [CLI Reference](docs/CLI_REFERENCE.md)
 - [API Documentation](docs/API_REFERENCE.md)
 
-### Integrations
+### Format & Output Documentation
+- **[JSON Formatter README](crashlens/formatters/README.md)** 🆕 - JSON output usage & examples
 - [Slack Integration Guide](docs/SLACK_INTEGRATION.md)
+- [Log Format Guide](docs/LOG_FORMATS.md)
 
 ### Troubleshooting
 - [Common Issues](docs/TROUBLESHOOTING.md)
 - [Windows PATH Setup](docs/WINDOWS_SETUP.md)
-- [Log Format Guide](docs/LOG_FORMATS.md)
 - [Performance Tuning](docs/PERFORMANCE.md)
 
 ---
@@ -1334,6 +1436,20 @@ Each file contains:
 - All issues of that type with trace IDs and details
 - Specific suggestions for that category
 
+### 🆕 JSON Format Reports
+When using `--format json`, CrashLens generates a comprehensive structured report:
+- **File**: `report_format_json.json` (saved in input log directory)
+- **Schema**: JSON Schema Draft 7 compliant
+- **Size**: Frontend-optimized with nested structures
+- **Sections**: 9 comprehensive data sections (metadata, summary, issues, traces, models, timeline, recommendations, alerts, export_options)
+
+**Benefits:**
+- ✅ **Frontend-Ready**: Direct consumption by React, Vue, Angular
+- ✅ **Machine-Readable**: Easy parsing and automation
+- ✅ **Schema-Validated**: Guaranteed structure consistency
+- ✅ **Dashboard-Friendly**: Pre-calculated metrics and aggregations
+- ✅ **Version-Tracked**: Includes schema version for compatibility
+
 ### 🔍 Input Sources
 CrashLens supports multiple input methods:
 
@@ -1345,9 +1461,14 @@ CrashLens supports multiple input methods:
 4. **Clipboard**: `crashlens scan --paste` (paste logs interactively)
 
 ### 📊 Output Formats
-- **slack** (default): Slack-formatted report for team sharing
-- **markdown**: Clean Markdown for documentation
-- **json**: Machine-readable JSON for automation
+- **markdown**: Clean Markdown for documentation (saved as `report.md`)
+- **slack**: Slack-formatted report for team sharing (saved as `report.md`)
+- **json** 🆕: Structured JSON for dashboards & automation (saved as `report_format_json.json`)
+
+**Output Location:**
+- Reports are saved in the **same directory as the input log file**
+- For demo mode: `examples-logs/report_format_json.json` or `examples-logs/report.md`
+- For stdin/paste: Current working directory (`./report_format_json.json` or `./report.md`)
 
 ### 💡 Pro Tips
 - Use `--demo` to test CrashLens without your own logs
