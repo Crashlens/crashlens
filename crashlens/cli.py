@@ -42,11 +42,12 @@ from .detectors.retry_loops import RetryLoopDetector
 from .detectors.fallback_storm import FallbackStormDetector
 from .detectors.fallback_failure import FallbackFailureDetector
 from .detectors.overkill_model_detector import OverkillModelDetector
-from .reporters.slack_formatter import SlackFormatter
-from .reporters.markdown_formatter import MarkdownFormatter
-from .reporters.summary_formatter import SummaryFormatter
-from .reporters.policy_report_markdown import PolicyReportMarkdown
-from .reporters.policy_report_json import PolicyReportJSON
+from .formatters.slack_formatter import SlackFormatter
+from .formatters.markdown_formatter import MarkdownFormatter
+from .formatters.summary_formatter import SummaryFormatter
+from .formatters.policy_report_markdown import PolicyReportMarkdown
+from .formatters.policy_report_json import PolicyReportJSON
+from .formatters.json_formatter import JSONFormatter
 from .langfuse_client import LangfuseClient, save_logs_to_temp_file
 from .helicone_client import HeliconeClient
 from .policy.templates import get_template_manager
@@ -857,7 +858,7 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
             f.write(output)
         
         summary_type = "Summary-only" if summary_only else "Summary"
-        click.echo(f"✅ {summary_type} report written to {report_path}")
+        click.echo(f"[OK] {summary_type} report written to {report_path}")
         click.echo(output)
         return output
     
@@ -914,30 +915,85 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         )
         click.echo(f"✅ Generated {detailed_count} detailed category reports in {detailed_dir}/")
     
-    # Generate report based on format and write to report.md
-    report_path = Path.cwd() / "report.md"
+    # Determine report path based on format and log file location
+    if logfile and logfile.exists():
+        # Save report in same directory as log file
+        report_dir = logfile.parent
+    else:
+        # Save in current directory for stdin/demo/paste
+        report_dir = Path.cwd()
+    
+    # Set filename based on format
+    if output_format == 'json':
+        report_filename = 'report_format_json.json'
+    elif output_format == 'markdown':
+        report_filename = 'report.md'
+    else:  # slack
+        report_filename = 'report.md'
+    
+    report_path = report_dir / report_filename
     
     if output_format == 'json':
-        # Machine-readable JSON output
-        import json
-        json_output = []
-        for detection in all_active_detections:
-            json_detection = {
-                'type': detection.get('type'),
-                'severity': detection.get('severity'),
-                'description': detection.get('description'),
-                'waste_cost': f"{detection.get('waste_cost', 0):.6f}",
-                'suppression_notes': detection.get('suppression_notes', {})
-            }
-            if 'trace_id' in detection:
-                json_detection['trace_id'] = detection['trace_id']
-            json_output.append(json_detection)
+        # Structured JSON output for frontend consumption
+        from datetime import datetime
         
-        output = json.dumps(json_output, indent=2)
+        # Prepare analysis results for JSONFormatter
+        analysis_results = {
+            'detectors': [],
+            'log_file': str(logfile) if logfile else 'stdin/demo',
+            'total_traces': len(traces),
+            'parse_errors': parser.get_parsing_stats().get('skipped_records', 0),
+            'start_time': datetime.now(),
+            'end_time': datetime.now()
+        }
+        
+        # Convert detections to detector results format
+        # Group by detector type instead of detector name
+        detections_by_type = {}
+        for detection in all_active_detections:
+            detector_type = detection.get('type', 'unknown')
+            if detector_type not in detections_by_type:
+                detections_by_type[detector_type] = []
+            detections_by_type[detector_type].append(detection)
+        
+        # Format detector results
+        for detector_type, detections in detections_by_type.items():
+            findings = []
+            for detection in detections:
+                finding = {
+                    'trace_id': detection.get('trace_id', 'unknown'),
+                    'model': detection.get('model', 'unknown'),
+                    'severity': detection.get('severity', 'medium'),
+                    'title': detection.get('description', 'Issue detected'),
+                    'message': detection.get('description', ''),
+                    'cost': {
+                        'total': detection.get('total_cost', 0.0),
+                        'wasted': detection.get('waste_cost', 0.0)
+                    },
+                    'tokens': {
+                        'total': detection.get('total_tokens', 0)
+                    },
+                    'calls': detection.get('num_calls', 1),
+                    'latency_ms': 0,  # Not currently tracked
+                    'timestamp': detection.get('timestamp', datetime.now().isoformat()),
+                    'recommendation': detection.get('recommendation', '')
+                }
+                findings.append(finding)
+            
+            analysis_results['detectors'].append({
+                'name': detector_type,
+                'findings': findings
+            })
+        
+        # Generate JSON output using JSONFormatter
+        formatter = JSONFormatter(analysis_results)
+        output = formatter.format()
+        
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(output)
-        click.echo(f"✅ JSON report written to {report_path}")
-        click.echo(output)
+        click.echo(f"[OK] JSON report written to {report_path}")
+        # Don't print full JSON to console - it's too verbose
+        click.echo(f"Summary: {len(all_active_detections)} issues detected")
         return output
     elif output_format == 'markdown':
         # Markdown format
@@ -945,8 +1001,9 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}), summary_only=False)
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(output)
-        click.echo(f"✅ Markdown report written to {report_path}")
-        click.echo(output)
+        click.echo(f"[OK] Markdown report written to {report_path}")
+        # Don't print full output - may contain unicode that causes issues on Windows
+        click.echo(f"Summary: {len(all_active_detections)} issues detected")
         return output
     else:
         # Default Slack format
@@ -954,8 +1011,9 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}))
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(output)
-        click.echo(f"✅ Slack report written to {report_path}")
-        click.echo(output)
+        click.echo(f"[OK] Slack report written to {report_path}")
+        # Don't print full output - may contain unicode that causes issues on Windows
+        click.echo(f"Summary: {len(all_active_detections)} issues detected")
         return output
 
 

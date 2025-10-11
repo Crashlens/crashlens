@@ -1,4 +1,4 @@
-severity_threshold: "low"
+cseverity_threshold: "low"
 policy_template: "all"
 fail_on_violations: false
 output_format: "markdown"

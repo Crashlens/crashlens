@@ -1,0 +1,501 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrashLens Analysis Report",
+  "description": "Schema for CrashLens JSON output format",
+  "type": "object",
+  "required": [
+    "metadata",
+    "summary",
+    "issues",
+    "traces",
+    "models",
+    "timeline",
+    "recommendations",
+    "alerts",
+    "export_options"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "scan_time",
+        "log_file",
+        "total_traces",
+        "parse_errors",
+        "duration_ms",
+        "crashlens_version",
+        "health_score"
+      ],
+      "properties": {
+        "scan_time": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of scan completion"
+        },
+        "log_file": {
+          "type": "string",
+          "description": "Path to analyzed log file"
+        },
+        "total_traces": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of traces processed"
+        },
+        "parse_errors": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of parse errors encountered"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Scan duration in milliseconds"
+        },
+        "crashlens_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "CrashLens version number"
+        },
+        "health_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall system health score (0-100)"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_issues",
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "total_cost",
+        "potential_savings",
+        "cost_currency"
+      ],
+      "properties": {
+        "total_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "potential_savings": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cost_currency": {
+          "type": "string",
+          "enum": ["USD"]
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "severity",
+          "title",
+          "description",
+          "trace_id",
+          "model",
+          "cost",
+          "metrics",
+          "recommendation",
+          "timestamp"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "retry_loop",
+              "fallback_storm",
+              "fallback_failure",
+              "overkill_model"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "object",
+            "required": ["total", "wasted", "currency"],
+            "properties": {
+              "total": {
+                "type": "number",
+                "minimum": 0
+              },
+              "wasted": {
+                "type": "number",
+                "minimum": 0
+              },
+              "currency": {
+                "type": "string",
+                "enum": ["USD"]
+              }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "required": ["tokens", "calls", "latency_ms"],
+            "properties": {
+              "tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "calls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "latency_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "recommendation": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "traces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "trace_id",
+          "issue_count",
+          "total_cost",
+          "models_used",
+          "start_time",
+          "duration_ms",
+          "status"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string"
+          },
+          "issue_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_cost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "models_used": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": ["completed", "failed", "partial"]
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "required": ["by_provider", "top_models"],
+      "properties": {
+        "by_provider": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z]+$": {
+              "type": "object",
+              "required": ["models", "total_cost"],
+              "properties": {
+                "models": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "calls",
+                      "tokens",
+                      "cost",
+                      "avg_latency_ms"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "calls": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "tokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cost": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "avg_latency_ms": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                },
+                "total_cost": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "top_models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "calls", "tokens", "cost", "avg_latency_ms"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "calls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cost": {
+                "type": "number",
+                "minimum": 0
+              },
+              "avg_latency_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "event_type",
+          "trace_id",
+          "model",
+          "severity",
+          "description"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "priority",
+          "category",
+          "title",
+          "description",
+          "estimated_savings",
+          "effort",
+          "impact"
+        ],
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "category": {
+            "type": "string",
+            "enum": ["reliability", "performance", "cost", "quality"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "estimated_savings": {
+            "type": "number",
+            "minimum": 0
+          },
+          "effort": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          }
+        }
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "level",
+          "title",
+          "message",
+          "action_required",
+          "related_traces"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": ["critical", "warning", "info"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "action_required": {
+            "type": "boolean"
+          },
+          "related_traces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "export_options": {
+      "type": "object",
+      "required": ["formats", "detailed_reports", "filters"],
+      "properties": {
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["json", "markdown", "csv", "slack"]
+          }
+        },
+        "detailed_reports": {
+          "type": "object",
+          "properties": {
+            "json": {
+              "type": "string"
+            },
+            "markdown": {
+              "type": "string"
+            },
+            "csv": {
+              "type": "string"
+            }
+          }
+        },
+        "filters": {
+          "type": "object",
+          "required": ["by_severity", "by_type", "by_model"],
+          "properties": {
+            "by_severity": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "by_type": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "by_model": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
