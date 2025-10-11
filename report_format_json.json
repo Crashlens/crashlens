@@ -1,0 +1,628 @@
+{
+  "metadata": {
+    "scan_time": "2025-10-11T18:38:38.083997",
+    "log_file": "sample-logs\\fallback-test.jsonl",
+    "total_traces": 15,
+    "parse_errors": 0,
+    "duration_ms": 0,
+    "crashlens_version": "1.0.0",
+    "health_score": 70
+  },
+  "summary": {
+    "total_issues": 15,
+    "critical": 0,
+    "high": 0,
+    "medium": 15,
+    "low": 0,
+    "total_cost": 0.0,
+    "potential_savings": 0.0,
+    "cost_currency": "USD"
+  },
+  "issues": [
+    {
+      "id": "fallback_failure_0_trace_001",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_001",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_1_trace_002",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_002",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_2_trace_003",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_003",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_3_trace_004",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_004",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_4_trace_005",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_005",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_5_trace_006",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_006",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_6_trace_007",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_007",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_7_trace_008",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_008",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_8_trace_009",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_009",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_9_trace_010",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_010",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_10_trace_011",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_011",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_11_trace_012",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_012",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_12_trace_013",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_013",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_13_trace_014",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229",
+      "trace_id": "trace_014",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    },
+    {
+      "id": "fallback_failure_14_trace_015",
+      "type": "fallback_failure",
+      "severity": "medium",
+      "title": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4",
+      "trace_id": "trace_015",
+      "model": "unknown",
+      "cost": {
+        "total": 0.0,
+        "wasted": 0.0,
+        "currency": "USD"
+      },
+      "metrics": {
+        "tokens": 0,
+        "calls": 1,
+        "latency_ms": 0
+      },
+      "recommendation": "",
+      "timestamp": "2025-10-11T18:38:38.083997"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "trace_001",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_002",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_003",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_004",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_005",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_006",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_007",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_008",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_009",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_010",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_011",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_012",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_013",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_014",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    },
+    {
+      "trace_id": "trace_015",
+      "issue_count": 1,
+      "total_cost": 0.0,
+      "models_used": [],
+      "start_time": "2025-10-11T18:38:38.083997",
+      "duration_ms": 0,
+      "status": "completed"
+    }
+  ],
+  "models": {
+    "by_provider": {},
+    "top_models": []
+  },
+  "timeline": [
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_001",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_002",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_003",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_004",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_005",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_006",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_007",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_008",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_009",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_010",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_011",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_012",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_013",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_014",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
+    },
+    {
+      "timestamp": "2025-10-11T18:38:38.083997",
+      "event_type": "fallback_failure",
+      "trace_id": "trace_015",
+      "model": "unknown",
+      "severity": "medium",
+      "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
+    }
+  ],
+  "recommendations": [],
+  "alerts": [],
+  "export_options": {
+    "formats": [
+      "json",
+      "markdown",
+      "csv",
+      "slack"
+    ],
+    "detailed_reports": {
+      "json": "crashlens-report.json",
+      "markdown": "crashlens-report.md",
+      "csv": "crashlens-report.csv"
+    },
+    "filters": {
+      "by_severity": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "by_type": [
+        "fallback_failure"
+      ],
+      "by_model": []
+    }
+  }
+}

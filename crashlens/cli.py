@@ -916,12 +916,9 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         click.echo(f"✅ Generated {detailed_count} detailed category reports in {detailed_dir}/")
     
     # Determine report path based on format and log file location
-    if logfile and logfile.exists():
-        # Save report in same directory as log file
-        report_dir = logfile.parent
-    else:
+    
         # Save in current directory for stdin/demo/paste
-        report_dir = Path.cwd()
+    report_dir = Path.cwd()
     
     # Set filename based on format
     if output_format == 'json':
