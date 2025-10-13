@@ -6,6 +6,314 @@ This document highlights the newest features and enhancements added to CrashLens
 
 ---
 
+## Table of Contents
+
+1. [Structured JSON Output Format](#-structured-json-output-format)
+2. [Schema Contract Validation](#-schema-contract-validation-new)
+3. [Schema Validation Tool](#-schema-validation)
+4. [Benefits & Use Cases](#-benefits-of-json-format)
+
+---
+
+## 🛡️ Schema Contract Validation (NEW)
+
+### Overview
+CrashLens now includes **schema contract validation** to ensure your log files conform to required formats before they reach production. This feature validates Langfuse logs against versioned schema contracts, catching missing required fields, malformed JSON, and data quality issues early in your CI/CD pipeline.
+
+### Command Usage
+
+```bash
+# Validate a log file against schema contract
+crashlens scan --contract-check logs.jsonl --log-format langfuse-v1
+
+# View schema contract requirements
+crashlens scan --contract-info --log-format langfuse-v1
+
+# Validate all JSONL files in directory (Unix/Linux/macOS)
+find . -name "*.jsonl" -exec crashlens scan --contract-check {} --log-format langfuse-v1 \;
+
+# Validate all JSONL files (Windows PowerShell)
+Get-ChildItem -Recurse -Filter *.jsonl | ForEach-Object { 
+    crashlens scan --contract-check $_.FullName --log-format langfuse-v1 
+}
+```
+
+### Schema Formats
+
+| Format | Description | Required Fields | Warn Fields |
+|--------|-------------|----------------|-------------|
+| `langfuse-v1` | Standard Langfuse log format | `traceId` | `model`, `prompt_tokens`, `completion_tokens` |
+| `langfuse-v2` | Extended Langfuse format (future) | TBD | TBD |
+
+### Validation Output
+
+**Successful Validation:**
+```bash
+$ crashlens scan --contract-check logs.jsonl --log-format langfuse-v1
+
+🔍 Validating logs.jsonl against langfuse-v1 schema...
+
+============================================================
+📊 Validation Summary
+============================================================
+Total records: 1000
+Valid records: 1000
+Invalid records: 0
+
+✅ VALIDATION PASSED
+All records conform to langfuse-v1 schema
+```
+
+**Failed Validation:**
+```bash
+$ crashlens scan --contract-check logs.jsonl --log-format langfuse-v1
+
+🔍 Validating logs.jsonl against langfuse-v1 schema...
+
+❌ Line 15: Missing required field(s): traceId
+❌ Line 42: Missing required field(s): traceId
+❌ Line 103: Invalid JSON - Expecting ',' delimiter
+
+============================================================
+📊 Validation Summary
+============================================================
+Total records: 150
+Valid records: 147
+Invalid records: 3
+
+❌ VALIDATION FAILED
+Found 3 violation(s) in logs.jsonl
+
+Command exited with code 1
+```
+
+### View Contract Requirements
+
+```bash
+$ crashlens scan --contract-info --log-format langfuse-v1
+
+🛡️ Schema Contract for LANGFUSE-V1
+
+📋 REQUIRED FIELDS (Must be present):
+  ✓ traceId
+
+⚠️  WARN FIELDS (Important but optional):
+  • model
+  • prompt_tokens
+  • completion_tokens
+
+📚 ALL KNOWN FIELDS (18 total):
+  • completion_tokens
+  • cost
+  • duration_sec
+  • endTime
+  • level
+  • metadata.fallback_attempted
+  • metadata.fallback_reason
+  • metadata.route
+  • metadata.source
+  • metadata.team
+  • model
+  • name
+  • prompt
+  • prompt_tokens
+  • startTime
+  • timestamp
+  • traceId
+  • userId
+
+💡 Validation:
+  • Records missing REQUIRED fields will be rejected
+  • Records missing WARN fields will generate warnings
+  • Unknown fields (not in ALL KNOWN FIELDS) will be logged
+```
+
+### CI/CD Integration
+
+#### GitHub Actions
+
+Use the official CrashLens GitHub Action:
+
+```yaml
+name: Validate LLM Logs
+
+on: [push, pull_request]
+
+jobs:
+  validate-logs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Validate Langfuse Logs
+        uses: Crashlens/crashlens@main
+        with:
+          log-paths: '**/*.jsonl'
+          log-format: 'langfuse-v1'
+          fail-on-violations: 'true'
+          working-directory: './logs'
+```
+
+#### Manual CI/CD Setup
+
+```yaml
+name: Log Contract Validation
+
+on: [push, pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install CrashLens
+        run: pip install crashlens
+      
+      - name: Validate Logs
+        run: |
+          find ./logs -name "*.jsonl" -exec \
+            crashlens scan --contract-check {} --log-format langfuse-v1 \;
+```
+
+### Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **🚫 Block Bad Data** | Prevent malformed logs from reaching production |
+| **⚡ Fast Validation** | Validate thousands of records in seconds |
+| **🔒 CI/CD Ready** | Integrate into GitHub Actions, GitLab CI, Jenkins |
+| **📋 Clear Errors** | Line-by-line violation reporting with field names |
+| **🎯 Version-Aware** | Support multiple schema versions (v1, v2, etc.) |
+| **💪 Exit Codes** | Returns non-zero exit code on failures for CI gates |
+
+### Real-World Use Cases
+
+#### Use Case 1: Pre-Production Gate
+
+**Goal:** Block deployments with malformed logs
+
+```yaml
+# .github/workflows/validate-logs.yml
+name: Pre-Production Validation
+
+on:
+  push:
+    branches: [main, production]
+
+jobs:
+  validate-logs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install CrashLens
+        run: pip install crashlens
+      
+      - name: Validate All Logs
+        run: |
+          EXIT_CODE=0
+          for file in $(find ./logs -name "*.jsonl"); do
+            if ! crashlens scan --contract-check "$file" --log-format langfuse-v1; then
+              EXIT_CODE=1
+            fi
+          done
+          exit $EXIT_CODE
+```
+
+#### Use Case 2: Data Quality Checks
+
+**Goal:** Generate quality reports for team visibility
+
+```bash
+#!/bin/bash
+# validate-logs.sh
+
+echo "🔍 Running log validation..."
+
+for file in logs/*.jsonl; do
+    echo "Validating: $file"
+    crashlens scan --contract-check "$file" --log-format langfuse-v1
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ $file passed"
+    else
+        echo "❌ $file failed"
+        # Send Slack notification
+        curl -X POST $SLACK_WEBHOOK -d "{\"text\":\"Log validation failed: $file\"}"
+    fi
+done
+```
+
+#### Use Case 3: Local Development
+
+**Goal:** Validate logs before committing
+
+```bash
+# pre-commit hook (.git/hooks/pre-commit)
+#!/bin/bash
+
+echo "🔍 Validating staged log files..."
+
+# Get staged .jsonl files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.jsonl$')
+
+if [ -z "$STAGED_FILES" ]; then
+    echo "No .jsonl files to validate"
+    exit 0
+fi
+
+# Validate each file
+for file in $STAGED_FILES; do
+    if ! crashlens scan --contract-check "$file" --log-format langfuse-v1; then
+        echo "❌ Validation failed: $file"
+        echo "Fix violations before committing"
+        exit 1
+    fi
+done
+
+echo "✅ All log files validated successfully"
+exit 0
+```
+
+### Troubleshooting
+
+#### Issue: "Schema version not found"
+
+**Solution:** Check available versions:
+```bash
+# Currently supported: langfuse-v1
+crashlens scan --contract-info --log-format langfuse-v1
+```
+
+#### Issue: False positives
+
+**Cause:** Logs may use extended fields not in contract
+
+**Solution:** Custom schema contracts can be added in `crashlens/parsers/langfuse.py`:
+```python
+parser.add_schema_contract(
+    "langfuse-v2",
+    required_fields=["traceId", "model"],
+    warn_fields=["prompt_tokens", "completion_tokens"],
+    all_known_fields={"traceId", "model", "cost", ...}
+)
+```
+
+#### Issue: Too many violations
+
+**Solution:** Start with `--contract-info` to understand requirements:
+```bash
+crashlens scan --contract-info --log-format langfuse-v1
+```
+
+---
+
 ## 🆕 Structured JSON Output Format
 
 ### Overview

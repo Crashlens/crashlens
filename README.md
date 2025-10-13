@@ -156,6 +156,27 @@ cat logs.jsonl | crashlens scan --stdin -f json  # stdin → ./report_format_jso
 - **export_options**: Data export capabilities
 ```
 
+### 🛡️ **Schema Contract Validation** (NEW)
+```bash
+# Validate logs against schema contract
+crashlens scan --contract-check logs.jsonl --log-format langfuse-v1
+
+# View schema requirements
+crashlens scan --contract-info --log-format langfuse-v1
+
+# Validate multiple files (Unix/Linux/macOS)
+find . -name "*.jsonl" -exec crashlens scan --contract-check {} --log-format langfuse-v1 \;
+
+# Validate multiple files (Windows PowerShell)
+Get-ChildItem -Recurse -Filter *.jsonl | ForEach-Object { crashlens scan --contract-check $_.FullName --log-format langfuse-v1 }
+```
+
+**Benefits:**
+- ✅ Block malformed logs in CI/CD pipelines
+- ✅ Ensure data quality before production
+- ✅ Catch missing required fields early
+- ✅ Validate against versioned schema contracts
+
 ### 🛡️ **Policy Enforcement**
 ```bash
 # Check logs against all policies (generates report.md)
@@ -538,15 +559,21 @@ Check out **[NEW_FEATURES.md](NEW_FEATURES.md)** for detailed documentation on t
 
 - 🎯 **Structured JSON Output**: Frontend-optimized format with 9 comprehensive sections
 - 📊 **Schema Validation**: JSON Schema Draft 7 compliant with CLI validator
-- 🔄 **Smart Output Locations**: Reports saved alongside input files
+- �️ **Contract Validation**: Validate logs against Langfuse schema contracts in CI/CD
+- �🔄 **Smart Output Locations**: Reports saved alongside input files
 - 📈 **Timeline Visualization**: Chronological event data for charts
 - 🤖 **Per-Model Analytics**: Detailed cost attribution and optimization potential
 
-**Quick Example:**
+**Quick Examples:**
 ```bash
+# Generate JSON report
 crashlens scan logs.jsonl --format json
-# Output: report_format_json.json with metadata, summary, issues, 
-#         traces, models, timeline, recommendations, alerts, export_options
+
+# Validate schema contract
+crashlens scan --contract-check logs.jsonl --log-format langfuse-v1
+
+# View schema requirements
+crashlens scan --contract-info --log-format langfuse-v1
 ```
 
 ---

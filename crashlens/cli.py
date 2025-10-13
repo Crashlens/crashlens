@@ -473,11 +473,16 @@ def cli():
 @click.option('--policy-template', help='Use built-in policy template(s) (comma-separated or "all")')
 @click.option('--policy-file', type=click.Path(path_type=Path), help='Use custom policy file')
 @click.option('--list-templates', is_flag=True, help='List available policy templates and exit')
+@click.option('--contract-check', is_flag=True, help='Validate logs against schema contract (requires --log-format)')
+@click.option('--log-format', type=click.Choice(['langfuse-v1', 'langfuse-v2'], case_sensitive=False),
+              default='langfuse-v1', help='Log format version for contract validation')
+@click.option('--contract-info', is_flag=True, help='Display schema contract requirements and exit')
 def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
          summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
          from_langfuse: bool = False, from_helicone: bool = False, hours_back: int = 24, limit: int = 1000,
-         policy_template: Optional[str] = None, policy_file: Optional[Path] = None, list_templates: bool = False) -> str:
+         policy_template: Optional[str] = None, policy_file: Optional[Path] = None, list_templates: bool = False,
+         contract_check: bool = False, log_format: str = 'langfuse-v1', contract_info: bool = False) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -485,7 +490,7 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
   crashlens scan logs.jsonl                    # Scan a specific log file
   crashlens scan --demo                        # Run on built-in sample logs
   cat logs.jsonl | crashlens scan --stdin      # Pipe logs via stdin
-  crashlens scan --paste                                 # Read logs from clipboard
+  crashlens scan --paste                       # Read logs from clipboard
   crashlens scan --detailed                    # Generate traces JSON reports
   crashlens scan --summary                     # Cost summary with categories
   crashlens scan --summary-only                # Show summary only 
@@ -494,6 +499,8 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
   crashlens scan --policy-template retry-loop-prevention logs.jsonl  # Use policy template
   crashlens scan --policy-template all logs.jsonl  # Use all templates
   crashlens scan --list-templates              # List available templates
+  crashlens scan --contract-check logs.jsonl --log-format langfuse-v1  # Validate schema
+  crashlens scan --contract-info --log-format langfuse-v1              # Show schema requirements
 
     """
     
@@ -502,6 +509,119 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         template_manager = get_template_manager()
         template_manager.list_templates()
         return ""
+    
+    # Handle contract info display
+    if contract_info:
+        parser = LangfuseParser()
+        schema_version = log_format.replace('langfuse-', '')
+        
+        if schema_version not in parser.schema_contracts:
+            click.echo(f"❌ Error: Schema version '{log_format}' not found")
+            click.echo(f"Available versions: {', '.join(['langfuse-' + v for v in parser.get_available_schema_versions()])}")
+            sys.exit(1)
+        
+        contract = parser.schema_contracts[schema_version]
+        click.echo(f"\n🛡️ Schema Contract for {log_format.upper()}\n")
+        click.echo("📋 REQUIRED FIELDS (Must be present):")
+        for field in contract['required_fields']:
+            click.echo(f"  ✓ {field}")
+        
+        click.echo("\n⚠️  WARN FIELDS (Important but optional):")
+        for field in contract['warn_fields']:
+            click.echo(f"  • {field}")
+        
+        click.echo(f"\n📚 ALL KNOWN FIELDS ({len(contract['all_known_fields'])} total):")
+        for field in sorted(contract['all_known_fields']):
+            click.echo(f"  • {field}")
+        
+        click.echo(f"\n💡 Validation:")
+        click.echo(f"  • Records missing REQUIRED fields will be rejected")
+        click.echo(f"  • Records missing WARN fields will generate warnings")
+        click.echo(f"  • Unknown fields (not in ALL KNOWN FIELDS) will be logged\n")
+        return ""
+    
+    # Handle contract validation
+    if contract_check:
+        if not logfile:
+            click.echo("❌ Error: --contract-check requires a log file path")
+            click.echo("💡 Usage: crashlens scan --contract-check logs.jsonl --log-format langfuse-v1")
+            sys.exit(1)
+        
+        if not logfile.exists():
+            click.echo(f"❌ Error: File not found: {logfile}")
+            sys.exit(1)
+        
+        # Run contract validation
+        parser = LangfuseParser()
+        schema_version = log_format.replace('langfuse-', '')
+        
+        if schema_version not in parser.schema_contracts:
+            click.echo(f"❌ Error: Schema version '{log_format}' not found")
+            click.echo(f"Available versions: {', '.join(['langfuse-' + v for v in parser.get_available_schema_versions()])}")
+            sys.exit(1)
+        
+        click.echo(f"🔍 Validating {logfile} against {log_format} schema...\n")
+        
+        violations_found = False
+        total_records = 0
+        valid_records = 0
+        violation_details = []
+        
+        try:
+            with open(logfile, 'r') as f:
+                for line_num, line in enumerate(f, 1):
+                    if not line.strip():
+                        continue
+                    
+                    total_records += 1
+                    try:
+                        record = json.loads(line)
+                        contract = parser.schema_contracts[schema_version]
+                        
+                        # Check required fields
+                        missing_required = [field for field in contract['required_fields'] 
+                                          if field not in record]
+                        
+                        if missing_required:
+                            violations_found = True
+                            violation_details.append({
+                                'line': line_num,
+                                'type': 'missing_required',
+                                'fields': missing_required
+                            })
+                            click.echo(f"❌ Line {line_num}: Missing required field(s): {', '.join(missing_required)}")
+                        else:
+                            valid_records += 1
+                            
+                    except json.JSONDecodeError as e:
+                        violations_found = True
+                        violation_details.append({
+                            'line': line_num,
+                            'type': 'invalid_json',
+                            'error': str(e)
+                        })
+                        click.echo(f"❌ Line {line_num}: Invalid JSON - {e}")
+        
+        except Exception as e:
+            click.echo(f"❌ Error reading file: {e}")
+            sys.exit(1)
+        
+        # Print summary
+        click.echo(f"\n{'='*60}")
+        click.echo(f"📊 Validation Summary")
+        click.echo(f"{'='*60}")
+        click.echo(f"Total records: {total_records}")
+        click.echo(f"Valid records: {valid_records}")
+        click.echo(f"Invalid records: {total_records - valid_records}")
+        
+        if violations_found:
+            click.echo(f"\n❌ VALIDATION FAILED")
+            click.echo(f"Found {len(violation_details)} violation(s) in {logfile}")
+            sys.exit(1)
+        else:
+            click.echo(f"\n✅ VALIDATION PASSED")
+            click.echo(f"All records conform to {log_format} schema")
+            return ""
     
     # Validate input options
     input_count = sum([bool(logfile), demo, stdin, paste, from_langfuse, from_helicone])

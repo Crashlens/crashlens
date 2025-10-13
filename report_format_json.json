@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "scan_time": "2025-10-11T18:38:38.083997",
+    "scan_time": "2025-10-11T19:23:32.680377",
     "log_file": "sample-logs\\fallback-test.jsonl",
     "total_traces": 15,
     "parse_errors": 0,
@@ -38,7 +38,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_1_trace_002",
@@ -59,7 +59,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_2_trace_003",
@@ -80,7 +80,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_3_trace_004",
@@ -101,7 +101,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_4_trace_005",
@@ -122,7 +122,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_5_trace_006",
@@ -143,7 +143,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_6_trace_007",
@@ -164,7 +164,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_7_trace_008",
@@ -185,7 +185,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_8_trace_009",
@@ -206,7 +206,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_9_trace_010",
@@ -227,7 +227,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_10_trace_011",
@@ -248,7 +248,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_11_trace_012",
@@ -269,7 +269,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_12_trace_013",
@@ -290,7 +290,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_13_trace_014",
@@ -311,7 +311,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     },
     {
       "id": "fallback_failure_14_trace_015",
@@ -332,7 +332,7 @@
         "latency_ms": 0
       },
       "recommendation": "",
-      "timestamp": "2025-10-11T18:38:38.083997"
+      "timestamp": "2025-10-11T19:23:32.680377"
     }
   ],
   "traces": [
@@ -341,7 +341,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -350,7 +350,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -359,7 +359,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -368,7 +368,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -377,7 +377,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -386,7 +386,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -395,7 +395,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -404,7 +404,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -413,7 +413,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -422,7 +422,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -431,7 +431,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -440,7 +440,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -449,7 +449,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -458,7 +458,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     },
@@ -467,7 +467,7 @@
       "issue_count": 1,
       "total_cost": 0.0,
       "models_used": [],
-      "start_time": "2025-10-11T18:38:38.083997",
+      "start_time": "2025-10-11T19:23:32.680377",
       "duration_ms": 0,
       "status": "completed"
     }
@@ -478,7 +478,7 @@
   },
   "timeline": [
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_001",
       "model": "unknown",
@@ -486,7 +486,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_002",
       "model": "unknown",
@@ -494,7 +494,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_003",
       "model": "unknown",
@@ -502,7 +502,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_004",
       "model": "unknown",
@@ -510,7 +510,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_005",
       "model": "unknown",
@@ -518,7 +518,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_006",
       "model": "unknown",
@@ -526,7 +526,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_007",
       "model": "unknown",
@@ -534,7 +534,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_008",
       "model": "unknown",
@@ -542,7 +542,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_009",
       "model": "unknown",
@@ -550,7 +550,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_010",
       "model": "unknown",
@@ -558,7 +558,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_011",
       "model": "unknown",
@@ -566,7 +566,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_012",
       "model": "unknown",
@@ -574,7 +574,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_013",
       "model": "unknown",
@@ -582,7 +582,7 @@
       "description": "Unnecessary fallback from gpt-3.5-turbo to gpt-4"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_014",
       "model": "unknown",
@@ -590,7 +590,7 @@
       "description": "Unnecessary fallback from claude-3-haiku-20240307 to claude-3-opus-20240229"
     },
     {
-      "timestamp": "2025-10-11T18:38:38.083997",
+      "timestamp": "2025-10-11T19:23:32.680377",
       "event_type": "fallback_failure",
       "trace_id": "trace_015",
       "model": "unknown",
