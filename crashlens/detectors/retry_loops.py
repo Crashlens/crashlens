@@ -1,7 +1,12 @@
 """
 Retry Loop Detector
 Detects patterns of repeated API calls that suggest retry loops using exact string matching.
+<<<<<<< HEAD
+Includes exponential backoff detection, improved severity logic, and robust cost calculation.
+=======
 This version removes all semantic similarity and embedding logic.
+Now includes exponential backoff detection.
+>>>>>>> origin/arnav2
 """
 
 from typing import Dict, List, Any, Optional
@@ -22,16 +27,6 @@ class RetryLoopDetector:
         time_window_minutes: int = 5,
         max_retry_interval_minutes: int = 2,
     ):
-        """
-        Initializes the detector with configurable thresholds.
-
-        Args:
-            max_retries (int): The number of calls (original + retries)
-                               that must be exceeded to trigger a detection.
-                               A value of 3 means 4+ calls will be flagged.
-            time_window_minutes (int): The maximum time in minutes from first to last retry.
-            max_retry_interval_minutes (int): Maximum time between consecutive retries.
-        """
         if max_retries < 1:
             raise ValueError("max_retries must be at least 1.")
 
@@ -45,47 +40,33 @@ class RetryLoopDetector:
         model_pricing: Optional[Dict[str, Any]] = None,
         already_flagged_ids: Optional[set] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Analyzes all traces and detects retry loops based on exact string matching.
-
-        Args:
-            traces (Dict[str, List[Dict[str, Any]]]): A dictionary where keys are
-                                                      trace_ids and values are lists
-                                                      of log records.
-            model_pricing: Optional pricing configuration
-            already_flagged_ids: Set of trace IDs already claimed by higher-priority detectors
-
-        Returns:
-            List[Dict[str, Any]]: A list of detection dictionaries, one for each
-                                  identified retry loop.
-        """
         if already_flagged_ids is None:
             already_flagged_ids = set()
 
         detections = []
         for trace_id, records in traces.items():
-            # Skip traces already claimed by higher-priority detectors
             if trace_id in already_flagged_ids:
                 continue
-            # Optimization: a loop cannot occur if the number of records
-            # is not greater than the retry threshold.
             if len(records) <= self.max_retries:
                 continue
 
-            # Find groups of consecutive, exactly matching prompts.
             prompt_groups = self._find_retry_groups(records)
 
             for group in prompt_groups:
-                # A loop is detected if the number of calls in a group
-                # exceeds the configured maximum.
                 if len(group) > self.max_retries:
-                    # Check if this group meets all retry loop criteria
                     if not self._is_valid_retry_loop(group):
                         continue
 
+                    has_exponential_backoff = self._is_exponential_backoff(group)
+
+<<<<<<< HEAD
+                    total_tokens = sum(
+                        r.get("prompt_tokens", 0) + r.get("completion_tokens", 0)
+                        for r in group
+                    )
+=======
                     total_tokens = 0
                     for r in group:
-                        # Handle both flattened (from parser) and nested (original) structures
                         if "usage" in r:
                             usage = r.get("usage", {})
                             prompt_tokens = usage.get("prompt_tokens", 0)
@@ -94,21 +75,34 @@ class RetryLoopDetector:
                             prompt_tokens = r.get("prompt_tokens", 0)
                             completion_tokens = r.get("completion_tokens", 0)
                         total_tokens += prompt_tokens + completion_tokens
+>>>>>>> origin/arnav2
+
                     total_cost = sum(
                         self._calculate_record_cost(r, model_pricing) for r in group
                     )
 
-                    # The first record in the group is a good sample.
                     sample_prompt = group[0].get("prompt", "N/A")
                     sample_model = group[0].get("model", "N/A")
+
+                    # Severity logic — lower if exponential backoff is used
+                    severity = (
+                        "low"
+                        if has_exponential_backoff
+                        else ("high" if len(group) > 5 else "medium")
+                    )
 
                     detection = {
                         "type": "retry_loop",
                         "trace_id": trace_id,
-                        "severity": "high" if len(group) > 5 else "medium",
+                        "severity": severity,
                         "description": (
                             f"Retry loop detected with {len(group)} identical calls "
-                            f"using {sample_model} for the same prompt."
+                            f"using {sample_model} for the same prompt. "
+                            + (
+                                "Exponential backoff detected."
+                                if has_exponential_backoff
+                                else "No exponential backoff detected."
+                            )
                         ),
                         "waste_tokens": total_tokens,
                         "waste_cost": total_cost,
@@ -119,6 +113,7 @@ class RetryLoopDetector:
                         + ("..." if len(sample_prompt) > 150 else ""),
                         "detection_method": "exact_match",
                         "has_small_responses": self._has_small_responses(group),
+                        "has_exponential_backoff": has_exponential_backoff,
                         "records": group,
                     }
                     detections.append(detection)
@@ -128,25 +123,18 @@ class RetryLoopDetector:
     def _find_retry_groups(
         self, records: List[Dict[str, Any]]
     ) -> List[List[Dict[str, Any]]]:
-        """
-        Groups consecutive records that have exactly the same prompt and model within the time window.
-        This is the core logic for identifying potential retry loops.
-
-        Args:
-            records (List[Dict[str, Any]]): The list of log records for a single trace.
-
-        Returns:
-            List[List[Dict[str, Any]]]: A list of groups, where each group is a list of
-                                        records considered to be part of a retry sequence.
-        """
-        # Ensure records are sorted by time to process them chronologically.
+<<<<<<< HEAD
+        sorted_records = sorted(
+            [r for r in records if "startTime" in r], key=lambda r: r["startTime"]
+        )
+=======
         try:
             sorted_records = sorted(
                 [r for r in records if "startTime" in r], key=lambda r: r["startTime"]
             )
         except (TypeError, ValueError):
-            # Handle cases with malformed timestamps.
             return []
+>>>>>>> origin/arnav2
 
         if not sorted_records:
             return []
@@ -155,19 +143,43 @@ class RetryLoopDetector:
         current_group = [sorted_records[0]]
 
         for i in range(1, len(sorted_records)):
-            prev_record = sorted_records[i - 1]
-            curr_record = sorted_records[i]
+            prev = sorted_records[i - 1]
+            curr = sorted_records[i]
 
-            # Check if the two consecutive records are exactly the same prompt and model.
+<<<<<<< HEAD
+            same_prompt = prev.get("prompt") == curr.get("prompt")
+            same_model = prev.get("model") == curr.get("model")
+=======
             prev_prompt = prev_record.get("prompt")
             curr_prompt = curr_record.get("prompt")
             prev_model = prev_record.get("model")
             curr_model = curr_record.get("model")
+>>>>>>> origin/arnav2
 
-            are_same_prompt = prev_prompt == curr_prompt
-            are_same_model = prev_model == curr_model
+            prev_time = datetime.fromisoformat(prev["startTime"].replace("Z", "+00:00"))
+            curr_time = datetime.fromisoformat(curr["startTime"].replace("Z", "+00:00"))
+            delta = curr_time - prev_time
 
-            # Check the time window constraint.
+<<<<<<< HEAD
+            if same_prompt and same_model and delta <= self.time_window and delta <= self.max_retry_interval:
+                current_group.append(curr)
+            else:
+                if len(current_group) > 1:
+                    all_groups.append(current_group)
+                current_group = [curr]
+
+        if len(current_group) > 1:
+            all_groups.append(current_group)
+
+        return all_groups
+
+    def _get_time_span(self, records: List[Dict[str, Any]]) -> float:
+        timestamps = [
+            datetime.fromisoformat(r["startTime"].replace("Z", "+00:00"))
+            for r in records
+            if "startTime" in r
+        ]
+=======
             prev_time = datetime.fromisoformat(
                 prev_record["startTime"].replace("Z", "+00:00")
             )
@@ -184,25 +196,18 @@ class RetryLoopDetector:
                 and is_within_time_window
                 and is_within_retry_interval
             ):
-                # If same prompt, same model, and within the time limit, extend the current group.
                 current_group.append(curr_record)
             else:
-                # If not same prompt/model or outside the time window, the current loop has ended.
-                # Store the completed group and start a new one.
                 all_groups.append(current_group)
                 current_group = [curr_record]
 
-        # Add the last group after the loop finishes.
         all_groups.append(current_group)
-
         return all_groups
 
     def _get_time_span(self, records: List[Dict[str, Any]]) -> float:
-        """Calculates the total time span of a group of records in seconds."""
         if len(records) < 2:
             return 0.0
 
-        # Parse timestamps, ignoring potential errors.
         timestamps = []
         for r in records:
             try:
@@ -212,9 +217,9 @@ class RetryLoopDetector:
             except (KeyError, ValueError):
                 continue
 
+>>>>>>> origin/arnav2
         if len(timestamps) < 2:
             return 0.0
-
         span = max(timestamps) - min(timestamps)
         return round(span.total_seconds(), 2)
 
@@ -223,57 +228,77 @@ class RetryLoopDetector:
     ) -> float:
         if not model_pricing:
             return record.get("cost", 0.0)
-        model = record.get("model", "gpt-3.5-turbo")
+
+        model = record.get("model", "").strip().lower()
+        pricing_keys = {k.lower(): v for k, v in model_pricing.items() if isinstance(k, str)}
+        model_config = pricing_keys.get(model, {})
+
         input_tokens = record.get("prompt_tokens", 0)
         output_tokens = record.get("completion_tokens", 0)
-        if "cost" in record and record["cost"] is not None:
+
+        if record.get("cost", 0.0) > 0.0:
             return record["cost"]
-        model_config = model_pricing.get(model, {})
+
         if model_config:
-            input_cost = (input_tokens / 1000) * model_config.get(
-                "input_cost_per_1k", 0
-            )
-            output_cost = (output_tokens / 1000) * model_config.get(
-                "output_cost_per_1k", 0
-            )
-            return input_cost + output_cost
+            input_cost = (input_tokens / 1000.0) * model_config.get("input_cost_per_1k", 0.0)
+            output_cost = (output_tokens / 1000.0) * model_config.get("output_cost_per_1k", 0.0)
+            return round(input_cost + output_cost, 8)
+
         return 0.0
 
     def _is_valid_retry_loop(self, group: List[Dict[str, Any]]) -> bool:
-        """
-        Validates that a group of records represents a true retry loop.
-        Checks that consecutive retries are within the retry interval.
-        """
+<<<<<<< HEAD
+=======
         if len(group) < 2:
             return True
 
-        # Check that all consecutive calls are within retry interval
+>>>>>>> origin/arnav2
         for i in range(1, len(group)):
-            prev_time = datetime.fromisoformat(
-                group[i - 1]["startTime"].replace("Z", "+00:00")
-            )
-            curr_time = datetime.fromisoformat(
-                group[i]["startTime"].replace("Z", "+00:00")
-            )
-
+            prev_time = datetime.fromisoformat(group[i - 1]["startTime"].replace("Z", "+00:00"))
+            curr_time = datetime.fromisoformat(group[i]["startTime"].replace("Z", "+00:00"))
             if (curr_time - prev_time) > self.max_retry_interval:
                 return False
-
         return True
 
+    def _is_exponential_backoff(self, group: List[Dict[str, Any]]) -> bool:
+<<<<<<< HEAD
+        if len(group) < 3:
+            return False
+
+        times = [datetime.fromisoformat(r["startTime"].replace("Z", "+00:00")) for r in group]
+        intervals = [max((times[i] - times[i-1]).total_seconds(), 0.001) for i in range(1, len(times))]
+=======
+        """
+        Checks if retry intervals approximately follow exponential backoff
+        (each gap roughly doubles, within a small tolerance).
+        """
+        if len(group) < 3:
+            return False
+
+        try:
+            times = [
+                datetime.fromisoformat(r["startTime"].replace("Z", "+00:00"))
+                for r in group
+            ]
+        except Exception:
+            return False
+
+        intervals = [
+            (times[i] - times[i - 1]).total_seconds() for i in range(1, len(times))
+        ]
+        if len(intervals) < 2:
+            return False
+
+        ratios = [intervals[i] / intervals[i - 1] for i in range(1, len(intervals))]
+
+        return all(1.7 <= r <= 2.3 for r in ratios)
+
     def _has_small_responses(self, group: List[Dict[str, Any]]) -> bool:
-        """
-        Checks if the group has consistently small response sizes,
-        indicating retries aren't adding real value.
-        """
         completion_tokens = [r.get("completion_tokens", 0) for r in group]
 
-        # Consider responses small if they're all under 50 tokens
-        # and don't vary significantly (standard deviation < 20)
         if not completion_tokens or max(completion_tokens) > 50:
             return False
 
-        # Check variance - small responses should be similar in size
         if len(completion_tokens) > 1:
             avg = sum(completion_tokens) / len(completion_tokens)
             variance = sum((x - avg) ** 2 for x in completion_tokens) / len(
@@ -281,5 +306,21 @@ class RetryLoopDetector:
             )
             std_dev = variance**0.5
             return std_dev < 20
+>>>>>>> origin/arnav2
 
-        return True
+        if len(intervals) < 2:
+            return False
+
+        ratios = [intervals[i]/intervals[i-1] for i in range(1, len(intervals)) if intervals[i-1] > 0]
+
+        has_exp_step = any(1.5 <= r <= 3.0 for r in ratios)
+        stable_or_increasing = all(r >= 1.0 for r in ratios)
+        return has_exp_step and stable_or_increasing
+
+    def _has_small_responses(self, group: List[Dict[str, Any]]) -> bool:
+        completion_tokens = [r.get("completion_tokens", 0) for r in group]
+        if not completion_tokens or max(completion_tokens) > 50:
+            return False
+        avg = sum(completion_tokens) / len(completion_tokens)
+        variance = sum((x - avg)**2 for x in completion_tokens) / len(completion_tokens)
+        return variance**0.5 < 20
