@@ -87,5 +87,6 @@ report.md
 /tests/
 /custom_reports/
 /detailed_output/
+/sample-logs-reports/
 
 /.crashlens.yaml

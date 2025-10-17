@@ -13,6 +13,7 @@ import json
 import random
 import uuid
 import requests
+import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any, Set, Tuple
@@ -52,6 +53,194 @@ from .langfuse_client import LangfuseClient, save_logs_to_temp_file
 from .helicone_client import HeliconeClient
 from .policy.templates import get_template_manager
 from .policy.engine import PolicyEngine
+
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+def validate_output_dir(dir_path: Path) -> Path:
+    """Validate and create output directory with clear error messages"""
+    path = Path(dir_path)
+    
+    try:
+        # Try to create directory
+        path.mkdir(parents=True, exist_ok=True)
+        
+        # Test write permissions
+        test_file = path / ".crashlens_write_test"
+        test_file.touch()
+        test_file.unlink()
+        
+        return path.resolve()
+    except PermissionError:
+        click.echo(f"❌ ERROR: No write permission for directory: {dir_path}", err=True)
+        click.echo(f"   Try using --report-dir with a different location", err=True)
+        sys.exit(1)
+    except OSError as e:
+        click.echo(f"❌ ERROR: Cannot create directory: {dir_path}", err=True)
+        click.echo(f"   Reason: {e}", err=True)
+        sys.exit(1)
+
+
+def sanitize_report_filename(source_path: Path, output_format: str = 'md', user_filename: Optional[str] = None) -> str:
+    """Generate safe report filename from source path
+    
+    Examples:
+        app.log.jsonl -> app.md
+        my logs.jsonl -> my_logs.md
+        test@data#2.jsonl -> testdata2.md
+    """
+    if user_filename:
+        # User provided explicit name - ensure it has the right extension
+        extension = '.json' if output_format == 'json' else '.md'
+        if user_filename.endswith(extension):
+            return user_filename
+        return f"{user_filename}{extension}"
+    
+    # Auto-generate from source - strip ALL extensions
+    source = Path(source_path)
+    basename = source.stem  # Gets 'app' from 'app.log.jsonl'
+    
+    # Sanitize special characters
+    safe_name = basename.replace(" ", "_")
+    safe_name = "".join(c for c in safe_name if c.isalnum() or c in ("_", "-"))
+    
+    # Ensure we have a valid name
+    if not safe_name:
+        safe_name = "report"
+    
+    extension = '.json' if output_format == 'json' else '.md'
+    return f"{safe_name}{extension}"
+
+
+def ensure_unique_path(filepath: Path) -> Path:
+    """Generate unique filepath by appending counter if file already exists
+    
+    Examples:
+        app.md exists -> app_1.md
+        app_1.md exists -> app_2.md
+    """
+    path = Path(filepath)
+    
+    if not path.exists():
+        return path
+    
+    # File exists, append counter
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    
+    counter = 1
+    while True:
+        new_path = parent / f"{stem}_{counter}{suffix}"
+        if not new_path.exists():
+            click.echo(f"⚠️  File exists, writing to: {new_path.name}")
+            return new_path
+        counter += 1
+        
+        if counter > 1000:
+            click.echo(f"❌ ERROR: Cannot generate unique filename after 1000 attempts", err=True)
+            sys.exit(1)
+
+
+def check_overwrite_permission(filepath: Path, force: bool = False) -> bool:
+    """Check if we can write to a file, prompting if it exists and force is False
+    
+    Args:
+        filepath: Path to check
+        force: If True, skip prompting and allow overwrite
+        
+    Returns:
+        bool: True if can write, False if user declined
+    """
+    if not filepath.exists():
+        return True
+    
+    if force:
+        return True
+    
+    # Interactive prompt
+    try:
+        response = click.prompt(
+            f"⚠️  File exists: {filepath}\n   Overwrite?",
+            type=click.Choice(['y', 'n', 'yes', 'no'], case_sensitive=False),
+            default='n',
+            show_choices=True
+        )
+        return response.lower() in ('y', 'yes')
+    except (KeyboardInterrupt, click.Abort):
+        click.echo("\n⏭️  Skipped by user")
+        return False
+
+
+def get_report_path_with_structure(
+    source_path: str, 
+    report_base_dir: Path, 
+    output_format: str = 'md',
+    flatten: bool = False
+) -> Path:
+    """
+    Generate report path preserving source directory structure.
+    
+    Args:
+        source_path: Path to source log file
+        report_base_dir: Base directory for reports
+        output_format: Output format ('md', 'json', 'slack')
+        flatten: If True, flatten structure (use collision detection)
+    
+    Returns:
+        Full path where report should be written
+    
+    Examples:
+        source: logs-a/app.jsonl, base: reports/
+        → reports/logs-a/app.md (preserve structure)
+        
+        source: logs-a/app.jsonl, base: reports/, flatten=True
+        → reports/app.md (flatten)
+        
+        source: /abs/path/logs/app.jsonl, base: reports/
+        → reports/abs/path/logs/app.md (preserve full path)
+    """
+    source = Path(source_path).resolve()
+    
+    if flatten:
+        # Flatten mode - just use basename
+        report_filename = sanitize_report_filename(source, output_format)
+        return report_base_dir / report_filename
+    
+    # Preserve structure mode
+    try:
+        # Try to get relative path from current working directory
+        rel_path = source.relative_to(Path.cwd())
+        
+        # Create subdirectories matching source structure
+        report_subdir = report_base_dir / rel_path.parent
+        report_subdir.mkdir(parents=True, exist_ok=True)
+        
+        report_filename = sanitize_report_filename(source, output_format)
+        return report_subdir / report_filename
+        
+    except ValueError:
+        # Source is outside cwd - use absolute path structure
+        # Remove drive letter on Windows, leading / on Unix
+        if source.drive:
+            # Windows: C:\path\to\file.jsonl → path\to\file.jsonl
+            path_parts = source.parts[1:]  # Skip drive
+        else:
+            # Unix: /path/to/file.jsonl → path/to/file.jsonl
+            path_parts = source.parts[1:]  # Skip root /
+        
+        if path_parts:
+            rel_structure = Path(*path_parts[:-1])  # All but filename
+            report_subdir = report_base_dir / rel_structure
+            report_subdir.mkdir(parents=True, exist_ok=True)
+        else:
+            report_subdir = report_base_dir
+            report_subdir.mkdir(parents=True, exist_ok=True)
+        
+        report_filename = sanitize_report_filename(source, output_format)
+        return report_subdir / report_filename
 
 
 # =============================================================================
@@ -453,6 +642,7 @@ def cli():
 
 @click.command()
 @click.argument('logfile', type=click.Path(path_type=Path), required=False)
+@click.argument('extra_files', nargs=-1, type=click.Path(), required=False)
 @click.option('--format', '-f', 'output_format', 
               type=click.Choice(['slack', 'markdown', 'json'], case_sensitive=False),
               default='slack', help='Output format')
@@ -477,12 +667,19 @@ def cli():
 @click.option('--log-format', type=click.Choice(['langfuse-v1', 'langfuse-v2'], case_sensitive=False),
               default='langfuse-v1', help='Log format version for contract validation')
 @click.option('--contract-info', is_flag=True, help='Display schema contract requirements and exit')
-def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: Optional[Path] = None, 
+@click.option('--log-paths', type=str, help='Glob pattern (supports **) to recursively scan matching files (e.g. "llm_logs/**/*.jsonl")')
+@click.option('--report-dir', type=click.Path(path_type=Path), help='Directory to write report files (overrides default location)')
+@click.option('--report-file', type=click.Path(path_type=Path), help='Explicit path to write a single report file (overrides report-dir)')
+@click.option('--force', is_flag=True, help='Overwrite existing reports without prompting')
+@click.option('--flatten', is_flag=True, help='Flatten directory structure in reports (all reports in one directory)')
+def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
          summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
          from_langfuse: bool = False, from_helicone: bool = False, hours_back: int = 24, limit: int = 1000,
          policy_template: Optional[str] = None, policy_file: Optional[Path] = None, list_templates: bool = False,
-         contract_check: bool = False, log_format: str = 'langfuse-v1', contract_info: bool = False) -> str:
+         contract_check: bool = False, log_format: str = 'langfuse-v1', contract_info: bool = False,
+         report_dir: Optional[Path] = None, report_file: Optional[Path] = None, log_paths: Optional[str] = None,
+         force: bool = False, flatten: bool = False) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -503,7 +700,10 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
   crashlens scan --contract-info --log-format langfuse-v1              # Show schema requirements
 
     """
-    
+
+    user_report_dir = report_dir
+    user_report_file = report_file
+
     # Handle template listing
     if list_templates:
         template_manager = get_template_manager()
@@ -623,15 +823,15 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
             click.echo(f"All records conform to {log_format} schema")
             return ""
     
-    # Validate input options
-    input_count = sum([bool(logfile), demo, stdin, paste, from_langfuse, from_helicone])
+    # Validate input options (but exclude extra_files when checking since it's for PowerShell glob expansion)
+    input_count = sum([bool(logfile) and not log_paths, demo, stdin, paste, from_langfuse, from_helicone, bool(log_paths)])
     if input_count == 0:
-        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, --paste, --from-langfuse, or --from-helicone")
+        click.echo("❌ Error: Must specify input source: file path, --demo, --stdin, --paste, --from-langfuse, --from-helicone, or --log-paths")
         click.echo("💡 Try: crashlens scan --help")
         sys.exit(1)
     elif input_count > 1:
         click.echo("❌ Error: Cannot use multiple input sources simultaneously")
-        click.echo("💡 Choose one: file path, --demo, --stdin, --paste, --from-langfuse, or --from-helicone")
+        click.echo("💡 Choose one: file path, --demo, --stdin, --paste, --from-langfuse, --from-helicone, or --log-paths")
         sys.exit(1)
     
     # Validate summary options
@@ -644,6 +844,194 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
     if logfile and not logfile.exists():
         click.echo(f"❌ Error: File not found: {logfile}", err=True)
         sys.exit(1)
+    
+    # Handle recursive log-paths EARLY before trace loading
+    if log_paths:
+        import glob
+
+        pattern = log_paths
+        
+        # Check if shell expanded the glob (Windows/PowerShell behavior)
+        # When expanded, first file goes to log_paths, rest go to logfile/extra_files
+        matched = []
+        
+        if '*' in pattern or '?' in pattern or '[' in pattern:
+            # Pattern contains wildcards - do glob ourselves
+            try:
+                matched = glob.glob(pattern, recursive=True)
+            except Exception as e:
+                click.echo(f"❌ Error: Failed to expand pattern '{pattern}': {e}", err=True)
+                sys.exit(1)
+        else:
+            # No wildcards - shell probably expanded it
+            # Collect all expanded files from log_paths + logfile + extra_files
+            matched.append(pattern)
+            if logfile:
+                matched.append(str(logfile))
+            if extra_files:
+                matched.extend([str(p) for p in extra_files])
+        
+        click.echo(f"Scanning {len(matched)} file(s) matching pattern: {pattern}")
+
+        if not matched:
+            click.echo(f"No files found for pattern: {pattern}", err=True)
+            sys.exit(0)
+
+        # Show output directory info
+        if user_report_dir:
+            resolved_dir = Path(user_report_dir)
+            if not resolved_dir.is_absolute():
+                resolved_dir = Path.cwd() / resolved_dir
+            click.echo(f"All reports will be written to: {resolved_dir}")
+        
+        click.echo(f"Processing {len(matched)} file(s)...")
+        
+        # Run a full per-file scan by invoking the CLI per-file
+        per_root_reports: Dict[str, List[Dict[str, Any]]] = {}
+        per_file_reports: List[Dict[str, Any]] = []
+        aggregate_failed = False
+
+        for fp in matched:
+            if os.path.isdir(fp):
+                continue
+            click.echo(f"\n=== Running scan for file: {fp} ===")
+
+            # Build command with original flags
+            cmd = [sys.executable, '-m', 'crashlens', 'scan', str(fp)]
+            if output_format:
+                cmd += ['--format', output_format]
+            if config:
+                cmd += ['--config', str(config)]
+            if detailed:
+                cmd += ['--detailed']
+            if detailed_dir:
+                cmd += ['--detailed-dir', str(detailed_dir)]
+            if summary:
+                cmd += ['--summary']
+            if summary_only:
+                cmd += ['--summary-only']
+            if force:
+                cmd += ['--force']
+            if flatten:
+                cmd += ['--flatten']
+
+            # Determine report path using structure-preserving logic
+            if user_report_file:
+                resolved = Path(user_report_file)
+                if not resolved.is_absolute():
+                    resolved = Path.cwd() / resolved
+                cmd += ['--report-file', str(resolved)]
+                per_report_path = resolved
+            elif user_report_dir:
+                resolved_dir = Path(user_report_dir)
+                if not resolved_dir.is_absolute():
+                    resolved_dir = Path.cwd() / resolved_dir
+                cmd += ['--report-dir', str(user_report_dir)]
+                
+                # Use structure-preserving path generation
+                per_report_path = get_report_path_with_structure(
+                    fp, 
+                    resolved_dir,
+                    output_format=output_format,
+                    flatten=flatten
+                )
+            else:
+                # Determine root folder for this file
+                try:
+                    rel = Path(fp).relative_to(Path.cwd())
+                    root = rel.parts[0] if len(rel.parts) > 0 else Path(fp).parent.name
+                except Exception:
+                    root = Path(fp).parent.name or Path(fp).stem
+
+                root_sanitized = str(root).replace(' ', '_')
+                report_dir_for_file = Path.cwd() / f"{root_sanitized}-reports"
+                try:
+                    report_dir_for_file.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
+
+                # Use structure-preserving path generation
+                per_report_path = get_report_path_with_structure(
+                    fp, 
+                    report_dir_for_file,
+                    output_format=output_format,
+                    flatten=flatten
+                )
+                cmd += ['--report-file', str(per_report_path)]
+
+            proc = subprocess.run(cmd)
+            entry = {'input': fp, 'report': str(per_report_path), 'returncode': proc.returncode}
+            per_file_reports.append(entry)
+            per_root_reports.setdefault(str(Path(per_report_path).parent), []).append(entry)
+
+            if proc.returncode != 0:
+                aggregate_failed = True
+
+        # Write aggregate report (only if multiple files scanned)
+        if len(per_file_reports) > 1:
+            # Determine base report directory
+            if user_report_dir:
+                base_report_dir = Path(user_report_dir)
+                if not base_report_dir.is_absolute():
+                    base_report_dir = Path.cwd() / base_report_dir
+            else:
+                # Use first file's root report directory
+                try:
+                    first_report = Path(per_file_reports[0]['report'])
+                    # Find the base by going up until we hit the "...-reports" directory
+                    base_report_dir = first_report.parent
+                    while base_report_dir.name.endswith('-reports') is False and base_report_dir != base_report_dir.parent:
+                        base_report_dir = base_report_dir.parent
+                    if not base_report_dir.name.endswith('-reports'):
+                        base_report_dir = Path(per_file_reports[0]['report']).parent
+                except Exception:
+                    base_report_dir = Path.cwd()
+            
+            agg_path = base_report_dir / '_aggregate_report.md'
+            try:
+                total_files = len(per_file_reports)
+                successful_files = sum(1 for r in per_file_reports if r['returncode'] == 0)
+                failed_files = total_files - successful_files
+                
+                with open(agg_path, 'w', encoding='utf-8') as agg:
+                    from datetime import datetime
+                    
+                    # Header with metadata
+                    agg.write(f"# CrashLens Aggregate Report\n\n")
+                    agg.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    agg.write(f"**Directory:** `{base_report_dir}`\n\n")
+                    
+                    # Summary table
+                    agg.write(f"## Summary\n\n")
+                    agg.write(f"| Metric | Value |\n")
+                    agg.write(f"|--------|-------|\n")
+                    agg.write(f"| Total Files Scanned | {total_files} |\n")
+                    agg.write(f"| Successful | {successful_files} |\n")
+                    agg.write(f"| Failed | {failed_files} |\n")
+                    success_rate = (successful_files / total_files * 100) if total_files > 0 else 0
+                    agg.write(f"| Success Rate | {success_rate:.1f}% |\n\n")
+                    
+                    # Individual reports section
+                    agg.write(f"## Individual Reports\n\n")
+                    for r in per_file_reports:
+                        status = 'SUCCESS' if r['returncode'] == 0 else 'FAILED'
+                        agg.write(f"### {status}: `{Path(r['input']).name}`\n\n")
+                        agg.write(f"- **Source:** `{r['input']}`\n")
+                        agg.write(f"- **Report:** [{Path(r['report']).name}]({r['report']})\n")
+                        if r['returncode'] != 0:
+                            agg.write(f"- **Exit Code:** {r['returncode']}\n")
+                        agg.write(f"\n")
+                
+                click.echo(f"\nAggregate report written to {agg_path}")
+            except Exception as e:
+                click.echo(f"Warning: Failed to write aggregate report {agg_path}: {e}", err=True)
+
+        if aggregate_failed:
+            click.echo("\nOne or more file scans failed. See logs above.")
+            sys.exit(1)
+        else:
+            click.echo("\nAll per-file scans completed successfully.")
+            return ""
     
     # Load configurations
     pricing_config = load_pricing_config(config)
@@ -1035,20 +1423,95 @@ def scan(logfile: Optional[Path] = None, output_format: str = 'slack', config: O
         )
         click.echo(f"✅ Generated {detailed_count} detailed category reports in {detailed_dir}/")
     
-    # Determine report path based on format and log file location
+    # Determine report path based on format and log file location, honoring user overrides
+    if user_report_file:
+        # User specified explicit file path - use as-is
+        report_path = Path(user_report_file)
+        if not report_path.is_absolute():
+            report_path = Path.cwd() / report_path
+        report_dir_final = report_path.parent
+        # Validate directory with clear error messages
+        report_dir_final = validate_output_dir(report_dir_final)
+    elif user_report_dir:
+        # User specified report directory - use structure-preserving or flatten based on flag
+        report_dir_final = Path(user_report_dir)
+        if not report_dir_final.is_absolute():
+            report_dir_final = Path.cwd() / report_dir_final
+        report_dir_final = validate_output_dir(report_dir_final)
+        
+        if logfile:
+            # Use structure-preserving path generation
+            report_path = get_report_path_with_structure(
+                str(logfile), 
+                report_dir_final, 
+                output_format=output_format,
+                flatten=flatten
+            )
+        else:
+            # No source file (demo/stdin/paste mode) - use default
+            if output_format == 'json':
+                report_path = report_dir_final / 'report_format_json.json'
+            else:
+                report_path = report_dir_final / 'report.md'
+    else:
+        # No user override - create default <root>-reports/ directory
+        if logfile:
+            try:
+                root_name = Path(logfile).parent.name or Path(logfile).stem
+            except Exception:
+                root_name = Path(logfile).stem
+            report_dir_final = Path.cwd() / f"{root_name}-reports"
+        else:
+            report_dir_final = Path.cwd()
+        
+        report_dir_final = validate_output_dir(report_dir_final)
+        
+        if logfile:
+            # Use structure-preserving path generation
+            report_path = get_report_path_with_structure(
+                str(logfile), 
+                report_dir_final, 
+                output_format=output_format,
+                flatten=flatten
+            )
+        else:
+            # No source file (demo/stdin/paste mode) - use default
+            if output_format == 'json':
+                report_path = report_dir_final / 'report_format_json.json'
+            else:
+                report_path = report_dir_final / 'report.md'
     
-        # Save in current directory for stdin/demo/paste
-    report_dir = Path.cwd()
-    
-    # Set filename based on format
-    if output_format == 'json':
-        report_filename = 'report_format_json.json'
-    elif output_format == 'markdown':
-        report_filename = 'report.md'
-    else:  # slack
-        report_filename = 'report.md'
-    
-    report_path = report_dir / report_filename
+    # Handle overwrite logic based on force flag and flatten mode
+    if flatten and not user_report_file:
+        # In flatten mode, use collision detection
+        if force:
+            # Force mode: overwrite without prompting
+            pass
+        else:
+            # Check if file exists and handle accordingly
+            if report_path.exists():
+                # Ask user for confirmation
+                if not check_overwrite_permission(report_path, force=False):
+                    click.echo(f"⏭️  Skipping scan - report generation cancelled")
+                    return ""
+                # User confirmed, but we still apply collision detection to preserve the file
+                report_path = ensure_unique_path(report_path)
+    else:
+        # In structure-preserving mode, files won't collide (different directories)
+        # Still respect force flag for explicit overwrite control
+        if force:
+            # Force mode: overwrite without prompting
+            pass
+        else:
+            # Check if file exists and handle accordingly
+            if report_path.exists():
+                # Ask user for confirmation
+                if not check_overwrite_permission(report_path, force=False):
+                    click.echo(f"⏭️  Skipping scan - report generation cancelled")
+                    return ""
+        # If file doesn't exist, no action needed
+
+    report_dir = report_path.parent
     
     if output_format == 'json':
         # Structured JSON output for frontend consumption

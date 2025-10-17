@@ -271,7 +271,7 @@ class RetryLoopDetector:
         """
         Checks if retry intervals approximately follow exponential backoff
         (each gap roughly doubles, within a small tolerance).
-        """
+        """         
         if len(group) < 3:
             return False
 
