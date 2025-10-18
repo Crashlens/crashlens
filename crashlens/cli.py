@@ -53,6 +53,8 @@ from .langfuse_client import LangfuseClient, save_logs_to_temp_file
 from .helicone_client import HeliconeClient
 from .policy.templates import get_template_manager
 from .policy.engine import PolicyEngine
+from .pii.sanitizer import PIISanitizer
+from .pii.patterns import PII_PATTERNS
 
 
 # =============================================================================
@@ -3383,12 +3385,246 @@ def notify(webhook_url: Optional[str], report_file: Path):
         sys.exit(1)
 
 
+@click.command(name='pii-remove')
+@click.argument('input_file', type=click.Path(exists=True, path_type=Path), required=False)
+@click.option('--output', '-o', type=click.Path(path_type=Path), 
+              help='Output file path (default: <input>_sanitized.jsonl)')
+@click.option('--dry-run', is_flag=True, 
+              help='Analyze PII without creating output file')
+@click.option('--types', '-t', multiple=True,
+              help='Specific PII types to remove (can specify multiple times)')
+@click.option('--list-types', is_flag=True,
+              help='List available PII types and exit')
+@click.option('--verbose', '-v', is_flag=True,
+              help='Show detailed statistics')
+def pii_remove(
+    input_file: Optional[Path] = None,
+    output: Optional[Path] = None,
+    dry_run: bool = False,
+    types: Tuple[str, ...] = (),
+    list_types: bool = False,
+    verbose: bool = False
+):
+    """
+    Remove personally identifiable information (PII) from JSONL log files.
+    
+    This command sanitizes log files by detecting and removing sensitive information
+    such as emails, phone numbers, SSNs, credit cards, IP addresses, and more.
+    
+    Examples:
+    
+        # Remove all PII types from a file
+        crashlens pii-remove logs/production.jsonl
+    
+        # Dry run to analyze without modifying
+        crashlens pii-remove logs/production.jsonl --dry-run
+    
+        # Remove only specific PII types
+        crashlens pii-remove logs/app.jsonl --types email --types phone_us
+    
+        # Specify custom output path
+        crashlens pii-remove logs/app.jsonl --output logs/sanitized/app_clean.jsonl
+    """
+    
+    # Handle --list-types flag
+    if list_types:
+        click.echo("📋 Available PII Types:")
+        click.echo("")
+        for pii_type in sorted(PII_PATTERNS.keys()):
+            click.echo(f"  • {pii_type}")
+        click.echo("")
+        click.echo("Use --types to specify which types to remove (default: all)")
+        return
+    
+    # Validate input file is provided
+    if not input_file:
+        click.echo("❌ Error: INPUT_FILE is required (unless using --list-types)", err=True)
+        click.echo("Usage: crashlens pii-remove INPUT_FILE [OPTIONS]", err=True)
+        sys.exit(1)
+    
+    # Validate input file exists
+    if not input_file.exists():
+        click.echo(f"❌ Error: Input file not found: {input_file}", err=True)
+        sys.exit(1)
+    
+    # Validate PII types if specified
+    pii_types_list = list(types) if types else None
+    if pii_types_list:
+        invalid_types = [t for t in pii_types_list if t not in PII_PATTERNS]
+        if invalid_types:
+            click.echo(f"❌ Error: Invalid PII types: {', '.join(invalid_types)}", err=True)
+            click.echo("Use --list-types to see available types", err=True)
+            sys.exit(1)
+    
+    # Initialize sanitizer
+    try:
+        sanitizer = PIISanitizer(pii_types=pii_types_list)
+        
+        # Display operation mode
+        if dry_run:
+            click.echo(f"🔍 Analyzing PII in: {input_file}")
+        else:
+            output_display = output if output else f"{input_file.stem}_sanitized{input_file.suffix}"
+            click.echo(f"🧹 Removing PII from: {input_file}")
+            click.echo(f"📝 Output file: {output_display}")
+        
+        click.echo("")
+        
+        # Process file
+        result = sanitizer.sanitize_file(input_file, output, dry_run=dry_run)
+        
+        # Display results
+        click.echo("✅ Processing complete!")
+        click.echo("")
+        click.echo(f"📊 Summary:")
+        click.echo(f"  Records processed: {result['records_processed']}")
+        click.echo(f"  Total PII found: {result['total_pii_found']}")
+        
+        if verbose or result['total_pii_found'] > 0:
+            click.echo("")
+            click.echo("  PII by type:")
+            for pii_type, count in sorted(result['pii_by_type'].items()):
+                if count > 0:
+                    click.echo(f"    • {pii_type}: {count}")
+        
+        if not dry_run and result['output_path']:
+            click.echo("")
+            click.echo(f"✨ Sanitized file saved to: {result['output_path']}")
+        elif dry_run:
+            click.echo("")
+            click.echo("💡 This was a dry run. No files were modified.")
+            click.echo("   Remove --dry-run flag to create sanitized output.")
+        
+    except FileNotFoundError as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error during PII removal: {e}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+# Alternative implementation using FileSanitizer (with progress tracking)
+@click.command('pii-clean')
+@click.argument('logfile', type=click.Path(exists=True))
+@click.option(
+    '--output', '-o',
+    type=click.Path(),
+    help='Output file path (default: <input>_sanitized.jsonl)'
+)
+@click.option(
+    '--types',
+    type=str,
+    help='Comma-separated PII types to remove (default: all). Available: email,phone_us,ssn,credit_card,ip_address,api_key,street_address,date'
+)
+@click.option(
+    '--dry-run',
+    is_flag=True,
+    help='Analyze PII without creating output file (preview mode)'
+)
+def pii_clean_command(logfile, output, types, dry_run):
+    """
+    Remove personally identifiable information (PII) from JSONL log files.
+    
+    Creates a sanitized version of your logs suitable for cloud upload while
+    maintaining GDPR, HIPAA, and SOC 2 compliance.
+    
+    Examples:
+    
+        # Remove all PII types
+        crashlens pii-clean logs.jsonl
+    
+        # Remove only emails and phone numbers
+        crashlens pii-clean logs.jsonl --types email,phone_us
+    
+        # Preview what would be removed (dry run)
+        crashlens pii-clean logs.jsonl --dry-run
+    
+        # Custom output file
+        crashlens pii-clean logs.jsonl --output clean-logs.jsonl
+    """
+    from .pii.sanitizer import FileSanitizer
+    
+    # Parse PII types if specified
+    pii_types = None
+    if types:
+        pii_types = [t.strip() for t in types.split(',')]
+        
+        # Validate PII types
+        invalid_types = [t for t in pii_types if t not in PII_PATTERNS]
+        if invalid_types:
+            click.echo(f"❌ Error: Invalid PII types: {', '.join(invalid_types)}")
+            click.echo(f"   Available types: {', '.join(PII_PATTERNS.keys())}")
+            sys.exit(1)
+    
+    # Show mode
+    if dry_run:
+        click.echo("🔍 DRY RUN MODE - Analyzing PII without creating output file\n")
+    else:
+        click.echo("🔒 PII REMOVAL MODE - Creating sanitized output file\n")
+    
+    # Create sanitizer
+    sanitizer = FileSanitizer(pii_types)
+    
+    try:
+        # Process file
+        result = sanitizer.sanitize_jsonl_file(
+            input_file=logfile,
+            output_file=output,
+            dry_run=dry_run
+        )
+        
+        # Display results
+        click.echo("\n" + "=" * 60)
+        click.echo("📊 PII REMOVAL SUMMARY")
+        click.echo("=" * 60)
+        click.echo(f"📁 Input file:        {result['input_file']}")
+        
+        if not dry_run:
+            click.echo(f"📁 Output file:       {result['output_file']}")
+        
+        click.echo(f"📋 Records processed: {result['records_processed']}")
+        click.echo(f"🔒 Total PII removed: {result['total_pii_removed']}")
+        
+        # Show breakdown by type
+        if result['total_pii_removed'] > 0:
+            click.echo("\n🔍 PII Removal Breakdown:")
+            for pii_type, count in result['pii_stats'].items():
+                if count > 0:
+                    click.echo(f"   • {pii_type}: {count}")
+        else:
+            click.echo("\n✅ No PII detected in log file")
+        
+        # Show next steps
+        if not dry_run and result['total_pii_removed'] > 0:
+            click.echo("\n✨ Success! Your sanitized logs are ready for cloud upload.")
+            click.echo(f"   Upload: {result['output_file']}")
+        elif dry_run and result['total_pii_removed'] > 0:
+            click.echo("\n💡 Run without --dry-run to create sanitized output file:")
+            click.echo(f"   crashlens pii-clean {logfile}")
+        
+        click.echo("=" * 60)
+        
+    except FileNotFoundError as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
 # Add commands to CLI
 cli.add_command(policy_check)
 cli.add_command(list_policy_templates)
 cli.add_command(init)
 cli.add_command(simulate)
 cli.add_command(slack)
+cli.add_command(pii_remove)
+cli.add_command(pii_clean_command)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,5 @@
+{"trace_id": "test-001", "user": "[EMAIL_REDACTED]", "phone": "[PHONE_REDACTED]", "message": "User called from ([PHONE_REDACTED]"}
+{"trace_id": "test-002", "user": "[EMAIL_REDACTED]", "ip": "[IP_REDACTED]", "note": "Contact via email: [EMAIL_REDACTED]"}
+{"trace_id": "test-003", "ssn": "[SSN_REDACTED]", "card": "[CREDIT_CARD_REDACTED]", "address": "[ADDRESS_REDACTED]"}
+{"trace_id": "test-004", "user": "Bob", "age": 30, "active": true, "data": null}
+{"trace_id": "test-005", "message": "API key: [API_KEY_REDACTED]", "timestamp": "[DATE_REDACTED]"}

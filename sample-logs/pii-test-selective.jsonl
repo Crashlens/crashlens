@@ -1,0 +1,5 @@
+{"trace_id": "test-001", "user": "[EMAIL_REDACTED]", "phone": "[PHONE_REDACTED]", "message": "User called from ([PHONE_REDACTED]"}
+{"trace_id": "test-002", "user": "[EMAIL_REDACTED]", "ip": "192.168.1.100", "note": "Contact via email: [EMAIL_REDACTED]"}
+{"trace_id": "test-003", "ssn": "123-45-6789", "card": "1234-5678-9012-3456", "address": "123 Main Street"}
+{"trace_id": "test-004", "user": "Bob", "age": 30, "active": true, "data": null}
+{"trace_id": "test-005", "message": "API key: abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567", "timestamp": "2024-01-15"}

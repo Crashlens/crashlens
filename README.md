@@ -102,6 +102,13 @@ crashlens init --non-interactive
 - **Trend Analysis**: Historical cost patterns with timeline visualization
 - **ROI Calculator**: Quantified savings recommendations
 
+### 🔒 **PII Removal & Data Sanitization**
+- **🧹 PII Detection**: Automatically detects emails, phones, SSNs, credit cards, IPs, API keys
+- **GDPR/HIPAA Compliance**: Sanitize logs before cloud upload or sharing
+- **Selective Removal**: Choose specific PII types to remove
+- **Dry-Run Analysis**: Preview what PII exists without modification
+- **Safe Cloud Upload**: Clean logs for Langfuse/Helicone dashboards
+
 ---
 
 ## 💻 Commands Overview
@@ -176,6 +183,46 @@ Get-ChildItem -Recurse -Filter *.jsonl | ForEach-Object { crashlens scan --contr
 - ✅ Ensure data quality before production
 - ✅ Catch missing required fields early
 - ✅ Validate against versioned schema contracts
+
+### 🧹 **PII Removal** (NEW)
+```bash
+# Remove all PII types from logs
+crashlens pii-remove logs/production.jsonl
+
+# Preview PII without modifying files
+crashlens pii-remove logs/app.jsonl --dry-run --verbose
+
+# Remove specific PII types only
+crashlens pii-remove logs/app.jsonl --types email --types phone_us
+
+# Custom output location
+crashlens pii-remove logs/app.jsonl --output clean/sanitized.jsonl
+
+# List available PII types
+crashlens pii-remove --list-types
+```
+
+**Supported PII Types:**
+- `email` - Email addresses
+- `phone_us` - US phone numbers
+- `ssn` - Social Security Numbers
+- `credit_card` - Credit card numbers
+- `ip_address` - IPv4 addresses
+- `api_key` - API keys/tokens (32+ chars)
+- `street_address` - Street addresses
+- `date` - Date formats
+
+**Workflow Example:**
+```bash
+# 1. Remove PII from production logs
+crashlens pii-remove logs/production.jsonl --output logs/clean.jsonl
+
+# 2. Scan sanitized logs
+crashlens scan logs/clean.jsonl --format markdown
+
+# 3. Safe to upload to cloud dashboard
+# Upload clean.jsonl to Langfuse/Helicone
+```
 
 ### 🛡️ **Policy Enforcement**
 ```bash
