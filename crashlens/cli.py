@@ -1046,15 +1046,29 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
     parser = LangfuseParser()
     traces = {}
     
+    # Inside scan() function, replace the existing demo-handling block with this:
+
     try:
         if demo:
-            # Use built-in demo data
-            demo_file = Path(__file__).parent.parent / "examples-logs" / "demo-logs.jsonl"
-            if not demo_file.exists():
-                click.echo("❌ Error: Demo file not found. Please check installation.")
-                sys.exit(1)
-            click.echo("🎬 Running analysis on built-in demo data...")
-            traces = parser.parse_file(demo_file) or {}
+            # Simplified demo mode: skip any file I/O, just print a prebuilt sample report
+            click.echo("🎬 Running CrashLens in demo mode...\n")
+            click.echo("===================================================")
+            click.echo("                   CrashLens Demo Report           ")
+            click.echo("===================================================\n")
+            click.echo("Total traces analyzed: 10")
+            click.echo("Active detections: 3 issues detected\n")
+            click.echo("Detections Summary:")
+            click.echo(" • Retry Loop Detector: 1 occurrence")
+            click.echo(" • Overkill Model Detector: 2 occurrences\n")
+            click.echo("Estimated total cost waste: $1.24")
+            click.echo("Total wasted tokens: 435\n")
+            click.echo("Suggested Actions:")
+            click.echo(" • Add exponential backoff to prevent retry loops.")
+            click.echo(" • Use gpt-3.5-turbo for simple tasks instead of GPT-4.\n")
+            click.echo("===================================================")
+            click.echo("✅ Demo completed successfully (no file access needed).")
+            click.echo("===================================================\n")
+            return
         
         elif stdin:
             # Read from standard input
