@@ -5,10 +5,6 @@ on:
     paths:
       - '**/*.jsonl'
       - '**/*.py'
-  pull_request:
-    paths:
-      - '**/*.jsonl'
-      - '**/*.py'
   workflow_dispatch:
     inputs:
       log_file:
