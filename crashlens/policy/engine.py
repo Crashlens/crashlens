@@ -1,6 +1,8 @@
 import yaml
 import re
 import logging
+import time
+from collections import defaultdict
 from typing import Dict, List, Any, Optional, Union, Tuple, Set
 from pathlib import Path
 from dataclasses import dataclass
@@ -184,6 +186,15 @@ class PolicyEngine:
         self.violation_counts: Dict[str, int] = {}
         self.traces_flagged: Set[str] = set()
         
+        # Benchmark stats tracking (constant memory: ~5 floats per rule)
+        self._collect_stats = False  # Flag to enable stats collection
+        self._rule_stats = defaultdict(lambda: {
+            'count': 0,
+            'sum': 0.0,
+            'max': 0.0,
+            'min': float('inf')
+        })
+        
         if policy_file:
             self.load_policy(policy_file)
     
@@ -229,6 +240,35 @@ class PolicyEngine:
         except Exception as e:
             raise ValueError(f"Failed to load policy file {policy_file}: {e}")
     
+    def enable_stats_collection(self):
+        """Enable performance stats collection for benchmarking.
+        
+        This is used for performance testing only and will be replaced
+        with full metrics implementation later.
+        """
+        self._collect_stats = True
+    
+    def get_stats(self):
+        """Get collected stats (for benchmark validation)."""
+        return dict(self._rule_stats)
+    
+    def print_stats_summary(self):
+        """Print stats summary for benchmark validation."""
+        if not self._rule_stats:
+            print("No stats collected (stats collection not enabled)")
+            return
+        
+        print("\n=== Rule Evaluation Performance Stats ===")
+        for rule_name, stats in sorted(self._rule_stats.items()):
+            if stats['count'] > 0:
+                avg = stats['sum'] / stats['count']
+                print(f"{rule_name}:")
+                print(f"  Count: {stats['count']}")
+                print(f"  Avg:   {avg*1000:.3f}ms")
+                print(f"  Min:   {stats['min']*1000:.3f}ms")
+                print(f"  Max:   {stats['max']*1000:.3f}ms")
+        print("=" * 40)
+    
     def evaluate_log_entry(self, log_entry: Dict[str, Any], line_number: Optional[int] = None) -> Tuple[List[PolicyViolation], List[str]]:
         """
         Evaluate a single log entry against all policy rules with lazy evaluation.
@@ -259,8 +299,24 @@ class PolicyEngine:
                 skipped_rules.append(rule.id)
                 continue
             
+            # Benchmark timing collection (minimal overhead)
+            if self._collect_stats:
+                start_time = time.perf_counter()
+            
             # Evaluate rule
             violation = rule.evaluate(log_entry, line_number)
+            
+            # Update stats after evaluation
+            if self._collect_stats:
+                elapsed = time.perf_counter() - start_time
+                stats = self._rule_stats[rule.id]
+                stats['count'] += 1
+                stats['sum'] += elapsed
+                if elapsed > stats['max']:
+                    stats['max'] = elapsed
+                if elapsed < stats['min']:
+                    stats['min'] = elapsed
+            
             if violation:
                 violations.append(violation)
                 self.violation_counts[rule.id] += 1
