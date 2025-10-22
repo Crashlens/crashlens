@@ -1,0 +1,206 @@
+{
+  "title": "CrashLens Policy Enforcement",
+  "description": "Monitor AI token waste detection and policy violations",
+  "tags": [
+    "crashlens",
+    "ai",
+    "llm",
+    "policy"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "detector",
+        "label": "Detector",
+        "type": "query",
+        "query": "label_values(crashlens_rule_hits_total, detector)",
+        "datasource": "Prometheus",
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "severity",
+        "label": "Severity",
+        "type": "query",
+        "query": "label_values(crashlens_rule_hits_total, severity)",
+        "datasource": "Prometheus",
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Rule Trigger Rate (5m avg)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "rate(crashlens_rule_hits_total{detector=~\"$detector\", severity=~\"$severity\"}[5m])",
+          "legendFormat": "{{rule_id}} ({{severity}})",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Triggers/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Violations by Severity",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum by (severity) (crashlens_rule_hits_total{detector=~\"$detector\"})",
+          "legendFormat": "{{severity}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Total Violations"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Token Waste Detected (tokens/min)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(crashlens_waste_tokens_total{detector=~\"$detector\"}[5m]) * 60",
+          "legendFormat": "{{detector}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Tokens/min"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Potential Cost Savings ($/min)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(crashlens_waste_cost_total{detector=~\"$detector\"}[5m]) * 60",
+          "legendFormat": "{{detector}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "$/min"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Rule Evaluation Time (p95)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(crashlens_rule_evaluation_seconds_bucket[5m]))",
+          "legendFormat": "{{rule_id}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Evaluation Time"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Top 10 Failing Rules",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (rule_id) (rate(crashlens_rule_hits_total{action=\"fail\"}[5m])))",
+          "legendFormat": "{{rule_id}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Failures/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    }
+  ]
+}
