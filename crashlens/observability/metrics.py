@@ -101,56 +101,72 @@ class CrashLensMetrics:
 
     def _init_counters(self):
         """Initialize counter metrics."""
+        # Guard against static analyzers / None at import time: ensure Counter callable exists
+        if _Counter is None:
+            raise RuntimeError(
+                "Prometheus Counter class not initialized. "
+                "Ensure _initialize_metrics_impl was called and prometheus_client was imported successfully."
+            )
+        Counter = _Counter
+
         # Rule hits counter
-        self.rule_hits = _Counter(
+        self.rule_hits = Counter(
             "crashlens_rule_hits_total",
             "Total number of policy rule hits",
             ["rule", "severity", "mode"],
         )
 
         # Violations counter
-        self.violations = _Counter(
+        self.violations = Counter(
             "crashlens_violations_total",
             "Total number of policy violations by severity",
             ["severity"],
         )
 
         # Traces processed counter
-        self.traces_processed = _Counter(
+        self.traces_processed = Counter(
             "crashlens_traces_processed_total", "Total number of traces processed"
         )
 
         # Traces failed counter
-        self.traces_failed = _Counter(
+        self.traces_failed = Counter(
             "crashlens_traces_failed_total",
             "Total number of traces that failed processing",
             ["reason"],
         )
 
-        # Overflow counter for self-monitoring
-        self.label_overflow = _Counter(
+        # Label overflow counter (used to track cardinality collapse events)
+        self.label_overflow = Counter(
             "crashlens_rule_label_overflow_total",
-            "Number of times rule label hit cardinality limit",
+            "Count of rule label overflow events",
         )
 
     def _init_gauges(self):
         """Initialize gauge metrics."""
+        # Guard against static analyzers / None at import time: ensure Gauge callable exists
+        if _Gauge is None:
+            raise RuntimeError(
+                "Prometheus Gauge class not initialized. "
+                "Ensure _initialize_metrics_impl was called and prometheus_client was imported successfully."
+            )
+        Gauge = _Gauge
+
         # Average latency gauge (sampled)
-        self.decision_latency_avg = _Gauge(
+        self.decision_latency_avg = Gauge(
             "crashlens_decision_latency_avg_seconds",
             "Average rule evaluation latency in seconds (sampled)",
             ["rule"],
         )
 
         # Last run timestamp
-        self.last_run_timestamp = _Gauge(
+        self.last_run_timestamp = Gauge(
             "crashlens_last_run_timestamp_seconds",
             "Unix timestamp of last CrashLens run",
             ["status"],
         )
 
         # Push status indicator
-        self.metrics_push_status = _Gauge(
+        self.metrics_push_status = Gauge(
             "crashlens_metrics_push_status",
             "Metrics push status (1=success, 0=failure)",
         )

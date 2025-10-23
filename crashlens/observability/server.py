@@ -17,7 +17,7 @@ import os
 import logging
 import threading
 import time
-from typing import Optional
+from typing import Optional, Any
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -116,7 +116,7 @@ def push_metrics_async(
     registry=None,
     timeout: float = PUSH_TIMEOUT_SECONDS,
     max_wait: float = MAX_WAIT_SECONDS,
-    metrics_instance: Optional["CrashLensMetrics"] = None,
+    metrics_instance: Optional[Any] = None,
 ) -> None:
     """
     Push metrics to Pushgateway in fire-and-forget mode.
@@ -245,7 +245,7 @@ def push_metrics_sync(
     job_name: str = DEFAULT_JOB_NAME,
     registry=None,
     timeout: float = PUSH_TIMEOUT_SECONDS,
-    metrics_instance: Optional["CrashLensMetrics"] = None,
+    metrics_instance: Optional[Any] = None,
 ) -> bool:
     """
     Push metrics to Pushgateway synchronously (for testing).

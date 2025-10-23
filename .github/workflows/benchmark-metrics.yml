@@ -56,20 +56,48 @@ jobs:
           echo "✓ Validation passed"
       
       - name: Run benchmark
+        id: benchmark
+        continue-on-error: true
         run: |
           echo "Starting benchmark..."
-          ITERATIONS=${{ github.event.inputs.iterations }}
-          TEST_SAMPLING=${{ github.event.inputs.test_sampling }}
+          ITERATIONS="${{ github.event.inputs.iterations || '10' }}"
+          TEST_SAMPLING="${{ github.event.inputs.test_sampling || 'true' }}"
           
+          echo "Configuration: iterations=$ITERATIONS, test_sampling=$TEST_SAMPLING"
+          
+          # Run benchmark and capture exit code
+          set +e  # Don't exit on error
           if [ "$TEST_SAMPLING" = "false" ]; then
             poetry run python scripts/benchmark_100k_proper.py \
-              --iterations $ITERATIONS \
+              --iterations "$ITERATIONS" \
               --no-sampling-test \
-              | tee benchmark_results.txt
+              2>&1 | tee benchmark_results.txt
+            BENCHMARK_EXIT_CODE=${PIPESTATUS[0]}
           else
             poetry run python scripts/benchmark_100k_proper.py \
-              --iterations $ITERATIONS \
-              | tee benchmark_results.txt
+              --iterations "$ITERATIONS" \
+              2>&1 | tee benchmark_results.txt
+            BENCHMARK_EXIT_CODE=${PIPESTATUS[0]}
+          fi
+          set -e  # Re-enable exit on error
+          
+          echo ""
+          echo "Benchmark exit code: $BENCHMARK_EXIT_CODE"
+          
+          if [ $BENCHMARK_EXIT_CODE -ne 0 ]; then
+            echo "⚠️  Benchmark script exited with error code $BENCHMARK_EXIT_CODE"
+          fi
+          
+          exit $BENCHMARK_EXIT_CODE
+      
+      - name: Check benchmark step status
+        if: always()
+        run: |
+          echo "Benchmark step outcome: ${{ steps.benchmark.outcome }}"
+          echo "Benchmark step conclusion: ${{ steps.benchmark.conclusion }}"
+          
+          if [ "${{ steps.benchmark.outcome }}" = "failure" ]; then
+            echo "⚠️  Benchmark step failed - check output above"
           fi
       
       - name: Display results summary
@@ -77,8 +105,12 @@ jobs:
         run: |
           echo "=== BENCHMARK RESULTS SUMMARY ==="
           if [ -f benchmark_results.txt ]; then
+            # Show file stats
+            echo "File size: $(wc -c < benchmark_results.txt) bytes"
+            echo "Line count: $(wc -l < benchmark_results.txt) lines"
+            echo ""
             # Extract key lines
-            grep -E "(Baseline|With metrics|Overhead|PASS|FAIL)" benchmark_results.txt || true
+            grep -E "(Baseline|With metrics|Overhead|PASS|FAIL)" benchmark_results.txt || echo "No summary lines found"
           else
             echo "❌ No results file found"
           fi
@@ -96,14 +128,37 @@ jobs:
       
       - name: Check if benchmark passed
         run: |
+          echo "=== Checking benchmark status ==="
+          
           if [ ! -f benchmark_results.txt ]; then
             echo "❌ ERROR: benchmark_results.txt not found"
+            echo "Benchmark script may have crashed before creating output file"
             exit 1
           fi
           
-          echo "=== Checking benchmark results ==="
-          cat benchmark_results.txt | tail -20
-          echo "=================================="
+          FILE_SIZE=$(wc -c < benchmark_results.txt)
+          LINE_COUNT=$(wc -l < benchmark_results.txt)
+          
+          echo "File info: $FILE_SIZE bytes, $LINE_COUNT lines"
+          
+          if [ $FILE_SIZE -eq 0 ]; then
+            echo "❌ ERROR: benchmark_results.txt is empty"
+            echo "Benchmark script produced no output"
+            exit 1
+          fi
+          
+          if [ $LINE_COUNT -lt 10 ]; then
+            echo "⚠️  WARNING: Output file is very short ($LINE_COUNT lines)"
+            echo "Full content:"
+            cat benchmark_results.txt
+            exit 1
+          fi
+          
+          echo ""
+          echo "=== Last 30 lines of benchmark output ==="
+          tail -30 benchmark_results.txt
+          echo "=========================================="
+          echo ""
           
           if grep -q "✗ FAIL" benchmark_results.txt; then
             echo "❌ Benchmark FAILED - overhead exceeds threshold"
@@ -114,5 +169,11 @@ jobs:
           else
             echo "⚠️  Could not determine benchmark result"
             echo "Expected to find either '✓ PASS' or '✗ FAIL' in output"
+            echo ""
+            echo "Searching for decision gate output:"
+            grep -i "decision\|overhead\|threshold\|pass\|fail" benchmark_results.txt || echo "No relevant lines found"
+            echo ""
+            echo "Checking for errors:"
+            grep -i "error\|exception\|traceback" benchmark_results.txt || echo "No errors found in output"
             exit 1
           fi

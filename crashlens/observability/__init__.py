@@ -31,7 +31,10 @@ Installation:
     pip install crashlens           # Works without metrics support
 """
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .metrics import CrashLensMetrics
 
 # Module-level singleton
 _metrics_instance: Optional["CrashLensMetrics"] = None
