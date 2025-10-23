@@ -34,38 +34,41 @@ Installation:
 from typing import Optional
 
 # Module-level singleton
-_metrics_instance: Optional['CrashLensMetrics'] = None
+_metrics_instance: Optional["CrashLensMetrics"] = None
 
 
-def initialize_metrics(enabled: bool = False, max_rules: int = 500) -> Optional['CrashLensMetrics']:
+def initialize_metrics(
+    enabled: bool = False, max_rules: int = 500
+) -> Optional["CrashLensMetrics"]:
     """
     Initialize the global metrics instance.
-    
+
     This should be called once at CLI startup before any metric recording.
-    
+
     Args:
         enabled: Whether to enable metrics collection
         max_rules: Maximum number of unique rule names before collapsing to overflow
-        
+
     Returns:
         CrashLensMetrics instance if enabled and available, None otherwise
-        
+
     Raises:
         RuntimeError: If enabled=True but prometheus-client is not installed
     """
     from .metrics import _initialize_metrics_impl
+
     global _metrics_instance
     _metrics_instance = _initialize_metrics_impl(enabled, max_rules)
     return _metrics_instance
 
 
-def get_metrics() -> Optional['CrashLensMetrics']:
+def get_metrics() -> Optional["CrashLensMetrics"]:
     """
     Get the global metrics instance.
-    
+
     Returns:
         CrashLensMetrics instance if initialized and enabled, None otherwise
-        
+
     Example:
         metrics = get_metrics()
         if metrics:
@@ -75,6 +78,6 @@ def get_metrics() -> Optional['CrashLensMetrics']:
 
 
 __all__ = [
-    'initialize_metrics',
-    'get_metrics',
+    "initialize_metrics",
+    "get_metrics",
 ]

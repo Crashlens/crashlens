@@ -35,6 +35,17 @@ grafanalib = "^0.7.1"
 [tool.poetry.scripts]
 crashlens = "crashlens.cli:cli"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
+]
+# Default: verbose output with short traceback
+addopts = "-v --tb=short"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
