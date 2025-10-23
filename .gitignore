@@ -84,7 +84,7 @@ report.md
 .copilot/
 
 
-/tests/
+# /tests/
 /custom_reports/
 /detailed_output/
 /sample-logs-reports/
