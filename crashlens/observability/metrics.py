@@ -216,18 +216,23 @@ class CrashLensMetrics:
         severity_label = self.normalize_severity(severity)
         self.violations.labels(severity=severity_label).inc()
     
-    def record_trace_processed(self):
-        """Record that a trace was successfully processed."""
-        self.traces_processed.inc()
-    
-    def record_trace_failed(self, reason: str):
-        """
-        Record that a trace failed processing.
+    def record_trace_processed(self, count: int = 1):
+        """Record successfully processed traces.
         
         Args:
-            reason: Reason for failure (parse_error, validation_error, etc.)
+            count: Number of traces processed (default: 1)
         """
-        self.traces_failed.labels(reason=reason).inc()
+        self.traces_processed.inc(count)
+    
+    def record_trace_failed(self, reason: str, count: int = 1):
+        """
+        Record that traces failed processing.
+        
+        Args:
+            reason: Reason for failure (parse_error, missing_fields, validation_error, etc.)
+            count: Number of traces that failed (default: 1)
+        """
+        self.traces_failed.labels(reason=reason).inc(count)
     
     def update_decision_latency(self, rule_name: str, avg_seconds: float, max_seconds: float):
         """

@@ -8,6 +8,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 
+from crashlens.observability import get_metrics
+
 
 
 class PolicyAction(Enum):
@@ -188,6 +190,7 @@ class PolicyEngine:
         
         # Benchmark stats tracking (constant memory: ~5 floats per rule)
         self._collect_stats = False  # Flag to enable stats collection
+        self._record_metrics = False  # Flag for metrics recording
         self._rule_stats = defaultdict(lambda: {
             'count': 0,
             'sum': 0.0,
@@ -247,6 +250,16 @@ class PolicyEngine:
         with full metrics implementation later.
         """
         self._collect_stats = True
+    
+    def enable_metrics_recording(self):
+        """Enable Prometheus metrics recording.
+        
+        This should be called after initialize_metrics() in the CLI.
+        Works alongside stats collection for latency tracking.
+        """
+        self._record_metrics = get_metrics() is not None
+        if self._record_metrics:
+            self.enable_stats_collection()  # Need stats for latency tracking
     
     def get_stats(self):
         """Get collected stats (for benchmark validation)."""
@@ -317,6 +330,18 @@ class PolicyEngine:
                 if elapsed < stats['min']:
                     stats['min'] = elapsed
             
+            # Record metrics if enabled
+            if self._record_metrics and violation:
+                metrics = get_metrics()
+                if metrics:
+                    severity = rule.severity.value
+                    metrics.record_rule_hit(
+                        rule_name=rule.id,
+                        severity=severity,
+                        mode='policy-check'
+                    )
+                    metrics.record_violation(severity=severity)
+            
             if violation:
                 violations.append(violation)
                 self.violation_counts[rule.id] += 1
@@ -349,6 +374,28 @@ class PolicyEngine:
             all_skipped_rules.update(skipped_rules)
             
         return all_violations, list(all_skipped_rules)
+    
+    def flush_metrics(self):
+        """Flush metrics at end of scan.
+        
+        Pushes latency stats to Prometheus gauges.
+        Should be called after evaluate_logs() completes.
+        """
+        metrics = get_metrics()
+        if not metrics or not self._rule_stats:
+            return
+        
+        # Update latency gauges from stats
+        for rule_name, stats in self._rule_stats.items():
+            if stats['count'] > 0:
+                avg_latency = stats['sum'] / stats['count']
+                max_latency = stats['max']
+                
+                metrics.update_decision_latency(
+                    rule_name=rule_name,
+                    avg_seconds=avg_latency,
+                    max_seconds=max_latency
+                )
     
     def get_summary(self) -> Dict[str, Any]:
         """Get a summary of loaded policy rules."""

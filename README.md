@@ -270,7 +270,63 @@ crashlens init
 
 ---
 
-## 📈 Example Report Output
+## � Observability
+
+CrashLens supports Prometheus metrics for monitoring policy enforcement in production.
+
+### Quick Start
+
+```bash
+# Install with metrics support
+pip install crashlens[metrics]
+
+# Start pushgateway
+docker run -d -p 9091:9091 prom/pushgateway
+
+# Run with metrics
+crashlens scan logs.jsonl --push-metrics
+
+# View metrics
+curl http://localhost:9091/metrics | grep crashlens
+```
+
+### Available Metrics
+
+- **`crashlens_rule_hits_total{rule,severity,mode}`** - Policy rule triggers
+- **`crashlens_violations_total{severity}`** - Total violations by severity
+- **`crashlens_traces_processed_total`** - Successfully processed traces
+- **`crashlens_traces_failed_total{reason}`** - Failed trace processing
+- **`crashlens_decision_latency_avg_seconds{rule}`** - Average rule evaluation time
+- **`crashlens_decision_latency_max_seconds{rule}`** - Maximum rule evaluation time (outliers)
+- **`crashlens_last_run_timestamp_seconds{status}`** - Last scan completion time
+- **`crashlens_metrics_push_status`** - Metrics push success indicator
+
+### Configuration
+
+**Via CLI flags:**
+```bash
+crashlens scan logs.jsonl \
+  --push-metrics \
+  --pushgateway-url http://prometheus:9091 \
+  --metrics-job my-app-policy-check
+```
+
+**Via environment variables:**
+```bash
+export CRASHLENS_PUSH_METRICS=true
+export CRASHLENS_PUSHGATEWAY_URL=http://prometheus:9091
+crashlens scan logs.jsonl
+```
+
+### Grafana Dashboard
+
+Import the pre-built dashboard from `dashboards/crashlens-policy-enforcement.json`.
+
+See full documentation in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+
+---
+
+## �📈 Example Report Output
 
 ### 🚨 **Cost Analysis Report**
 ```markdown

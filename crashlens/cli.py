@@ -674,6 +674,14 @@ def cli():
 @click.option('--report-file', type=click.Path(path_type=Path), help='Explicit path to write a single report file (overrides report-dir)')
 @click.option('--force', is_flag=True, help='Overwrite existing reports without prompting')
 @click.option('--flatten', is_flag=True, help='Flatten directory structure in reports (all reports in one directory)')
+@click.option('--push-metrics', is_flag=True, default=False, envvar='CRASHLENS_PUSH_METRICS',
+              help='Enable Prometheus metrics push to gateway')
+@click.option('--pushgateway-url', default='http://localhost:9091', envvar='CRASHLENS_PUSHGATEWAY_URL',
+              help='Pushgateway URL for metrics (default: http://localhost:9091)')
+@click.option('--metrics-job', default='crashlens_scan', envvar='CRASHLENS_METRICS_JOB',
+              help='Job name for pushgateway metrics grouping')
+@click.option('--metrics-max-rules', type=int, default=500, envvar='CRASHLENS_METRICS_MAX_RULES',
+              help='Maximum unique rule names before overflow protection')
 def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
          summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
@@ -681,7 +689,9 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
          policy_template: Optional[str] = None, policy_file: Optional[Path] = None, list_templates: bool = False,
          contract_check: bool = False, log_format: str = 'langfuse-v1', contract_info: bool = False,
          report_dir: Optional[Path] = None, report_file: Optional[Path] = None, log_paths: Optional[str] = None,
-         force: bool = False, flatten: bool = False) -> str:
+         force: bool = False, flatten: bool = False,
+         push_metrics: bool = False, pushgateway_url: str = 'http://localhost:9091', 
+         metrics_job: str = 'crashlens_scan', metrics_max_rules: int = 500) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -705,6 +715,23 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
 
     user_report_dir = report_dir
     user_report_file = report_file
+
+    # Initialize metrics if enabled
+    metrics = None
+    if push_metrics:
+        try:
+            from crashlens.observability import initialize_metrics
+            metrics = initialize_metrics(
+                enabled=True,
+                max_rules=metrics_max_rules
+            )
+            click.echo("✓ Metrics collection enabled", err=True)
+        except RuntimeError as e:
+            click.echo(f"⚠️  Warning: {e}", err=True)
+            click.echo("   Continuing without metrics...", err=True)
+        except Exception as e:
+            click.echo(f"⚠️  Warning: Failed to initialize metrics: {e}", err=True)
+            click.echo("   Continuing without metrics...", err=True)
 
     # Handle template listing
     if list_templates:
@@ -1243,6 +1270,28 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
         click.echo(f"⚠️  No traces found in {source}")
         return ""
     
+    # Record trace processing metrics from parser
+    if metrics:
+        parsing_stats = parser.get_parsing_stats()
+        
+        # Successful traces
+        if parsing_stats.get('parsed_count', 0) > 0:
+            metrics.record_trace_processed(count=parsing_stats['parsed_count'])
+        
+        # Failed traces - parse errors
+        if parsing_stats.get('skipped_records', 0) > 0:
+            metrics.record_trace_failed(
+                reason='parse_error',
+                count=parsing_stats['skipped_records']
+            )
+        
+        # Failed traces - missing fields
+        if parsing_stats.get('warning_records', 0) > 0:
+            metrics.record_trace_failed(
+                reason='missing_fields',
+                count=parsing_stats['warning_records']
+            )
+    
     # Handle policy template enforcement
     policy_violations = []
     if policy_template or policy_file:
@@ -1411,6 +1460,17 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
             active_detections = suppression_engine.process_detections(detector_name, raw_detections)
             all_active_detections.extend(active_detections)
             
+            # Record metrics if enabled
+            if metrics:
+                for detection in active_detections:
+                    severity = detection.get('severity', 'medium')
+                    metrics.record_rule_hit(
+                        rule_name=detector_name,
+                        severity=severity,
+                        mode='scan'
+                    )
+                    metrics.record_violation(severity=severity)
+            
         except Exception as e:
             click.echo(f"⚠️  Warning: {detector_name} failed: {e}", err=True)
             continue
@@ -1571,6 +1631,23 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
         formatter = JSONFormatter(analysis_results)
         output = formatter.format()
         
+        # Push metrics if enabled (before writing files)
+        if metrics and push_metrics:
+            # Update run timestamp
+            metrics.update_run_timestamp(status='success')
+            
+            try:
+                from crashlens.observability.server import push_metrics_async
+                push_metrics_async(
+                    gateway_url=pushgateway_url,
+                    job_name=metrics_job,
+                    max_wait=2.0,
+                    metrics_instance=metrics
+                )
+                click.echo(f"✓ Metrics pushed to {pushgateway_url}", err=True)
+            except Exception as e:
+                click.echo(f"⚠️  Warning: Metrics push failed: {e}", err=True)
+        
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(output)
         click.echo(f"[OK] JSON report written to {report_path}")
@@ -1581,6 +1658,24 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
         # Markdown format
         formatter = MarkdownFormatter()
         output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}), summary_only=False)
+        
+        # Push metrics if enabled (before writing files)
+        if metrics and push_metrics:
+            # Update run timestamp
+            metrics.update_run_timestamp(status='success')
+            
+            try:
+                from crashlens.observability.server import push_metrics_async
+                push_metrics_async(
+                    gateway_url=pushgateway_url,
+                    job_name=metrics_job,
+                    max_wait=2.0,
+                    metrics_instance=metrics
+                )
+                click.echo(f"✓ Metrics pushed to {pushgateway_url}", err=True)
+            except Exception as e:
+                click.echo(f"⚠️  Warning: Metrics push failed: {e}", err=True)
+        
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(output)
         click.echo(f"[OK] Markdown report written to {report_path}")
@@ -1591,6 +1686,24 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
         # Default Slack format
         formatter = SlackFormatter()
         output = formatter.format(all_active_detections, traces, pricing_config.get('models', {}))
+        
+        # Push metrics if enabled (before writing files)
+        if metrics and push_metrics:
+            # Update run timestamp
+            metrics.update_run_timestamp(status='success')
+            
+            try:
+                from crashlens.observability.server import push_metrics_async
+                push_metrics_async(
+                    gateway_url=pushgateway_url,
+                    job_name=metrics_job,
+                    max_wait=2.0,
+                    metrics_instance=metrics
+                )
+                click.echo(f"✓ Metrics pushed to {pushgateway_url}", err=True)
+            except Exception as e:
+                click.echo(f"⚠️  Warning: Metrics push failed: {e}", err=True)
+        
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(output)
         click.echo(f"[OK] Slack report written to {report_path}")
