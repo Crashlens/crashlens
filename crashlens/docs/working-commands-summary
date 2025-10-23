@@ -1,0 +1,377 @@
+# ⚙️ **CrashLens Commands & Hybrid Policy Engine Documentation**
+
+---
+
+## 📦 **Installation**
+
+```bash
+pip install crashlens
+```
+
+Check your installed version:
+
+```bash
+crashlens --version
+```
+
+---
+
+## 🚀 **Core Commands**
+
+| Command                                                                    | Description                                   |
+| -------------------------------------------------------------------------- | --------------------------------------------- |
+| `crashlens scan --demo`                                                    | Runs analysis on built-in example logs        |
+| `crashlens init`                                                           | Launches an interactive setup wizard          |
+| `crashlens init --non-interactive`                                         | Automated setup using environment variables   |
+| `crashlens scan logs.jsonl`                                                | Analyzes your logs and saves report locally   |
+| `crashlens policy-check logs.jsonl --policy-template all`                  | Checks logs against all policies              |
+| `crashlens list-policy-templates`                                          | Lists all available built-in policy templates |
+| `crashlens simulate --output test.jsonl --count 500 --scenario retry-loop` | Simulates logs for testing                    |
+
+---
+
+## 🧭 **Interactive Setup (`init`)**
+
+### 🔹 Wizard Options
+
+When running `crashlens init`, the wizard will ask you to configure:
+
+* Default policy templates → **`all`**
+* Severity threshold (e.g. `medium`, `high`)
+* Whether to **fail CI/CD** on policy violations
+* Logs source (Langfuse / Helicone / custom)
+* Whether to create a **GitHub Actions workflow**
+
+After configuration:
+
+* Creates `.crashlens.yaml` (config file)
+* Optionally creates `.github/workflows/crashlens.yml` (CI workflow)
+
+---
+
+## ⚙️ **Non-Interactive Setup (CI/CD)**
+
+### 🐧 **macOS / Linux**
+
+```bash
+export CRASHLENS_TEMPLATES="all"
+export CRASHLENS_SEVERITY="medium"
+crashlens init --non-interactive
+```
+
+### 🪟 **Windows PowerShell**
+
+```powershell
+$env:CRASHLENS_TEMPLATES = "all"
+$env:CRASHLENS_SEVERITY = "medium"
+crashlens init --non-interactive
+```
+
+---
+
+## 📊 **Scanning Commands**
+
+| Command                                                               | Output Type                 | Notes                |
+| --------------------------------------------------------------------- | --------------------------- | -------------------- |
+| `crashlens scan logs.jsonl`                                           | Default summary report      | Saved locally        |
+| `crashlens scan logs.jsonl --detailed`                                | Detailed JSON + Markdown    | Saved to `report.md` |
+| `crashlens scan logs.jsonl --detailed --detailed-dir custom_reports/` | Save to custom folder       |                      |
+| `crashlens scan logs.jsonl --summary`                                 | Cost summary with breakdown | Includes trace IDs   |
+| `crashlens scan logs.jsonl --summary-only`                            | Summary only (no trace IDs) |                      |
+| `crashlens scan logs.jsonl --format json`                             | Machine-readable report     |                      |
+| `crashlens scan logs.jsonl --format markdown`                         | Markdown format             |                      |
+| `crashlens scan logs.jsonl --format slack`                            | Slack-ready format          | Saved to `report.md` |
+| `crashlens scan logs.jsonl --config custom-pricing.yaml`              | Use custom pricing config   |                      |
+
+---
+
+### 📋 **Input Flexibility**
+
+* **From Clipboard:**
+
+  ```bash
+  crashlens scan --paste
+  ```
+
+* **From Standard Input:**
+
+  ```bash
+  cat path/to/logs.jsonl | crashlens scan --stdin       # macOS/Linux
+  Get-Content path/to/logs.jsonl | crashlens scan --stdin   # Windows PowerShell
+  ```
+
+---
+
+## 🧪 **Policy Checking**
+
+| Command                                                                                              | Description                      |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `crashlens policy-check logs.jsonl --policy-template all`                                            | Run all policies                 |
+| `crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention` | Use specific policies            |
+| `crashlens policy-check cold-dev-test.jsonl --policy-file my-policy.yaml --severity-threshold high`  | Use custom policy file           |
+| `crashlens policy-check logs.jsonl --fail-on-violations`                                             | Fail CI/CD on violations         |
+| `crashlens policy-check logs.jsonl --strip-pii --no-content`                                         | Remove PII & content from report |
+
+🗂️ Reports are saved to:
+
+```
+policy-violations/report.md
+```
+
+---
+
+## 💬 **Slack Integration**
+
+Send a formatted report to Slack:
+
+```bash
+python -m crashlens slack notify \
+  --webhook-url "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" \
+  --report-file report.md
+```
+
+---
+
+## 🐳 **Docker Integration**
+
+```dockerfile
+FROM python:3.12-slim
+
+RUN pip install crashlens
+
+WORKDIR /app
+COPY logs/ ./logs/
+
+CMD ["crashlens", "policy-check", "logs/*.jsonl", "--policy-template", "all"]
+```
+
+---
+
+## 🧠 **Programmatic Usage**
+
+```python
+from crashlens.policy.engine import PolicyEngine
+from crashlens.parsers.langfuse import LangfuseParser
+
+parser = LangfuseParser()
+traces_by_id = parser.parse_file("cold-dev-test.jsonl")
+
+traces = [record for records in traces_by_id.values() for record in records]
+
+engine = PolicyEngine(r"policies/langfuse/ci-sample.yaml")
+violations, skipped = engine.evaluate_logs(traces)
+
+print(f"Found {len(violations)} violations")
+```
+
+---
+
+## 🌐 **Langfuse and Helicone Logging**
+
+| Integration  | Status                         |
+| ------------ | ------------------------------ |
+| **Langfuse** | ❌ API not currently functional |
+| **Helicone** | ✅ Fully supported              |
+
+---
+
+# 🧩 **Effective & Modern Prompt-Matching Algorithms**
+
+The CrashLens **Hybrid Policy Engine** uses a **3-stage pipeline** for fast, accurate, and interpretable violation detection.
+
+---
+
+## ⚡ **Stage 1: Fast Deterministic Filters**
+
+**Purpose:**
+Quickly eliminate irrelevant traces using numeric, categorical, and exact-match rules.
+
+**Example Rules:**
+
+* Model-based: `block_gpt4_summary_tasks`, `ci_model_allowlist`
+* Cost-based: `trace_cost_hard_limit`, `trace_cost_warning_limit`
+* Token-based: `ci_token_limit`, `large_context_cost_warning`
+
+**Implementation:**
+Simple numeric comparisons, exact matches, and presence checks.
+
+---
+
+## 🧬 **Stage 2: Semantic / Embedding Matching**
+
+**Purpose:**
+Catch paraphrased or semantically equivalent violations undetectable by Stage 1.
+
+**Example Rules:**
+
+* `detect_summary_keywords`
+* `reverse_fallback_pattern`
+* `token_efficiency_check`
+
+**Implementation:**
+Uses **text embeddings** (OpenAI, SBERT, etc.) to measure similarity with rule templates.
+
+---
+
+## 🤖 **Stage 3: LLM Rerank / Recommendations**
+
+**Purpose:**
+For complex or ambiguous cases:
+
+* Rank severity
+* Suggest fixes
+* Provide mitigation advice
+
+**Example Rules:**
+
+* `high_cost_fallback_chain`
+* `frequent_fallback_user`
+
+**Implementation:**
+A small LLM reviews flagged traces and provides recommendations or severity labels.
+
+---
+
+## 🔄 **Hybrid Execution Flow**
+
+```
+Trace / Prompt
+     │
+     ▼
+Stage 1 → Deterministic Filters
+     │
+     ▼
+Stage 2 → Semantic / Embedding Matching
+     │
+     ▼
+Stage 3 → LLM Rerank / Recommendations
+     │
+     ▼
+Final Policy Violation Report
+```
+
+✅ **Benefits**
+
+1. **Speed** – Stage 1 filters most traces instantly.
+2. **Accuracy** – Stage 2 embeddings catch paraphrases.
+3. **Actionable Output** – Stage 3 suggests mitigations.
+4. **Scalable** – Stages are toggleable by environment (e.g. CI skips LLM).
+
+---
+
+## 🧩 **Conceptual Diagram**
+
+```
+┌─────────────────────┐
+│  Input Trace / Log  │
+└─────────┬───────────┘
+          │
+  ┌───────▼────────┐
+  │ Stage 1: Filters│
+  │ - Model checks  │
+  │ - Token limits  │
+  │ - Cost caps     │
+  └───────┬─────────┘
+          │
+  ┌───────▼──────────┐
+  │ Stage 2: Semantic │
+  │ Embedding Matching│
+  │ - Prompt content  │
+  │ - Retry analysis  │
+  └───────┬──────────┘
+          │
+  ┌───────▼──────────┐
+  │ Stage 3: LLM      │
+  │ Rerank / Advice    │
+  └───────┬──────────┘
+          ▼
+  ┌──────────────────────┐
+  │ Final Violation Report│
+  └──────────────────────┘
+```
+
+---
+
+## 🧑‍💻 **Python Pseudocode Implementation**
+
+```python
+from typing import List, Dict, Any
+import numpy as np
+from crashlens.embeddings import embed_text
+from crashlens.llm import rerank_violation_with_llm
+
+# Stage 1: Fast deterministic filters
+def stage1_filter(trace: Dict[str, Any], policies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    matches = []
+    for rule in policies:
+        match_cond = rule.get("match", {})
+        numeric_violation = any(
+            k in trace and eval(f"{trace[k]} {v}")
+            for k, v in match_cond.items()
+            if isinstance(v, str) and any(op in v for op in [">","<"])
+        )
+        model_violation = "input.model" in match_cond and trace.get("input.model") in match_cond["input.model"]
+        if numeric_violation or model_violation:
+            matches.append(rule)
+    return matches
+
+# Stage 2: Semantic embedding match
+def stage2_semantic(trace: Dict[str, Any], candidate_rules: List[Dict[str, Any]], threshold: float = 0.75):
+    semantic_matches = []
+    trace_embedding = embed_text(trace.get("prompt", ""))
+    for rule in candidate_rules:
+        rule_embedding = embed_text(rule["description"])
+        sim = np.dot(trace_embedding, rule_embedding) / (
+            np.linalg.norm(trace_embedding) * np.linalg.norm(rule_embedding)
+        )
+        if sim >= threshold:
+            semantic_matches.append(rule)
+    return semantic_matches
+
+# Stage 3: LLM rerank & recommendation
+def stage3_llm(trace: Dict[str, Any], candidate_rules: List[Dict[str, Any]]):
+    return [
+        {
+            "rule_id": rule["id"],
+            "severity": rule["severity"],
+            "recommendation": rerank_violation_with_llm(trace, rule)
+        }
+        for rule in candidate_rules
+    ]
+
+# Hybrid pipeline
+def hybrid_pipeline(trace: Dict[str, Any], policies: List[Dict[str, Any]]):
+    stage1 = stage1_filter(trace, policies)
+    stage2 = stage2_semantic(trace, stage1)
+    return stage3_llm(trace, stage2)
+```
+
+---
+
+## 🧾 **Example Usage**
+
+```python
+trace_example = {
+    "input.model": "gpt-4",
+    "cost": 0.12,
+    "retry_count": 2,
+    "fallback_count": 1,
+    "prompt": "Summarize the quarterly earnings report in 2 sentences",
+    "usage": {"total_tokens": 45}
+}
+
+report = hybrid_pipeline(trace_example, policies)
+print(report)
+```
+
+---
+
+## 🧱 **Implementation Notes**
+
+1. **Stage 1:** Fast numeric & categorical rules → cheap.
+2. **Stage 2:** Embedding similarity → semantic understanding.
+3. **Stage 3:** Optional LLM layer for context-aware ranking.
+4. **Extensible:** Add numeric/semantic triggers easily.
+5. **Integrates with Langfuse or Helicone logs.**
+
+---
