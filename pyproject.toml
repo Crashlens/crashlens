@@ -20,6 +20,12 @@ faker = "^25.2.0"
 jsonschema = "^4.0.0"
 prometheus-client = "^0.23.1"
 
+# Optional dependencies for metrics collection
+prometheus-client = {version = "^0.20.0", optional = true}
+
+[tool.poetry.extras]
+metrics = ["prometheus-client"]
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 ruff = "^0.4.0"
