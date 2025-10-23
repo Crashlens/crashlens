@@ -30,8 +30,8 @@ def generate_realistic_trace(trace_id: int) -> dict:
     statuses = ["success"] * 85 + ["error"] * 10 + ["timeout"] * 5
     
     # Realistic token distributions (log-normal)
-    input_tokens = int(random.lognormvariate(6, 1.5))  # Mean ~400, tail to 10k
-    output_tokens = int(random.lognormvariate(5, 1.2))  # Mean ~150, tail to 5k
+    prompt_tokens = int(random.lognormvariate(6, 1.5))  # Mean ~400, tail to 10k
+    completion_tokens = int(random.lognormvariate(5, 1.2))  # Mean ~150, tail to 5k
     
     # Realistic error patterns
     if random.choice(statuses) == "error":
@@ -45,18 +45,24 @@ def generate_realistic_trace(trace_id: int) -> dict:
     else:
         error_type = None
     
-    # Build trace
+    # Build trace with Langfuse-compliant schema structure
+    model_name = random.choice(models)
     trace = {
         "traceId": f"trace_{trace_id:06d}",
         "timestamp": start_time.isoformat(),
         "end_timestamp": end_time.isoformat(),
-        "model": random.choice(models),
         "status": random.choice(statuses),
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_tokens": input_tokens + output_tokens,
+        "input": {
+            "model": model_name,
+            "prompt": f"This is test prompt {trace_id}"
+        },
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens
+        },
         "latency_ms": (end_time - start_time).total_seconds() * 1000,
-        "cost_usd": (input_tokens * 0.00003) + (output_tokens * 0.00006),
+        "cost_usd": (prompt_tokens * 0.00003) + (completion_tokens * 0.00006),
         "user_id": f"user_{random.randint(1, 100)}",
         "session_id": f"session_{random.randint(1, 1000)}",
     }

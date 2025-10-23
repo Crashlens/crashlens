@@ -38,7 +38,7 @@ _metrics_instance: Optional["CrashLensMetrics"] = None
 
 
 def initialize_metrics(
-    enabled: bool = False, max_rules: int = 500
+    enabled: bool = False, max_rules: int = 500, sample_rate: float = 1.0
 ) -> Optional["CrashLensMetrics"]:
     """
     Initialize the global metrics instance.
@@ -48,17 +48,22 @@ def initialize_metrics(
     Args:
         enabled: Whether to enable metrics collection
         max_rules: Maximum number of unique rule names before collapsing to overflow
+        sample_rate: Sampling probability (0.0-1.0, default: 1.0)
+                    1.0 = record all metrics (100% sampling)
+                    0.1 = record 10% of metrics (reduce overhead)
+                    0.0 = record nothing (effectively disabled)
 
     Returns:
         CrashLensMetrics instance if enabled and available, None otherwise
 
     Raises:
         RuntimeError: If enabled=True but prometheus-client is not installed
+        ValueError: If sample_rate is not between 0.0 and 1.0
     """
     from .metrics import _initialize_metrics_impl
 
     global _metrics_instance
-    _metrics_instance = _initialize_metrics_impl(enabled, max_rules)
+    _metrics_instance = _initialize_metrics_impl(enabled, max_rules, sample_rate)
     return _metrics_instance
 
 

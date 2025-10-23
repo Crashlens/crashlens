@@ -1,0 +1,105 @@
+name: Metrics Performance Benchmark
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      iterations:
+        description: 'Number of iterations per config'
+        required: false
+        default: '10'
+      test_sampling:
+        description: 'Test 10% sampling (true/false)'
+        required: false
+        default: 'true'
+
+jobs:
+  benchmark:
+    name: Run Metrics Benchmark on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies
+        run: |
+          poetry --version
+          poetry install --with metrics
+      
+      - name: Generate 100k trace test file
+        run: |
+          echo "Generating test file..."
+          poetry run python scripts/generate_large_test.py --traces 100000
+          echo "Test file info:"
+          ls -lh large-test.jsonl
+          wc -l large-test.jsonl
+      
+      - name: Quick validation scan
+        run: |
+          echo "Running quick validation scan..."
+          poetry run crashlens scan large-test.jsonl --format json --report-file validation.json
+          echo "✓ Validation passed"
+      
+      - name: Run benchmark
+        run: |
+          echo "Starting benchmark..."
+          ITERATIONS=${{ github.event.inputs.iterations }}
+          TEST_SAMPLING=${{ github.event.inputs.test_sampling }}
+          
+          if [ "$TEST_SAMPLING" = "false" ]; then
+            poetry run python scripts/benchmark_100k_proper.py \
+              --iterations $ITERATIONS \
+              --no-sampling-test \
+              | tee benchmark_results.txt
+          else
+            poetry run python scripts/benchmark_100k_proper.py \
+              --iterations $ITERATIONS \
+              | tee benchmark_results.txt
+          fi
+      
+      - name: Display results summary
+        if: always()
+        run: |
+          echo "=== BENCHMARK RESULTS SUMMARY ==="
+          if [ -f benchmark_results.txt ]; then
+            # Extract key lines
+            grep -E "(Baseline|With metrics|Overhead|PASS|FAIL)" benchmark_results.txt || true
+          else
+            echo "❌ No results file found"
+          fi
+      
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: |
+            benchmark_results.txt
+            large-test.jsonl
+            validation.json
+          retention-days: 30
+      
+      - name: Check if benchmark passed
+        run: |
+          if grep -q "✗ FAIL" benchmark_results.txt; then
+            echo "❌ Benchmark FAILED - overhead exceeds threshold"
+            exit 1
+          elif grep -q "✓ PASS" benchmark_results.txt; then
+            echo "✅ Benchmark PASSED - overhead acceptable"
+            exit 0
+          else
+            echo "⚠️  Could not determine benchmark result"
+            exit 1
+          fi

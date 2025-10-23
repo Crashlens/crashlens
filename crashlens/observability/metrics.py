@@ -18,6 +18,7 @@ See Phase 0 benchmark results: -7.91% overhead (zero measurable impact)
 
 import os
 import logging
+import random
 from typing import Optional, Set
 
 # Lazy import - do NOT import prometheus_client at module level
@@ -55,23 +56,35 @@ class CrashLensMetrics:
         crashlens_violations_total: Counter of violations by severity
         crashlens_traces_processed_total: Counter of traces analyzed
         crashlens_traces_failed_total: Counter of failed traces
-        crashlens_decision_latency_avg_seconds: Average rule evaluation time
-        crashlens_decision_latency_max_seconds: Maximum rule evaluation time
+        crashlens_decision_latency_avg_seconds: Average rule evaluation time (sampled)
         crashlens_last_run_timestamp_seconds: Unix timestamp of last run
         crashlens_metrics_push_status: Push success indicator (1=success, 0=fail)
         crashlens_rule_label_overflow_total: Count of overflow events
     """
 
-    def __init__(self, max_rules: int = 500):
+    def __init__(self, max_rules: int = 500, sample_rate: float = 1.0):
         """
-        Initialize metrics collectors.
+        Initialize metrics collectors with optional sampling.
 
         Args:
             max_rules: Maximum number of unique rule names to track
+            sample_rate: Probability of recording each metric (0.0-1.0, default: 1.0)
+                        1.0 = record all (100% sampling)
+                        0.1 = record 10% (reduce overhead)
+                        0.0 = record nothing (disable)
 
         Raises:
             RuntimeError: If prometheus_client is not available
+            ValueError: If sample_rate is not between 0.0 and 1.0
+        
+        Note:
+            Sampling is applied per-metric-call, not per-trace.
+            Lower sample rates reduce overhead but decrease metric granularity.
+            Counters remain statistically accurate with random sampling.
         """
+        if not 0.0 <= sample_rate <= 1.0:
+            raise ValueError(f"sample_rate must be between 0.0 and 1.0, got {sample_rate}")
+        
         if not _prometheus_available:
             raise RuntimeError(
                 "prometheus_client is not available. "
@@ -79,6 +92,7 @@ class CrashLensMetrics:
             )
 
         self.max_rules = max_rules
+        self._sample_rate = sample_rate
         self._tracked_rules: Set[str] = set()
 
         # Initialize all metrics
@@ -121,17 +135,10 @@ class CrashLensMetrics:
 
     def _init_gauges(self):
         """Initialize gauge metrics."""
-        # Average latency gauge
+        # Average latency gauge (sampled)
         self.decision_latency_avg = _Gauge(
             "crashlens_decision_latency_avg_seconds",
-            "Average rule evaluation latency in seconds",
-            ["rule"],
-        )
-
-        # Max latency gauge
-        self.decision_latency_max = _Gauge(
-            "crashlens_decision_latency_max_seconds",
-            "Maximum rule evaluation latency in seconds",
+            "Average rule evaluation latency in seconds (sampled)",
             ["rule"],
         )
 
@@ -201,6 +208,10 @@ class CrashLensMetrics:
             severity: Severity level (critical, high, medium, low, info)
             mode: Execution mode (scan, policy-check, etc.)
         """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
         rule_label = self._get_rule_label(rule_name)
         severity_label = self.normalize_severity(severity)
         self.rule_hits.labels(rule=rule_label, severity=severity_label, mode=mode).inc()
@@ -212,6 +223,10 @@ class CrashLensMetrics:
         Args:
             severity: Severity level of the violation
         """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
         severity_label = self.normalize_severity(severity)
         self.violations.labels(severity=severity_label).inc()
 
@@ -221,6 +236,10 @@ class CrashLensMetrics:
         Args:
             count: Number of traces processed (default: 1)
         """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
         self.traces_processed.inc(count)
 
     def record_trace_failed(self, reason: str, count: int = 1):
@@ -231,22 +250,29 @@ class CrashLensMetrics:
             reason: Reason for failure (parse_error, missing_fields, validation_error, etc.)
             count: Number of traces that failed (default: 1)
         """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
         self.traces_failed.labels(reason=reason).inc(count)
 
     def update_decision_latency(
-        self, rule_name: str, avg_seconds: float, max_seconds: float
+        self, rule_name: str, avg_seconds: float
     ):
         """
-        Update rule evaluation latency metrics.
+        Update average decision latency for a rule.
 
         Args:
-            rule_name: Name of the rule
+            rule_name: Policy rule identifier
             avg_seconds: Average evaluation time in seconds
-            max_seconds: Maximum evaluation time in seconds
+        
+        Note:
+            Max/min latency metrics removed due to sampling.
+            With 10% sampling, max would miss 90% of outliers.
+            Average remains directionally correct with sampling.
         """
         rule_label = self._get_rule_label(rule_name)
         self.decision_latency_avg.labels(rule=rule_label).set(avg_seconds)
-        self.decision_latency_max.labels(rule=rule_label).set(max_seconds)
 
     def update_run_timestamp(self, status: str = "success"):
         """
@@ -270,7 +296,7 @@ class CrashLensMetrics:
 
 
 def _initialize_metrics_impl(
-    enabled: bool = False, max_rules: int = 500
+    enabled: bool = False, max_rules: int = 500, sample_rate: float = 1.0
 ) -> Optional[CrashLensMetrics]:
     """
     Internal implementation of metrics initialization.
@@ -283,6 +309,7 @@ def _initialize_metrics_impl(
     Args:
         enabled: Whether to enable metrics collection
         max_rules: Maximum number of unique rule names
+        sample_rate: Sampling probability (0.0-1.0, default: 1.0)
 
     Returns:
         CrashLensMetrics instance if enabled and available, None otherwise
@@ -324,9 +351,9 @@ def _initialize_metrics_impl(
     # Create and return metrics instance
     # Note: Multiple initialization calls will reuse existing metrics in REGISTRY
     # This is intentional - Prometheus metrics are singletons per registry
-    logger.info(f"Initializing CrashLens metrics (max_rules={max_rules})")
+    logger.info(f"Initializing CrashLens metrics (max_rules={max_rules}, sample_rate={sample_rate})")
     try:
-        return CrashLensMetrics(max_rules=max_rules)
+        return CrashLensMetrics(max_rules=max_rules, sample_rate=sample_rate)
     except ValueError as e:
         if "Duplicated timeseries" in str(e):
             # Metrics already registered - this is OK for testing

@@ -389,12 +389,10 @@ class PolicyEngine:
         for rule_name, stats in self._rule_stats.items():
             if stats['count'] > 0:
                 avg_latency = stats['sum'] / stats['count']
-                max_latency = stats['max']
                 
                 metrics.update_decision_latency(
                     rule_name=rule_name,
-                    avg_seconds=avg_latency,
-                    max_seconds=max_latency
+                    avg_seconds=avg_latency
                 )
     
     def get_summary(self) -> Dict[str, Any]:

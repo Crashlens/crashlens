@@ -682,6 +682,8 @@ def cli():
               help='Job name for pushgateway metrics grouping')
 @click.option('--metrics-max-rules', type=int, default=500, envvar='CRASHLENS_METRICS_MAX_RULES',
               help='Maximum unique rule names before overflow protection')
+@click.option('--metrics-sample-rate', type=float, default=1.0, envvar='CRASHLENS_METRICS_SAMPLE_RATE',
+              help='Metrics sampling rate (0.0-1.0, default: 1.0). Lower values reduce overhead. Recommended: 0.1 for production.')
 def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
          summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
@@ -691,7 +693,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
          report_dir: Optional[Path] = None, report_file: Optional[Path] = None, log_paths: Optional[str] = None,
          force: bool = False, flatten: bool = False,
          push_metrics: bool = False, pushgateway_url: str = 'http://localhost:9091', 
-         metrics_job: str = 'crashlens_scan', metrics_max_rules: int = 500) -> str:
+         metrics_job: str = 'crashlens_scan', metrics_max_rules: int = 500, metrics_sample_rate: float = 1.0) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -723,9 +725,11 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
             from crashlens.observability import initialize_metrics
             metrics = initialize_metrics(
                 enabled=True,
-                max_rules=metrics_max_rules
+                max_rules=metrics_max_rules,
+                sample_rate=metrics_sample_rate
             )
-            click.echo("✓ Metrics collection enabled", err=True)
+            sample_pct = int(metrics_sample_rate * 100)
+            click.echo(f"✓ Metrics collection enabled ({sample_pct}% sampling)", err=True)
         except RuntimeError as e:
             click.echo(f"⚠️  Warning: {e}", err=True)
             click.echo("   Continuing without metrics...", err=True)

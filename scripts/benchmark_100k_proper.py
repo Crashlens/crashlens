@@ -12,22 +12,37 @@ import time
 import subprocess
 import statistics
 import sys
+import argparse
 from pathlib import Path
 
 
-def run_single_scan(enable_metrics: bool) -> float:
-    """Run single scan and return execution time."""
+def run_single_scan(enable_metrics: bool, sample_rate: float = 1.0) -> float:
+    """Run single scan and return execution time.
+    
+    Args:
+        enable_metrics: Enable metrics collection
+        sample_rate: Sampling rate (0.0-1.0, only used if enable_metrics=True)
+    
+    Returns:
+        Elapsed time in seconds
+    """
+    
+    # Use temp report file to avoid prompts
+    import tempfile
+    temp_report = tempfile.mktemp(suffix=".json")
     
     cmd = [
         "poetry", "run", "crashlens", "scan",
         "large-test.jsonl",
-        "--format", "json"
+        "--format", "json",
+        "--report-file", temp_report
     ]
     
     if enable_metrics:
         cmd.extend([
             "--push-metrics",
-            "--pushgateway-url", "http://localhost:9091"
+            "--pushgateway-url", "http://localhost:9091",
+            "--metrics-sample-rate", str(sample_rate)
         ])
     
     start = time.time()
@@ -38,6 +53,13 @@ def run_single_scan(enable_metrics: bool) -> float:
     )
     elapsed = time.time() - start
     
+    # Clean up temp file
+    try:
+        import os
+        os.remove(temp_report)
+    except:
+        pass
+    
     if result.returncode != 0:
         print(f"ERROR: Scan failed with code {result.returncode}")
         print(result.stderr)
@@ -46,8 +68,16 @@ def run_single_scan(enable_metrics: bool) -> float:
     return elapsed
 
 
-def run_benchmark(iterations: int = 10):
-    """Run full benchmark with statistics."""
+def run_benchmark(iterations: int = 10, test_sampling: bool = True):
+    """Run benchmark with baseline and metrics configurations.
+    
+    Args:
+        iterations: Number of iterations per configuration
+        test_sampling: If True, test both 100% and 10% sampling
+    
+    Returns:
+        True if all tested configurations pass, False otherwise
+    """
     
     print("=" * 70)
     print("CrashLens Metrics Overhead Benchmark (100k traces)")
@@ -70,8 +100,8 @@ def run_benchmark(iterations: int = 10):
     
     print()
     
-    # With metrics (metrics enabled)
-    print(f"[2/2] Running with metrics ({iterations} iterations)...")
+    # With metrics - 100% sampling
+    print(f"[2/3] Running with metrics 100% sampling ({iterations} iterations)...")
     metrics_times = []
     for i in range(iterations):
         elapsed = run_single_scan(enable_metrics=True)
@@ -79,6 +109,19 @@ def run_benchmark(iterations: int = 10):
         print(f"  Iteration {i+1}: {elapsed:.3f}s")
     
     print()
+    
+    # With metrics - 10% sampling (if test_sampling enabled)
+    sampled_times = []
+    
+    if test_sampling:
+        print(f"[3/3] Running with metrics 10% sampling ({iterations} iterations)...")
+        for i in range(iterations):
+            elapsed = run_single_scan(enable_metrics=True, sample_rate=0.1)
+            sampled_times.append(elapsed)
+            print(f"  Iteration {i+1}: {elapsed:.3f}s")
+        
+        print()
+    
     print("=" * 70)
     print("RESULTS")
     print("=" * 70)
@@ -98,6 +141,15 @@ def run_benchmark(iterations: int = 10):
     overhead_ms = overhead_abs * 1000
     overhead_pct = (overhead_abs / baseline_avg) * 100
     
+    # Calculate sampled statistics if applicable
+    sampled_avg = 0
+    sampled_stdev = 0
+    sampled_overhead = 0
+    if test_sampling and sampled_times:
+        sampled_avg = statistics.mean(sampled_times)
+        sampled_stdev = statistics.stdev(sampled_times)
+        sampled_overhead = ((sampled_avg - baseline_avg) / baseline_avg) * 100
+    
     # Report
     print()
     print(f"Baseline (metrics disabled):")
@@ -111,6 +163,14 @@ def run_benchmark(iterations: int = 10):
     print(f"Overhead:")
     print(f"  Absolute: {overhead_abs:.3f}s ({overhead_ms:.1f}ms)")
     print(f"  Percentage: {overhead_pct:.2f}%")
+    
+    # Display sampled results if tested
+    if test_sampling and sampled_times:
+        print()
+        print(f"With metrics (10% sampling):")
+        print(f"  Average: {sampled_avg:.3f}s ± {sampled_stdev:.3f}s")
+        print(f"  Overhead: {sampled_overhead:.2f}%")
+    
     print()
     
     # Validate baseline
@@ -123,21 +183,47 @@ def run_benchmark(iterations: int = 10):
     print("DECISION GATE (10% threshold)")
     print("=" * 70)
     
-    if overhead_pct > 10.0:
-        print(f"✗ FAIL: Overhead {overhead_pct:.2f}% exceeds 10% threshold")
-        print()
-        print("ACTION REQUIRED:")
-        print("1. Implement sampling (--metrics-sample-rate)")
-        print("2. Re-run benchmark with sampling enabled")
-        print("3. If still >10%, abort feature")
-        return False
+    # Decision based on 10% sampling (if tested)
+    if test_sampling and sampled_times:
+        if sampled_overhead > 10.0:
+            print(f"\n✗ FAIL: Even 10% sampling ({sampled_overhead:.2f}%) exceeds threshold")
+            print("ACTION: Abort feature or try 5% sampling")
+            return False
+        else:
+            print(f"\n✓ PASS: 10% sampling ({sampled_overhead:.2f}%) is acceptable")
+            print("RECOMMENDATION: Use --metrics-sample-rate 0.1 in production")
+            return True
     else:
-        print(f"✓ PASS: Overhead {overhead_pct:.2f}% is acceptable")
-        print()
-        print("Proceed to Hour 3 (Dashboard Script)")
-        return True
+        # Fallback to 100% sampling decision
+        if overhead_pct > 10.0:
+            print(f"\n✗ FAIL: Overhead {overhead_pct:.2f}% exceeds 10% threshold")
+            return False
+        else:
+            print(f"\n✓ PASS: Overhead {overhead_pct:.2f}% is acceptable")
+            return True
 
 
 if __name__ == "__main__":
-    success = run_benchmark(iterations=10)
+    parser = argparse.ArgumentParser(
+        description="Benchmark CrashLens metrics overhead"
+    )
+    parser.add_argument(
+        '--iterations',
+        type=int,
+        default=10,
+        help='Number of iterations per configuration (default: 10)'
+    )
+    parser.add_argument(
+        '--no-sampling-test',
+        action='store_true',
+        help='Skip 10%% sampling test (only test baseline + 100%%)'
+    )
+    
+    args = parser.parse_args()
+    
+    success = run_benchmark(
+        iterations=args.iterations,
+        test_sampling=not args.no_sampling_test
+    )
+    
     sys.exit(0 if success else 1)
