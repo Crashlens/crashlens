@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry --version
-          poetry install --with metrics
+          poetry install --extras metrics
       
       - name: Generate 100k trace test file
         run: |
