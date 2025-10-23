@@ -1142,15 +1142,78 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
     parser = LangfuseParser()
     traces = {}
     
+    # Inside scan() function, replace the existing demo-handling block with this:
+
     try:
         if demo:
-            # Use built-in demo data
-            demo_file = Path(__file__).parent.parent / "examples-logs" / "demo-logs.jsonl"
-            if not demo_file.exists():
-                click.echo("❌ Error: Demo file not found. Please check installation.")
-                sys.exit(1)
-            click.echo("🎬 Running analysis on built-in demo data...")
-            traces = parser.parse_file(demo_file) or {}
+            click.echo("🎬 Running CrashLens in demo mode — generating sample reports for all formats...\n")
+
+            # Create a dedicated demo directory
+            demo_dir = Path.cwd() / "demo"
+            demo_dir.mkdir(exist_ok=True)
+
+            # Build a base sample dataset simulating detections
+            sample_traces = {"trace123": [{"id": "event1", "model": "gpt-4", "usage": 320}]}
+            sample_detections = [
+                {
+                    "trace_id": "trace123",
+                    "type": "retry_loop",
+                    "description": "Repeated GPT-4 calls due to missing retry break condition.",
+                    "waste_cost": 0.45,
+                    "waste_tokens": 160,
+                    "severity": "medium",
+                    "timestamp": datetime.now().isoformat(),
+                },
+                {
+                    "trace_id": "trace456",
+                    "type": "overkill_model",
+                    "description": "Used GPT-4 for a simple summarization prompt.",
+                    "waste_cost": 0.79,
+                    "waste_tokens": 275,
+                    "severity": "low",
+                    "timestamp": datetime.now().isoformat(),
+                },
+            ]
+
+            model_pricing = {
+                "gpt-4": {"input": 0.03, "output": 0.06},
+                "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
+            }
+
+            # 1. Markdown Report
+            markdown_report = demo_dir / "demo_report_markdown.md"
+            md_formatter = MarkdownFormatter()
+            md_output = md_formatter.format(sample_detections, sample_traces, model_pricing, summary_only=False)
+            markdown_report.write_text(md_output, encoding="utf-8")
+
+            # 2. Slack Report (as readable text)
+            slack_report = demo_dir / "demo_report_slack.txt"
+            slack_formatter = SlackFormatter()
+            slack_output = slack_formatter.format(sample_detections, sample_traces, model_pricing)
+            slack_report.write_text(slack_output, encoding="utf-8")
+
+            # 3. JSON Report (for integrations)
+            json_report = demo_dir / "demo_report.json"
+            json_output = json.dumps(
+                {"detections": sample_detections, "summary": {"total": 2, "detectors": ["retry_loop", "overkill_model"]}},
+                indent=2
+            )
+            json_report.write_text(json_output, encoding="utf-8")
+
+            # Respond according to user-chosen output format
+            if output_format == "markdown":
+                click.echo(f"[OK] Demo Markdown report written to {markdown_report}")
+                click.echo(md_output)
+            elif output_format == "json":
+                click.echo(f"[OK] Demo JSON report written to {json_report}")
+                click.echo(json_output)
+            else:
+                click.echo(f"[OK] Demo Slack report written to {slack_report}")
+                click.echo(slack_output)
+
+            click.echo("\n📂 All demo reports saved inside the 'demo/' directory.")
+            return
+
         
         elif stdin:
             # Read from standard input
