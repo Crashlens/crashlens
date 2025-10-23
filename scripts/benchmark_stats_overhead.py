@@ -32,8 +32,8 @@ def benchmark_scan(enable_stats: bool, iterations: int = 3):
     for i in range(iterations):
         start = time.time()
         
-        # Run scan command with demo mode (uses built-in sample data)
-        result = runner.invoke(cli, ['scan', '--demo'])
+        # Run scan command (adjust path to your demo logs)
+        result = runner.invoke(cli, ['scan', 'examples-logs/demo-logs.jsonl'])
         
         elapsed = time.time() - start
         times.append(elapsed)
