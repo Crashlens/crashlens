@@ -96,6 +96,15 @@ jobs:
       
       - name: Check if benchmark passed
         run: |
+          if [ ! -f benchmark_results.txt ]; then
+            echo "❌ ERROR: benchmark_results.txt not found"
+            exit 1
+          fi
+          
+          echo "=== Checking benchmark results ==="
+          cat benchmark_results.txt | tail -20
+          echo "=================================="
+          
           if grep -q "✗ FAIL" benchmark_results.txt; then
             echo "❌ Benchmark FAILED - overhead exceeds threshold"
             exit 1
@@ -104,5 +113,6 @@ jobs:
             exit 0
           else
             echo "⚠️  Could not determine benchmark result"
+            echo "Expected to find either '✓ PASS' or '✗ FAIL' in output"
             exit 1
           fi
