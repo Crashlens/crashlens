@@ -1,19 +1,19 @@
 name: Metrics Performance Benchmark
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:  # Manual trigger
-    inputs:
-      iterations:
-        description: 'Number of iterations per config'
-        required: false
-        default: '10'
-      test_sampling:
-        description: 'Test 10% sampling (true/false)'
-        required: false
-        default: 'true'
+    push:
+        branches:
+        - main
+    workflow_dispatch:  # Manual trigger only
+        inputs:
+            iterations:
+                description: 'Number of iterations per config'
+                required: false
+                default: '10'
+            test_sampling:
+                description: 'Test 10% sampling (true/false)'
+                required: false
+                default: 'true'
 
 jobs:
   benchmark:
@@ -58,8 +58,8 @@ jobs:
       - name: Run benchmark
         run: |
           echo "Starting benchmark..."
-          ITERATIONS=${{ github.event.inputs.iterations || '10' }}
-          TEST_SAMPLING=${{ github.event.inputs.test_sampling || 'true' }}
+          ITERATIONS=${{ github.event.inputs.iterations }}
+          TEST_SAMPLING=${{ github.event.inputs.test_sampling }}
           
           if [ "$TEST_SAMPLING" = "false" ]; then
             poetry run python scripts/benchmark_100k_proper.py \
@@ -84,7 +84,7 @@ jobs:
           fi
       
       - name: Upload benchmark artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # ← CHANGED FROM v3 TO v4
         if: always()
         with:
           name: benchmark-results-${{ github.run_number }}
