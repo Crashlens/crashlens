@@ -1,5 +1,0 @@
-{"model": "gpt-4", "prompt": "Email [EMAIL_REDACTED] for details", "completion": "ok", "tokens": 25}
-{"model": "gpt-4", "prompt": "Call me at ([PHONE_REDACTED]", "completion": "ok", "tokens": 30}
-{"model": "gpt-4", "prompt": "My SSN is [SSN_REDACTED]", "completion": "ok", "tokens": 20}
-{"model": "gpt-3.5-turbo", "prompt": "Ship to [ADDRESS_REDACTED]", "completion": "ok", "tokens": 15}
-{"model": "gpt-4", "prompt": "Use API key [API_KEY_REDACTED]", "completion": "ok", "tokens": 40}

@@ -1,0 +1,205 @@
+# CrashLens Metrics Configuration - Advanced Example
+#
+# This example demonstrates all available configuration options,
+# including per-rule sampling for high-cardinality environments.
+#
+# Use this when you have:
+# - >500 unique policy rules
+# - High-frequency rules causing overhead
+# - Need fine-grained control over metrics collection
+
+metrics:
+  # ============================================================
+  # Core Settings
+  # ============================================================
+  
+  # Enable/disable metrics collection
+  # Set to false to completely disable (zero overhead)
+  enabled: true
+  
+  # ============================================================
+  # Sampling Configuration
+  # ============================================================
+  
+  sampling:
+    # Global sampling rate (0.0-1.0)
+    # Applied to all rules unless overridden in per_rule
+    # 0.1 = 10% sampling (recommended for production)
+    rate: 0.1
+    
+    # Per-rule sampling overrides
+    # Use this to:
+    # - Sample high-frequency rules at LOWER rates (reduce overhead)
+    # - Sample critical rules at HIGHER rates (better visibility)
+    # - Disable specific rules completely (rate: 0.0)
+    per_rule:
+      # ========================================================
+      # High-Frequency Rules (sample less to reduce overhead)
+      # ========================================================
+      
+      # Very frequent violations (>10,000 per scan)
+      rate_limit_violation: 0.01       # 1% sampling
+      prompt_too_long: 0.01             # 1% sampling
+      token_count_exceeded: 0.01        # 1% sampling
+      
+      # Frequent violations (1,000-10,000 per scan)
+      model_overkill: 0.05              # 5% sampling
+      inefficient_prompt: 0.05          # 5% sampling
+      
+      # ========================================================
+      # Medium-Frequency Rules (use default or moderate sampling)
+      # ========================================================
+      
+      # Moderate violations (100-1,000 per scan)
+      retry_loop_detected: 0.2          # 20% sampling
+      fallback_storm: 0.2               # 20% sampling
+      
+      # ========================================================
+      # Critical/Rare Rules (sample more for visibility)
+      # ========================================================
+      
+      # Security violations (always capture)
+      security_breach: 1.0              # 100% sampling (no sampling)
+      unauthorized_access: 1.0          # 100% sampling
+      
+      # Financial violations (always capture)
+      cost_overrun: 1.0                 # 100% sampling
+      budget_exceeded: 1.0              # 100% sampling
+      
+      # Compliance violations (always capture)
+      pii_exposure: 1.0                 # 100% sampling
+      gdpr_violation: 1.0               # 100% sampling
+      
+      # ========================================================
+      # Development/Debug Rules (higher sampling for testing)
+      # ========================================================
+      
+      test_rule_development: 0.5        # 50% for active development
+      experimental_detector: 0.5        # 50% for validation
+      
+      # ========================================================
+      # Disabled Rules (opt-out specific rules)
+      # ========================================================
+      
+      deprecated_rule: 0.0              # 0% = completely disabled
+      noisy_rule_to_ignore: 0.0         # 0% = completely disabled
+  
+  # ============================================================
+  # Pushgateway Configuration (for push mode)
+  # ============================================================
+  
+  pushgateway:
+    # Pushgateway URL
+    # Examples:
+    #   - Local: http://localhost:9091
+    #   - Docker: http://pushgateway:9091
+    #   - Kubernetes: http://pushgateway.monitoring.svc.cluster.local:9091
+    url: "http://prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+    
+    # Job name for metrics grouping
+    # Use different names for:
+    #   - Different environments (dev, staging, prod)
+    #   - Different teams
+    #   - Different applications
+    # Examples:
+    #   - crashlens-prod
+    #   - crashlens-dev-team-a
+    #   - crashlens-ci-pipeline
+    job: "crashlens-production-team-ai"
+    
+    # Push timeout in seconds (1-60)
+    # Increase for slow networks or busy Pushgateway
+    # Decrease for fail-fast behavior
+    timeout: 10
+  
+  # ============================================================
+  # HTTP Server Configuration (for scraping mode)
+  # ============================================================
+  
+  http_server:
+    # Enable HTTP server mode
+    # Requires: export CRASHLENS_ALLOW_HTTP_METRICS=true
+    enabled: false
+    
+    # Bind address
+    # Security recommendations:
+    #   - 127.0.0.1: Local only (most secure)
+    #   - 0.0.0.0: All interfaces (use with firewall/VPN)
+    #   - Pod IP: Kubernetes pod (service mesh handles security)
+    addr: "127.0.0.1"
+    
+    # Port number (1024-65535)
+    # Must be unprivileged port (>= 1024)
+    # Common choices: 9090, 9091, 8080
+    port: 9090
+
+# ============================================================
+# Example: Choosing Sampling Rates
+# ============================================================
+#
+# Rule Frequency Guide:
+# - >10,000/scan: Use 0.01 (1%)
+# - 1,000-10,000/scan: Use 0.05 (5%)
+# - 100-1,000/scan: Use 0.1-0.2 (10-20%)
+# - <100/scan: Use 0.5-1.0 (50-100%)
+# - Critical rules: Always use 1.0 (100%)
+#
+# Memory Impact:
+# - Each rule adds ~80 bytes to metrics storage
+# - 500 rules with per-rule sampling: ~40KB
+# - 1000 rules: ~80KB (still acceptable)
+#
+# Performance Impact:
+# - Per-rule lookup: O(1) hash table lookup (~10ns)
+# - Sampling check: random() call (~50ns)
+# - Total overhead per metric: <100ns
+#
+# ============================================================
+# Migration from CLI Flags
+# ============================================================
+#
+# CLI:
+#   crashlens scan logs.jsonl \
+#     --push-metrics \
+#     --pushgateway-url http://prom:9091 \
+#     --metrics-sample-rate 0.1
+#
+# Config:
+#   metrics:
+#     enabled: true
+#     sampling:
+#       rate: 0.1
+#     pushgateway:
+#       url: "http://prom:9091"
+#
+# Note: CLI flags override config file values
+#
+# ============================================================
+# Precedence Rules
+# ============================================================
+#
+# Highest to Lowest:
+# 1. CLI flags (--push-metrics, --metrics-sample-rate, etc.)
+# 2. Environment variables (CRASHLENS_PUSH_METRICS, etc.)
+# 3. Config file (this file)
+# 4. Defaults (defined in code)
+#
+# Example:
+#   Config file: rate: 0.1
+#   CLI flag: --metrics-sample-rate 0.5
+#   Result: rate = 0.5 (CLI wins)
+#
+# ============================================================
+# Validation
+# ============================================================
+#
+# Validate this config file:
+#   crashlens config validate-metrics metrics-config-advanced.yaml
+#
+# Expected output:
+#   ✓ Config is valid
+#   • Global sampling: 10.0%
+#   • Per-rule overrides: 15 rules
+#   • Pushgateway: http://...
+#
+# ============================================================

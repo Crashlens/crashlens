@@ -21,6 +21,7 @@ jsonschema = "^4.0.0"
 
 # Optional dependencies for metrics collection
 prometheus-client = {version = "^0.20.0", optional = true}
+pydantic = "^2.12.3"
 
 [tool.poetry.extras]
 metrics = ["prometheus-client"]

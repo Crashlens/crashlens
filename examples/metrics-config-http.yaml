@@ -1,0 +1,134 @@
+# CrashLens Metrics Configuration - HTTP Server Mode Example
+#
+# This example shows HTTP server mode configuration for exposing metrics
+# to Prometheus via scraping. Ideal for Kubernetes pods and long-running processes.
+#
+# ⚠️ SECURITY NOTICE:
+# HTTP server mode requires explicit opt-in via environment variable:
+#   export CRASHLENS_ALLOW_HTTP_METRICS=true
+#
+# Usage:
+#   1. Set environment variable: export CRASHLENS_ALLOW_HTTP_METRICS=true
+#   2. Copy this file to a standard location (see metrics-config-push.yaml)
+#   3. Run: crashlens scan logs.jsonl
+#   4. Prometheus scrapes from http://localhost:9090/metrics
+
+metrics:
+  # Enable metrics collection
+  enabled: true
+  
+  # Sampling configuration
+  sampling:
+    # Global sampling rate (0.0-1.0)
+    # Start with 10% and adjust based on overhead
+    rate: 0.1
+    
+    # Per-rule sampling (optional)
+    per_rule: {}
+  
+  # Pushgateway configuration (disabled for HTTP mode)
+  pushgateway:
+    url: "http://localhost:9091"
+    job: "crashlens-scan"
+    timeout: 5
+  
+  # HTTP server configuration (enabled for scraping mode)
+  http_server:
+    # Enable HTTP server mode
+    enabled: true
+    
+    # Bind address (default: 127.0.0.1)
+    # ⚠️ SECURITY: Keep as 127.0.0.1 for localhost-only access
+    # Only change to 0.0.0.0 if behind a firewall/VPN
+    addr: "127.0.0.1"
+    
+    # Port number (1024-65535, default: 9090)
+    # Must be unprivileged port (>= 1024)
+    port: 9090
+
+# ============================================================
+# Security Best Practices:
+# ============================================================
+#
+# ✓ DO:
+#   - Use 127.0.0.1 for local-only access
+#   - Use Kubernetes service mesh for pod access
+#   - Use reverse proxy with authentication
+#   - Use VPN for remote access
+#
+# ✗ DON'T:
+#   - Bind to 0.0.0.0 on public internet
+#   - Expose port directly without authentication
+#   - Use privileged ports (<1024)
+#
+# ============================================================
+# Kubernetes Example:
+# ============================================================
+#
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: crashlens-analyzer
+#   annotations:
+#     prometheus.io/scrape: "true"
+#     prometheus.io/port: "9090"
+#     prometheus.io/path: "/metrics"
+# spec:
+#   containers:
+#   - name: crashlens
+#     image: crashlens:latest
+#     env:
+#     - name: CRASHLENS_ALLOW_HTTP_METRICS
+#       value: "true"
+#     ports:
+#     - containerPort: 9090
+#       name: metrics
+#
+# ============================================================
+# Prometheus Scrape Config:
+# ============================================================
+#
+# scrape_configs:
+#   - job_name: 'crashlens'
+#     static_configs:
+#       - targets: ['localhost:9090']
+#     scrape_interval: 30s
+#
+# ============================================================
+# Quick Start:
+# ============================================================
+#
+# 1. Enable HTTP mode:
+#    export CRASHLENS_ALLOW_HTTP_METRICS=true
+#
+# 2. Run CrashLens:
+#    crashlens scan logs.jsonl
+#
+# 3. Check health:
+#    curl http://localhost:9090/health
+#
+# 4. View metrics:
+#    curl http://localhost:9090/metrics
+#
+# 5. Set up Prometheus to scrape the endpoint
+#
+# ============================================================
+# Troubleshooting:
+# ============================================================
+#
+# Q: Server won't start - "requires CRASHLENS_ALLOW_HTTP_METRICS=true"?
+# A: This is a security feature. Export the environment variable.
+#
+# Q: Server won't start - "port already in use"?
+# A: Change port to 9091, 9092, etc., or stop the conflicting process.
+#
+# Q: Can't connect from another machine?
+# A: By design! Change addr to "0.0.0.0" only if behind firewall.
+#    Better: Use Kubernetes service mesh or reverse proxy.
+#
+# Q: Metrics not showing in Prometheus?
+# A: Check Prometheus scrape config targets the correct host:port.
+#
+# See docs/HTTP_SERVER_SECURITY.md for complete security guide.
+#
+# ============================================================

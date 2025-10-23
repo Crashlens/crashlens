@@ -84,9 +84,48 @@ report.md
 .copilot/
 
 
-/tests/
+# /tests/
 /custom_reports/
 /detailed_output/
 /sample-logs-reports/
 
 /.crashlens.yaml
+
+# Temporary development/implementation markdown files
+PHASE*.md
+FEATURE_*.md
+TASK_*.md
+HOUR*.md
+*_COMPLETE.md
+*_PROGRESS.md
+*_RESULTS.md
+*_SUMMARY.md
+*_CHECKLIST.md
+READY_TO_COMMIT*.md
+SALVAGE_*.md
+BENCHMARK_*.md
+GRAFANA_*.md
+MANUAL_*.md
+QUICK_TEST*.md
+*_REPORT.md
+!OBSERVABILITY_REPORT.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!SECURITY.md
+!README.md
+
+# Temporary test files
+test-*.jsonl
+!tests/test-*.jsonl
+my-policy.yaml
+!policies/my-policy.yaml
+!examples/my-policy.yaml
+demo_*.py
+crashlens_webhook.py
+benchmark_results.txt
+temp-*.json
+tmp*/
+
+# Large test data
+large-test*.jsonl
+large-test-reports/

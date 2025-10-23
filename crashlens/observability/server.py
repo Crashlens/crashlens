@@ -17,6 +17,7 @@ import os
 import logging
 import threading
 import time
+import socket
 from typing import Optional, Any
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
@@ -108,6 +109,87 @@ def validate_pushgateway_url(url: str) -> str:
         if isinstance(e, ValueError):
             raise
         raise ValueError(f"Failed to parse URL '{url}': {e}") from e
+
+
+def check_port_available(host: str, port: int) -> bool:
+    """
+    Check if a TCP port is available for binding.
+
+    This function attempts to create a socket and bind to the specified
+    host:port combination. If successful, the port is available. If the
+    bind fails with an "address already in use" error, the port is occupied.
+
+    Args:
+        host: IP address or hostname to bind to (e.g., '127.0.0.1', '0.0.0.0')
+        port: TCP port number to check (1-65535)
+
+    Returns:
+        True if port is available (can be bound), False if occupied or on error
+
+    Raises:
+        No exceptions raised - returns False for all error cases
+
+    Example:
+        >>> check_port_available('127.0.0.1', 9090)
+        True  # Port available
+        >>> check_port_available('127.0.0.1', 80)
+        False  # Port 80 likely in use or requires root
+
+    Implementation Notes:
+        - Uses SO_REUSEADDR to avoid TIME_WAIT issues
+        - Closes socket immediately after check
+        - Returns False for permission errors (ports <1024)
+        - Returns False for invalid hostnames
+        - Returns False for any other OSError
+
+    Security Considerations:
+        - Ports <1024 require root/admin privileges
+        - Binding to 0.0.0.0 exposes on all network interfaces
+        - Always prefer localhost (127.0.0.1) for security
+    """
+    sock = None
+    try:
+        # Create TCP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # Allow reuse of address (avoid TIME_WAIT issues)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        # Try to bind to the port
+        sock.bind((host, port))
+        
+        # Success - port is available
+        return True
+        
+    except PermissionError:
+        # Ports <1024 require elevated privileges
+        _metrics_logger.debug(
+            f"Permission denied for port {port} (requires root/admin for ports <1024)"
+        )
+        return False
+        
+    except OSError as e:
+        # Port already in use or invalid host
+        if e.errno == 98:  # Address already in use (Linux)
+            _metrics_logger.debug(f"Port {port} already in use on {host}")
+        elif e.errno == 10048:  # Address already in use (Windows)
+            _metrics_logger.debug(f"Port {port} already in use on {host}")
+        else:
+            _metrics_logger.debug(f"Cannot bind to {host}:{port} - {e}")
+        return False
+        
+    except Exception as e:
+        # Catch-all for unexpected errors
+        _metrics_logger.warning(f"Unexpected error checking port {port}: {e}")
+        return False
+        
+    finally:
+        # Always close the socket
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass  # Ignore errors during cleanup
 
 
 def push_metrics_async(

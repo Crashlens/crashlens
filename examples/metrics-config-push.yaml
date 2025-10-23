@@ -1,0 +1,77 @@
+# CrashLens Metrics Configuration - Push Mode Example
+#
+# This example shows a basic push mode configuration for sending metrics
+# to a Prometheus Pushgateway. Ideal for CI/CD pipelines and short-lived jobs.
+#
+# Usage:
+#   1. Copy this file to one of these locations:
+#      - ./.crashlens/metrics.yaml (project-specific)
+#      - ~/.crashlens/metrics.yaml (user-wide)
+#      - /etc/crashlens/metrics.yaml (system-wide)
+#   2. Or specify explicitly: crashlens scan --metrics-config metrics-push.yaml
+#   3. Run: crashlens scan logs.jsonl
+
+metrics:
+  # Enable metrics collection
+  # Set to false to completely disable metrics
+  enabled: true
+  
+  # Sampling configuration
+  sampling:
+    # Global sampling rate (0.0-1.0)
+    # 0.1 = 10% sampling (recommended for production)
+    # 1.0 = 100% sampling (development/debugging)
+    rate: 0.1
+    
+    # Per-rule sampling overrides (optional)
+    # Use this to sample high-frequency rules at lower rates
+    per_rule: {}
+      # Example:
+      # rate_limit_violation: 0.01  # 1% for very frequent rules
+      # security_breach: 1.0         # 100% for critical rules
+  
+  # Pushgateway configuration (for push mode)
+  pushgateway:
+    # Pushgateway URL (default: http://localhost:9091)
+    # Change this to your Pushgateway instance
+    url: "http://localhost:9091"
+    
+    # Job name for metrics grouping (default: crashlens-policy-check)
+    # Use different job names for different environments
+    job: "crashlens-production"
+    
+    # Push timeout in seconds (1-60, default: 5)
+    # Increase if Pushgateway is slow to respond
+    timeout: 5
+  
+  # HTTP server configuration (disabled for push mode)
+  http_server:
+    enabled: false
+
+# ============================================================
+# Quick Start:
+# ============================================================
+#
+# 1. Start Pushgateway:
+#    docker run -d -p 9091:9091 prom/pushgateway
+#
+# 2. Run CrashLens:
+#    crashlens scan logs.jsonl
+#
+# 3. View metrics:
+#    curl http://localhost:9091/metrics | grep crashlens
+#
+# ============================================================
+# Troubleshooting:
+# ============================================================
+#
+# Q: Metrics not showing up?
+# A: Check Pushgateway is running: curl http://localhost:9091/metrics
+#
+# Q: Want to see more detailed metrics?
+# A: Increase sampling rate to 1.0 (100%)
+#
+# Q: Too many metrics causing cardinality issues?
+# A: Decrease sampling rate to 0.05 (5%) or use per-rule sampling
+#
+# ============================================================
