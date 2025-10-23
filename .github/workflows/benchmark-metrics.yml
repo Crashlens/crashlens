@@ -1,7 +1,10 @@
 name: Metrics Performance Benchmark
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Manual trigger
     inputs:
       iterations:
         description: 'Number of iterations per config'
@@ -55,8 +58,8 @@ jobs:
       - name: Run benchmark
         run: |
           echo "Starting benchmark..."
-          ITERATIONS=${{ github.event.inputs.iterations }}
-          TEST_SAMPLING=${{ github.event.inputs.test_sampling }}
+          ITERATIONS=${{ github.event.inputs.iterations || '10' }}
+          TEST_SAMPLING=${{ github.event.inputs.test_sampling || 'true' }}
           
           if [ "$TEST_SAMPLING" = "false" ]; then
             poetry run python scripts/benchmark_100k_proper.py \
