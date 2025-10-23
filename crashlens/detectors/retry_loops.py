@@ -90,10 +90,7 @@ class RetryLoopDetector:
                         "description": (
                             f"Retry loop detected with {len(group)} identical calls "
                             f"using {sample_model} for the same prompt. "
-<<<<<<< HEAD
                             f"Quality score: {quality_score}/100 (higher is worse). "
-=======
->>>>>>> b79f8e658d4214b5e7d9cbfc57fc5001dfa0e460
                             + (
                                 "Exponential backoff detected."
                                 if has_exponential_backoff
@@ -119,7 +116,6 @@ class RetryLoopDetector:
     def _find_retry_groups(
         self, records: List[Dict[str, Any]]
     ) -> List[List[Dict[str, Any]]]:
-<<<<<<< HEAD
         # FIX: Validate required fields before processing
         valid_records = [
             r for r in records 
@@ -129,8 +125,6 @@ class RetryLoopDetector:
         if not valid_records:
             return []
         
-=======
->>>>>>> b79f8e658d4214b5e7d9cbfc57fc5001dfa0e460
         try:
             sorted_records = sorted(valid_records, key=lambda r: r["startTime"])
         except (TypeError, ValueError):
@@ -143,18 +137,8 @@ class RetryLoopDetector:
         current_group = [sorted_records[0]]
 
         for i in range(1, len(sorted_records)):
-<<<<<<< HEAD
             prev = sorted_records[i - 1]
             curr = sorted_records[i]
-=======
-            prev_record = sorted_records[i - 1]
-            curr_record = sorted_records[i]
-
-            prev_prompt = prev_record.get("prompt")
-            curr_prompt = curr_record.get("prompt")
-            prev_model = prev_record.get("model")
-            curr_model = curr_record.get("model")
->>>>>>> b79f8e658d4214b5e7d9cbfc57fc5001dfa0e460
 
             prev_prompt = prev.get("prompt")
             curr_prompt = curr.get("prompt")
@@ -179,11 +163,7 @@ class RetryLoopDetector:
                 and are_same_model
                 and is_within_retry_interval
             ):
-<<<<<<< HEAD
                 current_group.append(curr)
-=======
-                current_group.append(curr_record)
->>>>>>> b79f8e658d4214b5e7d9cbfc57fc5001dfa0e460
             else:
                 all_groups.append(current_group)
                 current_group = [curr]
@@ -274,7 +254,6 @@ class RetryLoopDetector:
         return 0.0
 
     def _is_valid_retry_loop(self, group: List[Dict[str, Any]]) -> bool:
-<<<<<<< HEAD
         """
         Validates retry characteristics by checking for retry signals.
         Accepts groups that show:
@@ -310,17 +289,6 @@ class RetryLoopDetector:
             increasing_count = sum(
                 1 for i in range(1, len(intervals)) 
                 if intervals[i] >= intervals[i-1] * 0.9
-=======
-        if len(group) < 2:
-            return True
-
-        for i in range(1, len(group)):
-            prev_time = datetime.fromisoformat(
-                group[i - 1]["startTime"].replace("Z", "+00:00")
-            )
-            curr_time = datetime.fromisoformat(
-                group[i]["startTime"].replace("Z", "+00:00")
->>>>>>> b79f8e658d4214b5e7d9cbfc57fc5001dfa0e460
             )
             
             # Accept if 60% of intervals show backoff pattern
@@ -367,34 +335,7 @@ class RetryLoopDetector:
         
         return len(exponential_ratios) >= max(1, len(ratios) * 0.7) and stable_or_increasing
 
-    def _is_exponential_backoff(self, group: List[Dict[str, Any]]) -> bool:
-        """
-        Checks if retry intervals approximately follow exponential backoff
-        (each gap roughly doubles, within a small tolerance).
-        """
-        if len(group) < 3:
-            return False
-
-        try:
-            times = [
-                datetime.fromisoformat(r["startTime"].replace("Z", "+00:00"))
-                for r in group
-            ]
-        except Exception:
-            return False
-
-        intervals = [
-            (times[i] - times[i - 1]).total_seconds() for i in range(1, len(times))
-        ]
-        if len(intervals) < 2:
-            return False
-
-        ratios = [intervals[i] / intervals[i - 1] for i in range(1, len(intervals))]
-
-        return all(1.7 <= r <= 2.3 for r in ratios)
-
     def _has_small_responses(self, group: List[Dict[str, Any]]) -> bool:
-<<<<<<< HEAD
         """
         Check if response sizes are consistently small (indicating retries).
         Uses coefficient of variation (CV) for scale-independent variance check.
@@ -429,19 +370,3 @@ class RetryLoopDetector:
         # FIX: Use coefficient of variation (CV) instead of absolute threshold
         cv = std_dev / avg
         return cv < 0.4  # 40% variation threshold (scale-independent)
-=======
-        completion_tokens = [r.get("completion_tokens", 0) for r in group]
-
-        if not completion_tokens or max(completion_tokens) > 50:
-            return False
-
-        if len(completion_tokens) > 1:
-            avg = sum(completion_tokens) / len(completion_tokens)
-            variance = sum((x - avg) ** 2 for x in completion_tokens) / len(
-                completion_tokens
-            )
-            std_dev = variance**0.5
-            return std_dev < 20
-
-        return True
->>>>>>> b79f8e658d4214b5e7d9cbfc57fc5001dfa0e460
