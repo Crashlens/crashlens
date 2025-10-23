@@ -284,6 +284,7 @@ CrashLens supports Prometheus metrics for monitoring policy enforcement in produ
 
 ### Quick Start
 
+**Option 1: Push Mode (for ephemeral processes like CI/CD)**
 ```bash
 # Install with metrics support
 pip install crashlens[metrics]
@@ -291,12 +292,27 @@ pip install crashlens[metrics]
 # Start pushgateway
 docker run -d -p 9091:9091 prom/pushgateway
 
-# Run with metrics
+# Run with metrics push
 crashlens scan logs.jsonl --push-metrics
 
 # View metrics
 curl http://localhost:9091/metrics | grep crashlens
 ```
+
+**Option 2: HTTP Server Mode (for long-running processes)**
+```bash
+# Enable HTTP server mode (requires explicit opt-in)
+export CRASHLENS_ALLOW_HTTP_METRICS=true
+
+# Run with HTTP server
+crashlens scan logs.jsonl --metrics-http --metrics-port 9090
+
+# Prometheus scrapes from http://localhost:9090/metrics
+```
+
+**When to use each mode:**
+- **Push Mode**: CI/CD pipelines, Lambda functions, short-lived jobs
+- **HTTP Mode**: Kubernetes pods, long-running servers, persistent processes
 
 ### Available Metrics
 
@@ -311,7 +327,7 @@ curl http://localhost:9091/metrics | grep crashlens
 
 ### Configuration
 
-**Via CLI flags:**
+**Push Mode (via CLI flags):**
 ```bash
 crashlens scan logs.jsonl \
   --push-metrics \
@@ -319,12 +335,28 @@ crashlens scan logs.jsonl \
   --metrics-job my-app-policy-check
 ```
 
+**HTTP Server Mode (via CLI flags):**
+```bash
+# Requires: export CRASHLENS_ALLOW_HTTP_METRICS=true
+crashlens scan logs.jsonl \
+  --metrics-http \
+  --metrics-port 9090 \
+  --metrics-addr 127.0.0.1
+```
+
 **Via environment variables:**
 ```bash
+# Push mode
 export CRASHLENS_PUSH_METRICS=true
 export CRASHLENS_PUSHGATEWAY_URL=http://prometheus:9091
+
+# HTTP mode
+export CRASHLENS_ALLOW_HTTP_METRICS=true
+
 crashlens scan logs.jsonl
 ```
+
+**Security Note:** HTTP server mode requires explicit opt-in (`CRASHLENS_ALLOW_HTTP_METRICS=true`) and defaults to localhost-only binding. See [docs/HTTP_SERVER_SECURITY.md](docs/HTTP_SERVER_SECURITY.md) for security best practices.
 
 ### Grafana Dashboard
 

@@ -684,6 +684,12 @@ def cli():
               help='Maximum unique rule names before overflow protection')
 @click.option('--metrics-sample-rate', type=float, default=1.0, envvar='CRASHLENS_METRICS_SAMPLE_RATE',
               help='Metrics sampling rate (0.0-1.0, default: 1.0). Lower values reduce overhead. Recommended: 0.1 for production.')
+@click.option('--metrics-http', is_flag=True, default=False, envvar='CRASHLENS_METRICS_HTTP',
+              help='⚠️  Enable HTTP server for Prometheus scraping (requires CRASHLENS_ALLOW_HTTP_METRICS=true)')
+@click.option('--metrics-port', type=int, default=9090, envvar='CRASHLENS_METRICS_PORT',
+              help='HTTP server port for metrics (default: 9090, range: 1024-65535)')
+@click.option('--metrics-addr', default='127.0.0.1', envvar='CRASHLENS_METRICS_ADDR',
+              help='HTTP server bind address (default: 127.0.0.1 localhost-only, use 0.0.0.0 to expose on network)')
 def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
          summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
@@ -693,7 +699,8 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
          report_dir: Optional[Path] = None, report_file: Optional[Path] = None, log_paths: Optional[str] = None,
          force: bool = False, flatten: bool = False,
          push_metrics: bool = False, pushgateway_url: str = 'http://localhost:9091', 
-         metrics_job: str = 'crashlens_scan', metrics_max_rules: int = 500, metrics_sample_rate: float = 1.0) -> str:
+         metrics_job: str = 'crashlens_scan', metrics_max_rules: int = 500, metrics_sample_rate: float = 1.0,
+         metrics_http: bool = False, metrics_port: int = 9090, metrics_addr: str = '127.0.0.1') -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -718,8 +725,35 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
     user_report_dir = report_dir
     user_report_file = report_file
 
+    # Validate HTTP server mode security requirements
+    if metrics_http:
+        # Check for explicit opt-in
+        if os.getenv('CRASHLENS_ALLOW_HTTP_METRICS') != 'true':
+            click.echo("❌ ERROR: HTTP server mode requires explicit opt-in", err=True)
+            click.echo("   Set environment variable: CRASHLENS_ALLOW_HTTP_METRICS=true", err=True)
+            click.echo("   ⚠️  WARNING: This exposes metrics via HTTP endpoint", err=True)
+            click.echo("   Read security docs: docs/HTTP_SERVER_SECURITY.md", err=True)
+            sys.exit(1)
+        
+        # Check mutual exclusivity with push mode
+        if push_metrics:
+            click.echo("❌ ERROR: Cannot use both --push-metrics and --metrics-http", err=True)
+            click.echo("   Choose one metrics mode:", err=True)
+            click.echo("   • --push-metrics: Push to Pushgateway (for ephemeral processes)", err=True)
+            click.echo("   • --metrics-http: HTTP server for scraping (for persistent processes)", err=True)
+            sys.exit(1)
+        
+        # Validate port range
+        if metrics_port < 1024 or metrics_port > 65535:
+            click.echo(f"❌ ERROR: Port {metrics_port} out of valid range", err=True)
+            click.echo("   Valid range: 1024-65535 (unprivileged ports)", err=True)
+            click.echo("   Ports <1024 require root/admin privileges", err=True)
+            sys.exit(1)
+
     # Initialize metrics if enabled
     metrics = None
+    http_server = None
+    
     if push_metrics:
         try:
             from crashlens.observability import initialize_metrics
@@ -735,6 +769,37 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
             click.echo("   Continuing without metrics...", err=True)
         except Exception as e:
             click.echo(f"⚠️  Warning: Failed to initialize metrics: {e}", err=True)
+            click.echo("   Continuing without metrics...", err=True)
+    
+    elif metrics_http:
+        # HTTP server mode
+        import atexit
+        try:
+            from crashlens.observability import initialize_metrics
+            from crashlens.observability.http_server import MetricsHTTPServer
+            
+            # Initialize metrics collection (required for HTTP server)
+            metrics = initialize_metrics(
+                enabled=True,
+                max_rules=metrics_max_rules,
+                sample_rate=metrics_sample_rate
+            )
+            
+            # Create and start HTTP server
+            http_server = MetricsHTTPServer(metrics, metrics_addr, metrics_port)
+            server_url = http_server.start()
+            
+            # Register cleanup handler
+            atexit.register(http_server.stop)
+            
+            sample_pct = int(metrics_sample_rate * 100)
+            click.echo(f"✓ Metrics HTTP server started: {server_url}/metrics ({sample_pct}% sampling)", err=True)
+            
+        except RuntimeError as e:
+            click.echo(f"❌ ERROR: Failed to start HTTP server: {e}", err=True)
+            sys.exit(1)
+        except Exception as e:
+            click.echo(f"⚠️  Warning: Failed to initialize HTTP server: {e}", err=True)
             click.echo("   Continuing without metrics...", err=True)
 
     # Handle template listing
@@ -3734,6 +3799,150 @@ def pii_clean_command(logfile, output, types, dry_run):
         sys.exit(1)
 
 
+@click.command('validate-metrics-config')
+@click.argument('config_file', type=click.Path(exists=True, path_type=Path), required=True)
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed validation output')
+def validate_metrics_config(config_file: Path, verbose: bool):
+    """
+    Validate a metrics configuration file for syntax and semantic correctness.
+    
+    This command validates:
+    - YAML syntax
+    - pydantic schema compliance  
+    - Field value ranges (sampling rates 0.0-1.0, ports 1024-65535)
+    - HTTP server opt-in requirements
+    - Per-rule rate validation
+    
+    Example:
+        crashlens validate-metrics-config metrics.yaml
+        crashlens validate-metrics-config metrics.yaml --verbose
+    """
+    from crashlens.config.loader import validate_config_file, load_metrics_config, get_config_summary
+    
+    click.echo(f"🔍 Validating metrics config: {config_file}")
+    click.echo("=" * 60)
+    
+    # Validate the file
+    is_valid, error_message = validate_config_file(config_file)
+    
+    if not is_valid:
+        click.echo(f"\n❌ VALIDATION FAILED\n", err=True)
+        click.echo(error_message, err=True)
+        click.echo("\n" + "=" * 60)
+        sys.exit(1)
+    
+    # If valid, load and display config summary
+    click.echo("\n✅ VALIDATION PASSED\n")
+    
+    if verbose:
+        try:
+            config = load_metrics_config(config_file)
+            summary = get_config_summary(config)
+            
+            click.echo("📊 Configuration Summary:")
+            click.echo("-" * 60)
+            click.echo(summary)
+            click.echo("-" * 60)
+            
+            # Show per-rule sampling details if present
+            if config.sampling.per_rule:
+                click.echo(f"\n📋 Per-Rule Sampling ({len(config.sampling.per_rule)} rules):")
+                click.echo("-" * 60)
+                
+                # Sort by rate (lowest to highest) for better visibility
+                sorted_rules = sorted(config.sampling.per_rule.items(), key=lambda x: x[1])
+                
+                for rule_name, rate in sorted_rules:
+                    rate_pct = rate * 100
+                    if rate == 0.0:
+                        emoji = "🔇"
+                        label = "DISABLED"
+                    elif rate < 0.05:
+                        emoji = "🔉"
+                        label = "LOW"
+                    elif rate < 0.5:
+                        emoji = "🔊"
+                        label = "MEDIUM"
+                    elif rate < 1.0:
+                        emoji = "📢"
+                        label = "HIGH"
+                    else:
+                        emoji = "🚨"
+                        label = "ALWAYS"
+                    
+                    click.echo(f"  {emoji} {rule_name:40} {rate_pct:6.2f}% [{label}]")
+            
+            click.echo()
+            
+        except Exception as e:
+            click.echo(f"\n⚠️  Warning: Could not load config for detailed summary: {e}")
+    
+    click.echo("=" * 60)
+    click.echo("✨ Config file is valid and ready to use!")
+    click.echo(f"\n💡 Use with:")
+    click.echo(f"   crashlens scan logs.jsonl --push-metrics --metrics-config {config_file}")
+
+
+@click.command('show-metrics-config')
+@click.option('--config', '-c', 'config_file', type=click.Path(exists=True, path_type=Path), 
+              help='Path to metrics config file (default: auto-search)')
+def show_metrics_config(config_file: Optional[Path]):
+    """
+    Display the current metrics configuration with effective values.
+    
+    Searches standard locations if no config file specified:
+    1. CLI flag: --metrics-config <path>
+    2. Environment: CRASHLENS_METRICS_CONFIG
+    3. Project: ./.crashlens/metrics.yaml
+    4. User home: ~/.crashlens/metrics.yaml
+    5. System: /etc/crashlens/metrics.yaml
+    
+    Example:
+        crashlens show-metrics-config
+        crashlens show-metrics-config --config metrics.yaml
+    """
+    from crashlens.config.loader import load_metrics_config, get_config_summary, find_config_file
+    
+    click.echo("🔍 Loading metrics configuration...")
+    click.echo("=" * 60)
+    
+    try:
+        # Load config (will search if no path provided)
+        config = load_metrics_config(config_file)
+        
+        # Show where config was loaded from
+        if config_file:
+            click.echo(f"📁 Config file: {config_file}")
+        else:
+            found_config = find_config_file()
+            if found_config:
+                click.echo(f"📁 Config file: {found_config}")
+            else:
+                click.echo(f"📁 Config file: None found (using defaults)")
+        
+        click.echo()
+        
+        # Show summary
+        summary = get_config_summary(config)
+        click.echo(summary)
+        
+        click.echo("=" * 60)
+        
+    except FileNotFoundError:
+        click.echo("❌ No metrics configuration found", err=True)
+        click.echo("\n💡 Search locations checked:")
+        click.echo("  1. Environment variable: CRASHLENS_METRICS_CONFIG")
+        click.echo("  2. Project directory: ./.crashlens/metrics.yaml")
+        click.echo("  3. User home: ~/.crashlens/metrics.yaml")
+        click.echo("  4. System directory: /etc/crashlens/metrics.yaml")
+        click.echo("\n   Create a config file with:")
+        click.echo("   crashlens validate-metrics-config --help")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error loading config: {e}", err=True)
+        sys.exit(1)
+
+
 # Add commands to CLI
 cli.add_command(policy_check)
 cli.add_command(list_policy_templates)
@@ -3742,6 +3951,8 @@ cli.add_command(simulate)
 cli.add_command(slack)
 cli.add_command(pii_remove)
 cli.add_command(pii_clean_command)
+cli.add_command(validate_metrics_config)
+cli.add_command(show_metrics_config)
 
 
 if __name__ == "__main__":

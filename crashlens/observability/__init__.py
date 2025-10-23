@@ -41,7 +41,7 @@ _metrics_instance: Optional["CrashLensMetrics"] = None
 
 
 def initialize_metrics(
-    enabled: bool = False, max_rules: int = 500, sample_rate: float = 1.0
+    enabled: bool = False, max_rules: int = 500, sample_rate: float = 1.0, per_rule_rates: Optional[dict] = None
 ) -> Optional["CrashLensMetrics"]:
     """
     Initialize the global metrics instance.
@@ -51,10 +51,13 @@ def initialize_metrics(
     Args:
         enabled: Whether to enable metrics collection
         max_rules: Maximum number of unique rule names before collapsing to overflow
-        sample_rate: Sampling probability (0.0-1.0, default: 1.0)
+        sample_rate: Global sampling probability (0.0-1.0, default: 1.0)
                     1.0 = record all metrics (100% sampling)
                     0.1 = record 10% of metrics (reduce overhead)
                     0.0 = record nothing (effectively disabled)
+        per_rule_rates: Optional dict of rule_name -> sample_rate overrides
+                       Allows different sampling rates for specific rules
+                       Example: {"expensive_rule": 0.01, "rare_event": 1.0}
 
     Returns:
         CrashLensMetrics instance if enabled and available, None otherwise
@@ -66,7 +69,7 @@ def initialize_metrics(
     from .metrics import _initialize_metrics_impl
 
     global _metrics_instance
-    _metrics_instance = _initialize_metrics_impl(enabled, max_rules, sample_rate)
+    _metrics_instance = _initialize_metrics_impl(enabled, max_rules, sample_rate, per_rule_rates)
     return _metrics_instance
 
 

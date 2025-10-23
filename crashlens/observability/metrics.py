@@ -62,16 +62,19 @@ class CrashLensMetrics:
         crashlens_rule_label_overflow_total: Count of overflow events
     """
 
-    def __init__(self, max_rules: int = 500, sample_rate: float = 1.0):
+    def __init__(self, max_rules: int = 500, sample_rate: float = 1.0, per_rule_rates: Optional[dict] = None):
         """
         Initialize metrics collectors with optional sampling.
 
         Args:
             max_rules: Maximum number of unique rule names to track
-            sample_rate: Probability of recording each metric (0.0-1.0, default: 1.0)
+            sample_rate: Global probability of recording each metric (0.0-1.0, default: 1.0)
                         1.0 = record all (100% sampling)
                         0.1 = record 10% (reduce overhead)
                         0.0 = record nothing (disable)
+            per_rule_rates: Optional dict of rule_name -> sample_rate overrides
+                           Allows different sampling rates for specific rules
+                           Example: {"expensive_rule": 0.01, "rare_event": 1.0}
 
         Raises:
             RuntimeError: If prometheus_client is not available
@@ -81,6 +84,7 @@ class CrashLensMetrics:
             Sampling is applied per-metric-call, not per-trace.
             Lower sample rates reduce overhead but decrease metric granularity.
             Counters remain statistically accurate with random sampling.
+            Per-rule rates override the global sample_rate for specific rules.
         """
         if not 0.0 <= sample_rate <= 1.0:
             raise ValueError(f"sample_rate must be between 0.0 and 1.0, got {sample_rate}")
@@ -93,6 +97,7 @@ class CrashLensMetrics:
 
         self.max_rules = max_rules
         self._sample_rate = sample_rate
+        self._per_rule_rates = per_rule_rates or {}
         self._tracked_rules: Set[str] = set()
 
         # Initialize all metrics
@@ -214,6 +219,37 @@ class CrashLensMetrics:
         # Track new rule
         self._tracked_rules.add(rule_name)
         return rule_name
+    
+    def _get_sample_rate(self, rule_name: str) -> float:
+        """
+        Get sampling rate for a specific rule.
+        
+        Returns per-rule rate if configured, otherwise returns global rate.
+        
+        Args:
+            rule_name: Name of the rule to get rate for
+        
+        Returns:
+            Sampling rate for the rule (0.0-1.0)
+        
+        Example:
+            ```python
+            metrics = CrashLensMetrics(
+                sample_rate=0.1,
+                per_rule_rates={"rare_event": 1.0, "common_event": 0.01}
+            )
+            
+            # Common event uses custom 1% rate
+            assert metrics._get_sample_rate("common_event") == 0.01
+            
+            # Rare event uses custom 100% rate
+            assert metrics._get_sample_rate("rare_event") == 1.0
+            
+            # Unknown rule uses global 10% rate
+            assert metrics._get_sample_rate("unknown_rule") == 0.1
+            ```
+        """
+        return self._per_rule_rates.get(rule_name, self._sample_rate)
 
     def record_rule_hit(self, rule_name: str, severity: str, mode: str = "scan"):
         """
@@ -223,9 +259,14 @@ class CrashLensMetrics:
             rule_name: Name of the rule that was triggered
             severity: Severity level (critical, high, medium, low, info)
             mode: Execution mode (scan, policy-check, etc.)
+        
+        Note:
+            Sampling is applied per-rule. Use per_rule_rates to configure
+            different sampling rates for specific rules.
         """
-        # Sampling: Skip recording based on sample rate
-        if random.random() >= self._sample_rate:
+        # Sampling: Skip recording based on per-rule or global sample rate
+        rate = self._get_sample_rate(rule_name)
+        if random.random() >= rate:
             return
         
         rule_label = self._get_rule_label(rule_name)
@@ -312,7 +353,7 @@ class CrashLensMetrics:
 
 
 def _initialize_metrics_impl(
-    enabled: bool = False, max_rules: int = 500, sample_rate: float = 1.0
+    enabled: bool = False, max_rules: int = 500, sample_rate: float = 1.0, per_rule_rates: Optional[dict] = None
 ) -> Optional[CrashLensMetrics]:
     """
     Internal implementation of metrics initialization.
@@ -325,7 +366,8 @@ def _initialize_metrics_impl(
     Args:
         enabled: Whether to enable metrics collection
         max_rules: Maximum number of unique rule names
-        sample_rate: Sampling probability (0.0-1.0, default: 1.0)
+        sample_rate: Global sampling probability (0.0-1.0, default: 1.0)
+        per_rule_rates: Optional dict of rule_name -> sample_rate overrides
 
     Returns:
         CrashLensMetrics instance if enabled and available, None otherwise
@@ -367,9 +409,10 @@ def _initialize_metrics_impl(
     # Create and return metrics instance
     # Note: Multiple initialization calls will reuse existing metrics in REGISTRY
     # This is intentional - Prometheus metrics are singletons per registry
-    logger.info(f"Initializing CrashLens metrics (max_rules={max_rules}, sample_rate={sample_rate})")
+    per_rule_info = f", per_rule_rates={len(per_rule_rates or {})} rules" if per_rule_rates else ""
+    logger.info(f"Initializing CrashLens metrics (max_rules={max_rules}, sample_rate={sample_rate}{per_rule_info})")
     try:
-        return CrashLensMetrics(max_rules=max_rules, sample_rate=sample_rate)
+        return CrashLensMetrics(max_rules=max_rules, sample_rate=sample_rate, per_rule_rates=per_rule_rates)
     except ValueError as e:
         if "Duplicated timeseries" in str(e):
             # Metrics already registered - this is OK for testing

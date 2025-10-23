@@ -184,6 +184,176 @@ crashlens scan /data/logs.jsonl
     crashlens scan logs.jsonl
 ```
 
+### Advanced Sampling
+
+**📊 Per-Rule Sampling for High-Cardinality Environments**
+
+In high-volume environments with hundreds of policy rules, full metrics collection can create cardinality issues in Prometheus. Per-rule sampling allows you to apply different sampling rates to different rules, reducing overhead while maintaining visibility into critical issues.
+
+#### How It Works
+
+- **Global Rate:** Apply a default sampling rate to all rules (e.g., 10% = 0.1)
+- **Per-Rule Overrides:** Override the global rate for specific rules
+- **Precedence:** Per-rule rates take precedence over the global rate
+
+#### Configuration
+
+**CLI with Config File:**
+```bash
+crashlens scan logs.jsonl \
+  --push-metrics \
+  --metrics-config metrics.yaml
+```
+
+**Configuration File (metrics.yaml):**
+```yaml
+metrics:
+  enabled: true
+  sampling:
+    rate: 0.1  # 10% sampling for most rules
+    per_rule:
+      # High-frequency rules - 1% sampling
+      rate_limit_violation: 0.01
+      prompt_too_long: 0.01
+      token_count_exceeded: 0.01
+      
+      # Medium-frequency rules - 5% sampling
+      model_overkill: 0.05
+      inefficient_prompt: 0.05
+      
+      # Critical rules - 100% sampling (always record)
+      security_breach: 1.0
+      cost_overrun: 1.0
+      pii_exposure: 1.0
+      gdpr_violation: 1.0
+      
+      # Test/development rules - 50% sampling
+      experimental_detector: 0.5
+      
+      # Disabled rules - 0% sampling (never record)
+      deprecated_rule: 0.0
+      noisy_rule_to_ignore: 0.0
+  pushgateway:
+    url: "http://localhost:9091"
+    job: "crashlens-production"
+```
+
+#### Rule Frequency Guidelines
+
+| Frequency | Hits Per Scan | Recommended Rate | Example Rules |
+|-----------|---------------|------------------|---------------|
+| High | >10,000 | 0.01 (1%) | `rate_limit_violation`, `prompt_too_long` |
+| Frequent | 1,000-10,000 | 0.05 (5%) | `model_overkill`, `inefficient_prompt` |
+| Medium | 100-1,000 | 0.2 (20%) | `retry_loop_detected`, `fallback_storm` |
+| Low | <100 | 1.0 (100%) | Most rules |
+| Critical | Any | 1.0 (100%) | `security_breach`, `cost_overrun`, `pii_exposure` |
+
+#### Memory & Performance Impact
+
+- **Per-Rule Overhead:** ~80 bytes per rule (rule name + sampling rate)
+- **Lookup Overhead:** O(1) hash lookup (~10ns) + random() call (~50ns) = <100ns total
+- **Memory Example:**
+  - 500 rules × 80 bytes = ~40 KB
+  - 1000 rules × 80 bytes = ~80 KB
+- **Recommended Maximum:** 1000 unique rules
+
+#### Migration from CLI Flags
+
+**Before (CLI only):**
+```bash
+crashlens scan logs.jsonl \
+  --push-metrics \
+  --metrics-sample-rate 0.1  # Global 10% only
+```
+
+**After (Config file with per-rule sampling):**
+```bash
+crashlens scan logs.jsonl \
+  --push-metrics \
+  --metrics-config metrics.yaml  # Supports per-rule rates
+```
+
+#### Validation
+
+Validate your config file before deployment:
+```bash
+# Check syntax and values
+crashlens config validate-metrics --config metrics.yaml
+
+# Show effective configuration
+crashlens config show-metrics --config metrics.yaml
+```
+
+#### Best Practices
+
+1. **Start Broad:** Begin with 10% global sampling, identify high-frequency rules
+2. **Profile First:** Run a test scan without sampling to measure rule frequencies
+3. **Critical Rules at 100%:** Always record security, compliance, and cost-critical rules
+4. **Disable Noise:** Set noisy/deprecated rules to 0% to reduce cardinality
+5. **Monitor Cardinality:** Track `prometheus_target_scrape_samples_scraped` metric
+6. **Test Changes:** Validate config changes in dev before production
+
+#### Example: Kubernetes Production Deployment
+
+```yaml
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crashlens-metrics-config
+  namespace: ai-monitoring
+data:
+  metrics.yaml: |
+    metrics:
+      enabled: true
+      sampling:
+        rate: 0.05  # 5% global rate for production
+        per_rule:
+          rate_limit_violation: 0.005     # 0.5% for very high-frequency
+          security_breach: 1.0            # 100% for security
+          cost_overrun: 1.0               # 100% for cost
+          pii_exposure: 1.0               # 100% for compliance
+      pushgateway:
+        url: "http://prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+        job: "crashlens-production-team-ai"
+        timeout: 10
+
+---
+# deployment.yaml (excerpt)
+spec:
+  containers:
+  - name: crashlens
+    image: crashlens:latest
+    command:
+    - crashlens
+    - scan
+    - /data/logs.jsonl
+    - --push-metrics
+    - --metrics-config
+    - /config/metrics.yaml
+    volumeMounts:
+    - name: metrics-config
+      mountPath: /config
+  volumes:
+  - name: metrics-config
+    configMap:
+      name: crashlens-metrics-config
+```
+
+#### Troubleshooting
+
+**Q: How do I know which rules need lower sampling rates?**
+A: Run a test scan with 100% sampling and check Grafana for rules with >1000 hits.
+
+**Q: Does sampling affect metric accuracy?**
+A: Counters remain statistically accurate with random sampling. Rate calculations are unaffected.
+
+**Q: Can I mix CLI flags and config files?**
+A: Yes! CLI flags take precedence: `--metrics-sample-rate` overrides `metrics.yaml` global rate.
+
+**Q: How do I add a new rule without redeploying?**
+A: Update the ConfigMap and the next scan will pick up changes (no restart needed for Kubernetes Jobs).
+
 ---
 
 ## 📈 Metrics Reference
