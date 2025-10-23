@@ -109,6 +109,14 @@ crashlens init --non-interactive
 - **Dry-Run Analysis**: Preview what PII exists without modification
 - **Safe Cloud Upload**: Clean logs for Langfuse/Helicone dashboards
 
+### 📊 **Observability & Monitoring** (NEW)
+- **Prometheus Metrics**: 7 production metrics for monitoring policy enforcement
+- **Probabilistic Sampling**: 10% sampling keeps overhead at 4.04% (Linux validated)
+- **Grafana Dashboard**: 15-panel dashboard with 5 alert rules
+- **Real-time Alerting**: Violation rate, quality degradation, availability monitoring
+- **Zero Overhead Option**: Completely disable metrics when not needed
+- **CI/CD Integration**: GitHub Actions workflow for automated benchmarking
+
 ---
 
 ## 💻 Commands Overview
@@ -1605,6 +1613,102 @@ CrashLens supports multiple input methods:
 - Use `--detailed` to get actionable JSON reports for each issue category
 - Use `--summary-only` for executive summaries without trace details
 - Combine `--stdin` with shell pipelines for automation
+
+---
+
+## 📊 Observability & Monitoring
+
+### Quick Start
+
+**Install with metrics support:**
+```bash
+pip install crashlens[metrics]
+```
+
+**Enable metrics (production with 10% sampling):**
+```bash
+crashlens scan logs.jsonl \
+  --push-metrics \
+  --metrics-sample-rate 0.1 \
+  --pushgateway-url http://prometheus:9091
+```
+
+### Available Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `crashlens_rule_hits_total` | Counter | Policy rule triggers (labels: rule, severity, mode) |
+| `crashlens_violations_total` | Counter | Total violations (labels: severity) |
+| `crashlens_traces_processed_total` | Counter | Successfully processed traces |
+| `crashlens_traces_failed_total` | Counter | Failed trace processing (labels: reason) |
+| `crashlens_decision_latency_avg_seconds` | Gauge | Average rule evaluation time (sampled) |
+| `crashlens_last_run_timestamp_seconds` | Gauge | Last scan completion time (labels: status) |
+| `crashlens_metrics_push_status` | Gauge | Push success indicator (1=success, 0=failure) |
+
+### Performance
+
+**Overhead (Linux benchmark on 100k traces):**
+- **100% sampling:** 7.07% overhead (not recommended)
+- **10% sampling:** 4.04% overhead ✅ (production default)
+- **Baseline:** No overhead when disabled
+
+### Grafana Dashboard
+
+Import the included dashboard for visualization:
+
+1. **Generate dashboard JSON:**
+   ```bash
+   python scripts/generate_dashboard.py
+   ```
+
+2. **Import to Grafana:**
+   - Open Grafana → Dashboards → Import
+   - Upload `dashboards/crashlens-policy-enforcement.json`
+   - Select Prometheus data source
+   - Click "Import"
+
+3. **Configure alerts (optional):**
+   - Copy `dashboards/crashlens-alert-rules.yml` to Prometheus
+   - Reload Prometheus configuration
+
+**Dashboard includes:**
+- 15 panels across 3 organized rows
+- Real-time violation tracking
+- Log quality monitoring
+- Rule performance analysis
+- Configurable alerts
+
+### Configuration
+
+**CLI Flags:**
+- `--push-metrics` - Enable metrics push
+- `--pushgateway-url` - Pushgateway endpoint (default: http://localhost:9091)
+- `--metrics-job` - Job name for grouping (default: crashlens_scan)
+- `--metrics-sample-rate` - Sampling rate 0.0-1.0 (default: 1.0, recommend: 0.1)
+- `--metrics-max-rules` - Cardinality limit (default: 500)
+
+**Environment Variables:**
+- `CRASHLENS_PUSH_METRICS=true`
+- `CRASHLENS_PUSHGATEWAY_URL=http://prometheus:9091`
+- `CRASHLENS_METRICS_SAMPLE_RATE=0.1`
+- `CRASHLENS_DISABLE_METRICS=true` (emergency kill switch)
+
+### Example Setup
+
+```bash
+# Start Prometheus + Pushgateway
+docker-compose up -d
+
+# Run CrashLens with metrics
+crashlens scan logs.jsonl \
+  --push-metrics \
+  --metrics-sample-rate 0.1
+
+# View in Grafana
+open http://localhost:3000
+```
+
+For detailed setup, see [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 
 ---
 
