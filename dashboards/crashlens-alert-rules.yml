@@ -1,0 +1,53 @@
+groups:
+- name: crashlens_alerts
+  interval: 30s
+  rules:
+  - alert: CrashLensHighCriticalViolations
+    expr: sum(crashlens_violations_total{severity="critical"}) > 5
+    for: 5m
+    labels:
+      severity: critical
+      component: crashlens
+    annotations:
+      summary: High number of critical policy violations
+      description: CrashLens has detected {{ $value }} critical violations in the
+        last 5 minutes
+  - alert: CrashLensHighFailureRate
+    expr: (sum(rate(crashlens_traces_failed_total[5m])) / (sum(rate(crashlens_traces_processed_total[5m]))
+      + sum(rate(crashlens_traces_failed_total[5m])))) > 0.1
+    for: 10m
+    labels:
+      severity: warning
+      component: crashlens
+    annotations:
+      summary: High trace processing failure rate
+      description: 'Trace failure rate is {{ $value | humanizePercentage }} (threshold:
+        10%)'
+  - alert: CrashLensScanStale
+    expr: time() - crashlens_last_run_timestamp_seconds{status="success"} > 3600
+    for: 10m
+    labels:
+      severity: warning
+      component: crashlens
+    annotations:
+      summary: CrashLens scan hasn't run recently
+      description: Last successful scan was {{ $value | humanizeDuration }} ago
+  - alert: CrashLensSlowRuleEvaluation
+    expr: crashlens_decision_latency_avg_seconds > 0.1
+    for: 5m
+    labels:
+      severity: warning
+      component: crashlens
+    annotations:
+      summary: Slow policy rule evaluation detected
+      description: 'Rule {{ $labels.rule }} has average latency of {{ $value }}s (threshold:
+        0.1s)'
+  - alert: CrashLensMetricsPushFailure
+    expr: crashlens_metrics_push_status == 0
+    for: 5m
+    labels:
+      severity: info
+      component: crashlens
+    annotations:
+      summary: Metrics push to pushgateway failing
+      description: Check pushgateway connectivity and CrashLens logs
