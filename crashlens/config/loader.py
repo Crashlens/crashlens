@@ -192,9 +192,10 @@ def load_metrics_config(path: Optional[Path] = None) -> MetricsConfig:
     except yaml.YAMLError as e:
         # Extract line number if available
         line_info = ""
-        if hasattr(e, 'problem_mark'):
-            mark = e.problem_mark
-            line_info = f" at line {mark.line + 1}, column {mark.column + 1}"
+        if hasattr(e, 'problem_mark') and e.problem_mark is not None:  # type: ignore[attr-defined]
+            mark = e.problem_mark  # type: ignore[attr-defined]
+            if hasattr(mark, 'line') and hasattr(mark, 'column'):
+                line_info = f" at line {mark.line + 1}, column {mark.column + 1}"
         
         raise yaml.YAMLError(
             f"Invalid YAML syntax in {config_path}{line_info}:\n{e}\n"

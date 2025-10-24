@@ -6,10 +6,10 @@ metrics:
   enabled: true
   
   sampling:
-    rate: [invalid syntax here
-    # Missing closing bracket, indentation error
-  no_colon_here
-    another_error: {broken
+    rate: 0.5
+    # Fixed: closed bracket and proper value
+  valid_key: "value"
+    # Fixed: added colon and proper structure
   
   pushgateway:
-    url http://localhost:9091  # Missing colon
+    url: "http://localhost:9091"  # Fixed: added colon

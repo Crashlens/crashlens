@@ -1169,6 +1169,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
 
             # Build a base sample dataset simulating detections
             sample_traces = {"trace123": [{"id": "event1", "model": "gpt-4", "usage": 320}]}
+            from datetime import datetime as dt_now
             sample_detections = [
                 {
                     "trace_id": "trace123",
@@ -1177,7 +1178,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                     "waste_cost": 0.45,
                     "waste_tokens": 160,
                     "severity": "medium",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": dt_now.now().isoformat(),
                 },
                 {
                     "trace_id": "trace456",
@@ -1186,7 +1187,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                     "waste_cost": 0.79,
                     "waste_tokens": 275,
                     "severity": "low",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": dt_now.now().isoformat(),
                 },
             ]
 
@@ -1227,7 +1228,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                 click.echo(slack_output)
 
             click.echo("\n📂 All demo reports saved inside the 'demo/' directory.")
-            return
+            return ""
 
         
         elif stdin:

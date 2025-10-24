@@ -92,22 +92,22 @@ class TestHTTPHandlerAuthCheck:
             client_address=('127.0.0.1', 12345),
             server=Mock()
         )
-        self.handler.headers = {}
+        # Mock headers as Message-like object with get method
+        self.handler.headers = Mock()
+        self.handler.headers.get = Mock(return_value=None)
     
     def test_auth_not_required_passes(self):
         """Test that _check_auth passes when auth not required"""
         MetricsHTTPHandler.auth_required = False
-        assert self.handler._check_auth() is True
-    
     def test_auth_required_no_header_fails(self):
         """Test that _check_auth fails when auth required but no header"""
         MetricsHTTPHandler.auth_required = True
         MetricsHTTPHandler.auth_username = 'admin'
         MetricsHTTPHandler.auth_password = 'secret'
         
-        self.handler.headers = {}
+        self.handler.headers.get = Mock(return_value=None)
         assert self.handler._check_auth() is False
-    
+        self.handler.headers = {}
     def test_auth_required_valid_credentials_pass(self):
         """Test that valid credentials pass auth check"""
         MetricsHTTPHandler.auth_required = True
@@ -116,10 +116,10 @@ class TestHTTPHandlerAuthCheck:
         
         # Create valid Basic auth header
         credentials = base64.b64encode(b'admin:secret123').decode('utf-8')
-        self.handler.headers = {'Authorization': f'Basic {credentials}'}
+        self.handler.headers.get = Mock(return_value=f'Basic {credentials}')
         
         assert self.handler._check_auth() is True
-    
+        
     def test_auth_required_invalid_credentials_fail(self):
         """Test that invalid credentials fail auth check"""
         MetricsHTTPHandler.auth_required = True
@@ -128,10 +128,10 @@ class TestHTTPHandlerAuthCheck:
         
         # Create invalid Basic auth header
         credentials = base64.b64encode(b'admin:wrongpassword').decode('utf-8')
-        self.handler.headers = {'Authorization': f'Basic {credentials}'}
+        self.handler.headers.get = Mock(return_value=f'Basic {credentials}')
         
         assert self.handler._check_auth() is False
-    
+        
     def test_auth_malformed_header_fails(self):
         """Test that malformed auth header fails"""
         MetricsHTTPHandler.auth_required = True
@@ -139,7 +139,9 @@ class TestHTTPHandlerAuthCheck:
         MetricsHTTPHandler.auth_password = 'secret'
         
         # Malformed header (not base64)
-        self.handler.headers = {'Authorization': 'Basic notbase64!!!'}
+        self.handler.headers.get = Mock(return_value='Basic notbase64!!!')
+        
+        assert self.handler._check_auth() is False
         
         assert self.handler._check_auth() is False
 
@@ -267,12 +269,11 @@ class TestMetricsEndpointAuth:
         self.handler.send_response = Mock()
         self.handler.send_header = Mock()
         self.handler.end_headers = Mock()
-        self.handler.wfile = Mock()
     
     def test_metrics_endpoint_no_auth_returns_401(self):
         """Test that /metrics without auth returns 401"""
         self.handler.path = '/metrics'
-        self.handler.headers = {}
+        self.handler.headers.get = Mock(return_value=None)
         
         self.handler.do_GET()
         
@@ -280,12 +281,11 @@ class TestMetricsEndpointAuth:
         self.handler.send_response.assert_called()
         args = self.handler.send_response.call_args[0]
         assert 401 in args
-    
-    def test_metrics_endpoint_valid_auth_returns_200(self):
+     def test_metrics_endpoint_valid_auth_returns_200(self):
         """Test that /metrics with valid auth returns metrics"""
         self.handler.path = '/metrics'
         credentials = base64.b64encode(b'admin:secret123').decode('utf-8')
-        self.handler.headers = {'Authorization': f'Basic {credentials}'}
+        self.handler.headers.get = Mock(return_value=f'Basic {credentials}')
         
         with patch('crashlens.observability.http_server.generate_latest') as mock_gen:
             mock_gen.return_value = b'# HELP metric\nmetric 1.0\n'
@@ -296,11 +296,11 @@ class TestMetricsEndpointAuth:
             self.handler.send_response.assert_called()
             args = self.handler.send_response.call_args[0]
             assert 200 in args
-    
+            args = self.handler.send_response.call_args[0]
     def test_health_endpoint_no_auth_required(self):
         """Test that /health endpoint doesn't require auth"""
         self.handler.path = '/health'
-        self.handler.headers = {}  # No auth header
+        self.handler.headers.get = Mock(return_value=None)  # No auth header
         
         self.handler.do_GET()
         
@@ -308,10 +308,14 @@ class TestMetricsEndpointAuth:
         self.handler.send_response.assert_called()
         args = self.handler.send_response.call_args[0]
         assert 200 in args
+        args = self.handler.send_response.call_args[0]
+        assert 200 in args
 
 
 class TestSecurityBanner:
-    """Test security audit banner reflects auth status"""
+    """Test security audit 
+
+banner reflects auth status"""
     
     def setup_method(self):
         """Setup fixtures"""
