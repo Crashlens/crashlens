@@ -1,0 +1,15 @@
+# CrashLens Metrics Configuration - MALFORMED (Syntax Error)
+# This config will fail to parse due to YAML syntax errors.
+# Expected: yaml.YAMLError with line/column information
+
+metrics:
+  enabled: true
+  
+  sampling:
+    rate: [invalid syntax here
+    # Missing closing bracket, indentation error
+  no_colon_here
+    another_error: {broken
+  
+  pushgateway:
+    url http://localhost:9091  # Missing colon

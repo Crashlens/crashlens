@@ -1,0 +1,47 @@
+# CrashLens Metrics Configuration - Per-Rule Sampling Example
+# This example shows extensive per-rule sampling configuration.
+# Use when you have many policy rules and want fine-grained control.
+
+metrics:
+  enabled: true
+  
+  sampling:
+    # Low global rate for common rules
+    rate: 0.01  # 1% global
+    
+    # Extensive per-rule overrides
+    per_rule:
+      # Security rules: always sample
+      security_breach: 1.0
+      pii_detected: 1.0
+      unauthorized_access: 1.0
+      data_exfiltration: 1.0
+      
+      # Cost rules: always sample
+      cost_overrun: 1.0
+      budget_exceeded: 1.0
+      expensive_model_overuse: 1.0
+      
+      # Performance rules: medium sampling
+      slow_response: 0.5
+      timeout_exceeded: 0.5
+      retry_loop: 0.5
+      
+      # Common violations: low sampling
+      rate_limit_violation: 0.01
+      prompt_too_long: 0.01
+      token_limit_exceeded: 0.01
+      invalid_input: 0.01
+      
+      # Informational: very low sampling
+      request_logged: 0.001
+      cache_hit: 0.001
+      cache_miss: 0.001
+  
+  # Increase cardinality cap for many rules
+  max_rules: 1000
+  
+  pushgateway:
+    url: http://prometheus.internal:9091
+    job: crashlens_production
+    timeout: 15

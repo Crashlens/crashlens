@@ -232,20 +232,23 @@ def load_metrics_config(path: Optional[Path] = None) -> MetricsConfig:
         )
         return config
     except ValidationError as e:
-        # Format validation errors nicely
+        # Format validation errors nicely and re-raise
         error_messages = []
         for error in e.errors():
             field = ".".join(str(x) for x in error['loc'])
             msg = error['msg']
             error_messages.append(f"  • {field}: {msg}")
         
-        raise ValidationError(
+        formatted_error = (
             f"Configuration validation failed in {config_path}:\n"
-            + "\n".join(error_messages) + "\n"
+            + "\n".join(error_messages) + "\n\n"
             f"Hint: Check field names, types, and value ranges. "
-            f"See examples/ directory for valid config examples.",
-            e.errors()
-        ) from e
+            f"See examples/ directory for valid config examples."
+        )
+        
+        # Add formatted message to the exception and re-raise
+        e.add_note(formatted_error)
+        raise
 
 
 def validate_config_file(path: Path) -> tuple[bool, Optional[str]]:
