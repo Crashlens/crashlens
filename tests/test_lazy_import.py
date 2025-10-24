@@ -63,8 +63,7 @@ def test_lazy_import_prometheus_client_not_loaded_by_default():
 
 def test_lazy_import_prometheus_client_loaded_when_enabled():
     """
-    ACCEPTANCE: prometheus_client IS in sys.modules when CRASHLENS_ENABLE_METRICS=1
-                or when explicitly importing observability module.
+    ACCEPTANCE: prometheus_client IS in sys.modules when metrics are initialized.
     
     This verifies that metrics infrastructure loads correctly when requested.
     """
@@ -80,9 +79,12 @@ def test_lazy_import_prometheus_client_loaded_when_enabled():
     os.environ['CRASHLENS_ENABLE_METRICS'] = '1'
     
     try:
-        # Import observability module (metrics code path)
+        # Import observability module and INITIALIZE metrics (this triggers prometheus import)
         try:
-            import crashlens.observability.metrics
+            from crashlens.observability import initialize_metrics
+            
+            # Actually initialize metrics - this is what triggers prometheus_client import
+            metrics = initialize_metrics(enabled=True)
             
             # CRITICAL ASSERTION: prometheus_client SHOULD be loaded now
             prometheus_modules = [
@@ -94,6 +96,11 @@ def test_lazy_import_prometheus_client_loaded_when_enabled():
                 f"FAIL: prometheus_client was NOT imported when metrics enabled. "
                 f"Expected prometheus_client.* modules in sys.modules. "
                 f"This means lazy loading is broken or metrics are not working."
+            )
+            
+            # Also verify metrics instance was created
+            assert metrics is not None, (
+                f"FAIL: initialize_metrics returned None when enabled=True"
             )
             
             print(f"✓ PASS: prometheus_client loaded when metrics enabled ({len(prometheus_modules)} modules)")

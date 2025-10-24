@@ -723,21 +723,35 @@ crashlens scan --contract-info --log-format langfuse-v1
 
 ## 📚 Documentation
 
-### Quick References
-- **[NEW_FEATURES.md](NEW_FEATURES.md)** 🆕 - Latest features & JSON output guide
-- [Installation Guide](docs/INSTALLATION.md)
+### 📖 Getting Started
+- **[Quick Start Guide](QUICK_START.md)** - Get running in 5 minutes
+- **[Phase 2 Summary](PHASE_2_SUMMARY.md)** 🆕 - Prometheus integration overview
+- [Installation Guide](docs/QUICKSTART.md)
+- [Command Reference](docs/COMMAND-REFERENCE.md)
+
+### 🔧 User Guides
 - [Policy Writing Guide](docs/POLICY_GUIDE.md)
-- [CLI Reference](docs/CLI_REFERENCE.md)
-- [API Documentation](docs/API_REFERENCE.md)
+- **[Observability & Metrics](docs/OBSERVABILITY.md)** 🆕 - Prometheus integration
+- **[Grafana Setup](docs/GRAFANA_SETUP.md)** 🆕 - Dashboard configuration
+- [Slack Integration](docs/SLACK_INTEGRATION.md)
+- [PII Removal Guide](docs/PII_REMOVAL_GUIDE.md)
 
-### Format & Output Documentation
-- **[JSON Formatter README](crashlens/formatters/README.md)** 🆕 - JSON output usage & examples
-- [Slack Integration Guide](docs/SLACK_INTEGRATION.md)
-- [Log Format Guide](docs/LOG_FORMATS.md)
+### 👨‍💻 Developer Documentation
+- **[Phase 2 Complete Report](docs/PHASE_2_COMPLETE_REPORT.md)** 🆕 - Full technical implementation
+- **[Test Documentation](tests/TEST_DOCUMENTATION.md)** 🆕 - All 26 tests explained
+- [HTTP Server Security](docs/HTTP_SERVER_SECURITY.md)
+- [Architecture Flow](docs/architecture-flow.md)
+- [Contributing Guide](CONTRIBUTING.md)
 
-### Troubleshooting
+### 📦 Examples & Templates
+- [Configuration Examples](examples/config/)
+- [Policy Examples](examples/policies/)
+- [Grafana Dashboards](dashboards/)
+- [CI/CD Workflows](examples/ci-workflows/)
+
+### 🐛 Troubleshooting
 - [Common Issues](docs/TROUBLESHOOTING.md)
-- [Windows PATH Setup](docs/WINDOWS_SETUP.md)
+- [Windows Setup](docs/WINDOWS_SETUP.md)
 - [Performance Tuning](docs/PERFORMANCE.md)
 
 ---
