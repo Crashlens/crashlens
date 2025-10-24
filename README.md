@@ -742,7 +742,174 @@ crashlens scan --contract-info --log-format langfuse-v1
 
 ---
 
-## 🤝 Contributing
+## � Terminal Run Checklist (Prometheus Integration)
+
+> **For developers testing the Prometheus metrics integration locally**
+
+This checklist provides **terminal-executable commands** to validate the Prometheus integration test suite. All tests are **self-contained** (no external services required).
+
+### Quick Validation (5 minutes)
+
+#### 1. Create virtual environment and install dev dependencies
+
+**Linux/macOS:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+pip install -e .
+```
+
+**Windows (PowerShell):**
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-dev.txt
+pip install -e .
+```
+
+#### 2. Run unit tests
+
+```bash
+pytest -q tests/ -m unit
+# Expected: All tests pass (fast, no external dependencies)
+```
+
+#### 3. Run integration tests (mocked, no external services)
+
+**Linux/macOS:**
+```bash
+TEST_PROMETHEUS_INTEGRATION=true pytest -q tests/ -m integration
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:TEST_PROMETHEUS_INTEGRATION = "true"
+pytest -q tests/ -m integration
+```
+
+#### 4. Run benchmarks
+
+**Linux/macOS:**
+```bash
+bash scripts/run_benchmark.sh
+# Expected: Runtime overhead <10%, Memory overhead <30MB
+```
+
+**Windows (Git Bash/WSL):**
+```bash
+bash scripts/run_benchmark.sh
+```
+
+#### 5. Check log rotation
+
+**Linux/macOS:**
+```bash
+ls -lh /tmp/crashlens-metrics-test.log*
+# Expected: Log files with rotation (.1, .2, etc.)
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-ChildItem $env:TEMP\crashlens-metrics-test.log*
+```
+
+#### 6. Run specific test categories
+
+```bash
+# Sampling rate tests
+pytest tests/test_sampling_rate_effect.py -v
+
+# Histogram bucket tests
+pytest tests/test_histogram_bucket_config.py -v
+
+# Metrics disabled by default tests
+pytest tests/test_metrics_disabled_by_default.py -v
+
+# Module cleanup tests
+pytest tests/test_python_module_cleanup_between_tests.py -v
+```
+
+### One-Shot Execution (All Tests)
+
+**Linux/macOS:**
+```bash
+bash scripts/run_tests_local.sh
+# Runs all tests + benchmarks in one command
+```
+
+**Windows (Git Bash/WSL):**
+```bash
+bash scripts/run_tests_local.sh
+```
+
+### JSON Benchmark Output Interpretation
+
+After running `scripts/run_benchmark.sh`, you'll see JSON output like:
+
+```json
+{
+  "overhead": {
+    "runtime_overhead_pct": 8.5,    // <10% = PASS ✓
+    "memory_overhead_mb": 12.3      // <30MB = PASS ✓
+  },
+  "results": {
+    "overall_pass": true
+  }
+}
+```
+
+**Pass Criteria:**
+- `runtime_overhead_pct < 10.0` ✓
+- `memory_overhead_mb < 30.0` ✓
+- `results.overall_pass == true` ✓
+
+### Test Categories (pytest markers)
+
+```bash
+# Unit tests only (fast)
+pytest -q -m unit
+
+# Integration tests only (mocked)
+pytest -q -m integration
+
+# Skip slow tests (benchmarks)
+pytest -q -m "not slow"
+
+# Prometheus-specific tests
+pytest -q -m prometheus
+```
+
+### 📋 No External Services Required
+
+All tests use **mocking** and run **100% locally**:
+- ✅ No Prometheus server needed
+- ✅ No Grafana instance needed  
+- ✅ No Pushgateway needed
+- ✅ Reproducible on any machine
+
+### 🐛 Troubleshooting
+
+**Issue: `prometheus_client not installed`**
+```bash
+pip install prometheus-client>=0.17.0
+```
+
+**Issue: Tests skipped with "prometheus_client not available"**
+- This is expected if prometheus_client is not installed
+- Tests will gracefully skip
+- Install with: `pip install -r requirements-dev.txt`
+
+**Issue: Benchmark script fails on Windows**
+- Use **Git Bash** or **WSL** to run bash scripts
+- Or run Python benchmark directly:
+  ```powershell
+  python benchmarks\benchmark_memory_and_runtime.py --json-only
+  ```
+
+---
+
+## �🤝 Contributing
 
 We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
 
