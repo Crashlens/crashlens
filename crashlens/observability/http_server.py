@@ -73,10 +73,10 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
     """
     
     # Class variables to hold config
-    registry = None
-    auth_required = False
-    auth_username = None
-    auth_password = None
+    registry: Optional[Any] = None
+    auth_required: bool = False
+    auth_username: Optional[str] = None
+    auth_password: Optional[str] = None
     
     def log_message(self, format, *args):
         """Override to use our logger instead of stderr"""
