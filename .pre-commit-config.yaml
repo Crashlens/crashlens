@@ -1,0 +1,55 @@
+# Pre-commit hooks for CrashLens Guard
+# 
+# Installation:
+#   1. Install pre-commit: pip install pre-commit
+#   2. Install hooks: pre-commit install
+#   3. (Optional) Run on all files: pre-commit run --all-files
+#
+# This configuration runs crashlens guard on committed JSONL files
+# to enforce policy compliance before code reaches CI/CD.
+
+repos:
+  - repo: local
+    hooks:
+      - id: crashlens-guard
+        name: CrashLens Guard - Policy Enforcement
+        entry: bash examples/hooks/crashlens-pre-commit.sh
+        language: system
+        files: '\.jsonl$'
+        pass_filenames: true
+        verbose: true
+        stages: [commit]
+        
+      - id: crashlens-guard-staged
+        name: CrashLens Guard - Staged Files Only
+        entry: bash examples/hooks/crashlens-pre-commit.sh --staged-only
+        language: system
+        files: '\.jsonl$'
+        pass_filenames: false
+        verbose: true
+        stages: [commit]
+        always_run: false
+
+  # Optional: Run on specific directories
+  - repo: local
+    hooks:
+      - id: crashlens-guard-logs-dir
+        name: CrashLens Guard - Logs Directory
+        entry: crashlens guard
+        language: system
+        args:
+          - 'logs/'
+          - '--rules'
+          - '.crashlens/rules.yaml'
+          - '--fail-on-violations'
+          - '--severity'
+          - 'error'
+        pass_filenames: false
+        files: 'logs/.*\.jsonl$'
+        stages: [commit]
+        always_run: false
+
+# Configuration
+default_stages: [commit]
+fail_fast: false  # Continue running hooks even if one fails
+verbose: true
