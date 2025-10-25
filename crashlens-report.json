@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "total_rules": 1,
+    "violations": 1,
+    "skipped_lines": 0,
+    "total_cost": null,
+    "cost_cap": null,
+    "cost_cap_exceeded": false
+  },
+  "rules": {
+    "HIGH_TOKENS": {
+      "count": 10,
+      "severity": "warn",
+      "description": "",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 5000,
+          "retry_count": 0,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": ""
+        },
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 5000,
+          "retry_count": 0,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": ""
+        }
+      ]
+    }
+  }
+}

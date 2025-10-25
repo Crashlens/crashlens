@@ -213,17 +213,25 @@ def load_jsonl(path: str):
 _jsonl_skipped_lines = 0
 
 
-def autodiscover_rules() -> Optional[str]:
-    """Autodiscover rules.yaml in standard locations.
+def find_rules_path(provided: Optional[str] = None) -> Optional[str]:
+    """
+    Find rules.yaml path, either from provided path or autodiscovery.
     
-    Search order:
+    If provided path is given, returns it if it exists.
+    Otherwise, searches in standard locations:
     1. .crashlens/rules.yaml (project-specific)
     2. .github/crashlens/rules.yaml (GitHub Actions convention)
     3. rules.yaml (root directory)
     
+    Args:
+        provided: Optional path to rules file
+        
     Returns:
-        Path to discovered rules file, or None if not found
+        Path to rules file, or None if not found
     """
+    if provided:
+        return provided if os.path.exists(provided) else None
+    
     search_paths = [
         ".crashlens/rules.yaml",
         ".github/crashlens/rules.yaml",
@@ -235,6 +243,72 @@ def autodiscover_rules() -> Optional[str]:
             return path
     
     return None
+
+
+def autodiscover_rules() -> Optional[str]:
+    """
+    Autodiscover rules.yaml in standard locations.
+    
+    DEPRECATED: Use find_rules_path() instead.
+    
+    Search order:
+    1. .crashlens/rules.yaml (project-specific)
+    2. .github/crashlens/rules.yaml (GitHub Actions convention)
+    3. rules.yaml (root directory)
+    
+    Returns:
+        Path to discovered rules file, or None if not found
+    """
+    return find_rules_path()
+
+
+def resolve_log_sources(logfile_arg: Optional[str] = None) -> List[Path]:
+    """
+    Resolve log sources from argument, accepting file, directory, glob, or stdin.
+    
+    Supports:
+    - Single file: logs.jsonl
+    - Directory: logs/ (finds all *.jsonl files)
+    - Glob pattern: logs/*.jsonl
+    - Stdin: - or None (reads from stdin)
+    
+    Args:
+        logfile_arg: Path argument (file/dir/glob) or '-' for stdin, or None
+        
+    Returns:
+        List of Path objects to process, or [Path('-')] for stdin
+        
+    Raises:
+        click.ClickException: If no valid log sources found
+    """
+    from pathlib import Path as PathLib
+    import glob as glob_module
+    
+    # Handle stdin
+    if logfile_arg is None or logfile_arg == '-':
+        return [PathLib('-')]
+    
+    logfile_path = PathLib(logfile_arg)
+    
+    # Handle directory
+    if logfile_path.is_dir():
+        jsonl_files = sorted(logfile_path.glob('*.jsonl'))
+        if not jsonl_files:
+            raise click.ClickException(f"No *.jsonl files found in directory: {logfile_arg}")
+        return jsonl_files
+    
+    # Handle glob pattern (has wildcard characters)
+    if '*' in logfile_arg or '?' in logfile_arg or '[' in logfile_arg:
+        matches = sorted([PathLib(p) for p in glob_module.glob(logfile_arg)])
+        if not matches:
+            raise click.ClickException(f"No files match glob pattern: {logfile_arg}")
+        return matches
+    
+    # Handle single file
+    if logfile_path.is_file():
+        return [logfile_path]
+    
+    raise click.ClickException(f"Log source not found: {logfile_arg}")
 
 
 def interpolate_variables(value: Any) -> Any:
@@ -727,7 +801,7 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
 
 
 @click.command("guard")
-@click.argument("logfile", type=click.Path(exists=True))
+@click.argument("logfile", type=click.Path(), required=False, default=None)
 @click.option("--rules", type=click.Path(exists=True), required=False,
               help="Path to rules.yaml file (auto-discovers if not specified)")
 @click.option("--suppress", "-s", multiple=True,
@@ -762,10 +836,25 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     Loads rules from YAML, evaluates log entries, and generates reports.
     Designed for CI integration with configurable exit codes and GitHub annotation hooks.
     
+    Supports multiple input sources:
+    - Single file: crashlens guard logs.jsonl
+    - Directory: crashlens guard logs/ (processes all *.jsonl files)
+    - Glob pattern: crashlens guard "logs/*.jsonl"
+    - Stdin: crashlens guard - < logs.jsonl OR cat logs.jsonl | crashlens guard
+    
     Example:
     
         # Basic usage with violations failing CI
         crashlens guard logs.jsonl --rules .crashlens/rules.yaml --fail-on-violations
+        
+        # Process directory of logs
+        crashlens guard logs/ --fail-on-violations
+        
+        # Process with glob pattern
+        crashlens guard "sample-logs/*.jsonl" --fail-on-violations
+        
+        # Read from stdin
+        cat logs.jsonl | crashlens guard --fail-on-violations
         
         # Write report and trigger GitHub Checks annotations
         crashlens guard logs.jsonl --rules rules.yaml \\
@@ -782,17 +871,27 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         1 - Violations found that meet or exceed severity threshold
             (only when --fail-on-violations is set and NOT in --dry-run mode)
     """
+    # Resolve log sources (file, directory, glob, or stdin)
+    try:
+        log_sources = resolve_log_sources(logfile)
+    except click.ClickException:
+        raise
+    
     # Autodiscover rules if not specified
+    rules = find_rules_path(rules)
     if rules is None:
-        rules = autodiscover_rules()
-        if rules is None:
-            raise click.ClickException(
-                "No rules file found. Specify --rules or create rules.yaml in:\n"
-                "  - .crashlens/rules.yaml\n"
-                "  - .github/crashlens/rules.yaml\n"
-                "  - rules.yaml"
-            )
-        click.echo(f"📋 Autodiscovered rules: {rules}", err=True)
+        raise click.ClickException(
+            "No rules file found. Specify --rules or create rules.yaml in:\n"
+            "  - .crashlens/rules.yaml\n"
+            "  - .github/crashlens/rules.yaml\n"
+            "  - rules.yaml"
+        )
+    
+    # Show autodiscovery message if rules were found automatically
+    if not logfile or logfile == '-':
+        click.echo(f"📋 Using rules: {rules}", err=True)
+    else:
+        click.echo(f"📋 Processing {len(log_sources)} log source(s) with rules: {rules}", err=True)
     
     # Load rules from YAML
     try:
@@ -820,26 +919,90 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         for r in ruleset if r.id not in suppress_set
     }
     
-    # Detect file size and choose processing strategy
-    from pathlib import Path as PathLib  # Avoid conflict with click.Path
-    logfile_path = PathLib(logfile)
-    file_size_bytes = logfile_path.stat().st_size
-    use_streaming = file_size_bytes > STREAM_THRESHOLD_BYTES
-    
-    if use_streaming:
-        file_size_mb = file_size_bytes / (1024 * 1024)
-        click.echo(f"📊 Large file detected ({file_size_mb:.2f} MB), using streaming mode (batch_size={STREAM_BATCH_SIZE})", err=True)
-    
     # Evaluate each log entry against all rules
     # Also collect metrics for performance threshold checks
     all_logs = []
     
+    from pathlib import Path as PathLib  # Avoid conflict with click.Path
+    
     try:
-        if use_streaming:
-            # Streaming mode for large files
-            for batch in stream_jsonl(logfile_path, batch_size=STREAM_BATCH_SIZE, skip_malformed=True, verbose=False):
-                for entry in batch:
-                    all_logs.append(entry)  # Store for performance threshold checks
+        # Process each log source
+        for source_path in log_sources:
+            # Handle stdin
+            if str(source_path) == '-':
+                click.echo("📖 Reading from stdin...", err=True)
+                stdin_stream = click.get_text_stream('stdin')
+                try:
+                    for line in stdin_stream:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue  # Skip malformed lines
+                        
+                        all_logs.append(entry)
+                        
+                        for r in ruleset:
+                            if r.id in suppress_set:
+                                continue
+                            
+                            if eval_condition(r.cond, entry):
+                                results[r.id]["count"] += 1
+                                
+                                max_examples = get_max_examples()
+                                if not no_content and len(results[r.id]["examples"]) < max_examples:
+                                    example = {
+                                        "timestamp": entry.get("timestamp"),
+                                        "model": entry.get("model"),
+                                        "tokens": entry.get("tokens"),
+                                        "retry_count": entry.get("retry_count"),
+                                        "fallback_triggered": entry.get("fallback_triggered"),
+                                        "endpoint": entry.get("endpoint"),
+                                        "prompt": redact_text(entry.get("prompt", ""), strip_pii)
+                                    }
+                                    results[r.id]["examples"].append(example)
+                except (EOFError, KeyboardInterrupt):
+                    pass  # Graceful termination for stdin
+                continue
+            
+            # Handle regular files
+            file_size_bytes = source_path.stat().st_size
+            use_streaming = file_size_bytes > STREAM_THRESHOLD_BYTES
+            
+            if use_streaming:
+                file_size_mb = file_size_bytes / (1024 * 1024)
+                click.echo(f"📊 Processing {source_path.name} ({file_size_mb:.2f} MB) in streaming mode (batch_size={STREAM_BATCH_SIZE})", err=True)
+                
+                # Streaming mode for large files
+                for batch in stream_jsonl(source_path, batch_size=STREAM_BATCH_SIZE, skip_malformed=True, verbose=False):
+                    for entry in batch:
+                        all_logs.append(entry)
+                        
+                        for r in ruleset:
+                            if r.id in suppress_set:
+                                continue
+                            
+                            if eval_condition(r.cond, entry):
+                                results[r.id]["count"] += 1
+                                
+                                max_examples = get_max_examples()
+                                if not no_content and len(results[r.id]["examples"]) < max_examples:
+                                    example = {
+                                        "timestamp": entry.get("timestamp"),
+                                        "model": entry.get("model"),
+                                        "tokens": entry.get("tokens"),
+                                        "retry_count": entry.get("retry_count"),
+                                        "fallback_triggered": entry.get("fallback_triggered"),
+                                        "endpoint": entry.get("endpoint"),
+                                        "prompt": redact_text(entry.get("prompt", ""), strip_pii)
+                                    }
+                                    results[r.id]["examples"].append(example)
+            else:
+                # Original line-by-line mode for small files
+                for entry in load_jsonl(str(source_path)):
+                    all_logs.append(entry)
                     
                     for r in ruleset:
                         if r.id in suppress_set:
@@ -848,7 +1011,6 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
                         if eval_condition(r.cond, entry):
                             results[r.id]["count"] += 1
                             
-                            # Collect example (unless no-content flag is set)
                             max_examples = get_max_examples()
                             if not no_content and len(results[r.id]["examples"]) < max_examples:
                                 example = {
@@ -861,32 +1023,6 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
                                     "prompt": redact_text(entry.get("prompt", ""), strip_pii)
                                 }
                                 results[r.id]["examples"].append(example)
-        else:
-            # Original line-by-line mode for small files
-            for entry in load_jsonl(logfile):
-                all_logs.append(entry)  # Store for performance threshold checks
-                
-                for r in ruleset:
-                    if r.id in suppress_set:
-                        continue
-                    
-                    if eval_condition(r.cond, entry):
-                        results[r.id]["count"] += 1
-                        
-                        # Collect example (unless no-content flag is set)
-                        # Limit to get_max_examples() to prevent OOM on large logs
-                        max_examples = get_max_examples()
-                        if not no_content and len(results[r.id]["examples"]) < max_examples:
-                            example = {
-                                "timestamp": entry.get("timestamp"),
-                                "model": entry.get("model"),
-                                "tokens": entry.get("tokens"),
-                                "retry_count": entry.get("retry_count"),
-                                "fallback_triggered": entry.get("fallback_triggered"),
-                                "endpoint": entry.get("endpoint"),
-                                "prompt": redact_text(entry.get("prompt", ""), strip_pii)
-                            }
-                            results[r.id]["examples"].append(example)
     except click.ClickException:
         raise
     

@@ -17,6 +17,8 @@
 #   - if_fallback_triggered: Boolean match (true/false)
 #   - if_prompt_contains_pii: Detects emails/phones in prompt
 #   - if_cost_usd_gt: Cost greater than threshold (USD)
+#   - if_response_time_gt: Response time (ms) greater than threshold
+#   - if_error_rate_gt: Error rate (%) greater than threshold
 
 rules:
   - id: RL001
@@ -62,3 +64,17 @@ rules:
       if_retry_count_gt: 1
     action: warn
     severity: warn
+
+  - id: RL007
+    description: "Slow response time (performance degradation)"
+    if:
+      if_response_time_gt: 5000  # 5 seconds
+    action: warn
+    severity: warn
+
+  - id: RL008
+    description: "High error rate (reliability issue)"
+    if:
+      if_error_rate_gt: 10  # 10%
+    action: error
+    severity: error

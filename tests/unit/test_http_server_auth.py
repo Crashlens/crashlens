@@ -281,7 +281,8 @@ class TestMetricsEndpointAuth:
         self.handler.send_response.assert_called()
         args = self.handler.send_response.call_args[0]
         assert 401 in args
-     def test_metrics_endpoint_valid_auth_returns_200(self):
+    
+    def test_metrics_endpoint_valid_auth_returns_200(self):
         """Test that /metrics with valid auth returns metrics"""
         self.handler.path = '/metrics'
         credentials = base64.b64encode(b'admin:secret123').decode('utf-8')
