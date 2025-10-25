@@ -5,6 +5,7 @@ Parses rules.yaml, evaluates JSONL logs, respects suppressions/severity threshol
 Emits json/markdown/text reports and exits nonzero on violations for CI integration.
 """
 
+import html
 import json
 import os
 import re
@@ -529,10 +530,10 @@ def format_html_report(report: Dict[str, Any], logfile: str) -> str:
             html_parts.extend([
                 f'        <div class="violation-card" style="border-left-color: {color};">',
                 '            <div class="violation-header">',
-                f'                <span class="rule-id">{rid}</span>',
-                f'                <span class="severity-badge" style="background-color: {color};">{severity.upper()}</span>',
+                f'                <span class="rule-id">{html.escape(rid)}</span>',
+                f'                <span class="severity-badge" style="background-color: {color};">{html.escape(severity.upper())}</span>',
                 '            </div>',
-                f'            <div class="description">{meta["description"]}</div>',
+                f'            <div class="description">{html.escape(meta["description"])}</div>',
                 f'            <div><span class="summary-label">Violation Count:</span> <span class="count">{meta["count"]}</span></div>',
             ])
             
@@ -544,18 +545,18 @@ def format_html_report(report: Dict[str, Any], logfile: str) -> str:
                 for i, ex in enumerate(meta['examples'][:3], 1):
                     html_parts.append('                <div class="example-item">')
                     html_parts.append(f'                    <div class="example-row"><span class="example-label">Example #{i}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Timestamp:</span> <span class="example-value">{ex.get("timestamp", "N/A")}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Model:</span> <code>{ex.get("model", "N/A")}</code></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Tokens:</span> <span class="example-value">{ex.get("tokens", "N/A")}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Retry Count:</span> <span class="example-value">{ex.get("retry_count", "N/A")}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Fallback:</span> <span class="example-value">{ex.get("fallback_triggered", "N/A")}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Endpoint:</span> <code>{ex.get("endpoint", "N/A")}</code></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Timestamp:</span> <span class="example-value">{html.escape(str(ex.get("timestamp", "N/A")))}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Model:</span> <code>{html.escape(str(ex.get("model", "N/A")))}</code></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Tokens:</span> <span class="example-value">{html.escape(str(ex.get("tokens", "N/A")))}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Retry Count:</span> <span class="example-value">{html.escape(str(ex.get("retry_count", "N/A")))}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Fallback:</span> <span class="example-value">{html.escape(str(ex.get("fallback_triggered", "N/A")))}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Endpoint:</span> <code>{html.escape(str(ex.get("endpoint", "N/A")))}</code></div>')
                     
                     if ex.get('prompt'):
                         prompt_preview = ex['prompt'][:80]
                         if len(ex['prompt']) > 80:
                             prompt_preview += "..."
-                        html_parts.append(f'                    <div class="example-row"><span class="example-label">Prompt:</span> <span class="example-value">{prompt_preview}</span></div>')
+                        html_parts.append(f'                    <div class="example-row"><span class="example-label">Prompt:</span> <span class="example-value">{html.escape(prompt_preview)}</span></div>')
                     
                     html_parts.append('                </div>')
                 
@@ -626,7 +627,7 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
 @click.option("--rules", type=click.Path(exists=True), required=True,
               help="Path to rules.yaml file")
 @click.option("--suppress", "-s", multiple=True,
-              help="Rule IDs to suppress (repeatable)")
+              help="Rule IDs to suppress (repeatable or comma-separated, e.g., 'RL001' or 'RL001,RL002')")
 @click.option("--severity", type=click.Choice(["warn", "error", "fatal"]), default="error",
               help="Minimum severity threshold for failing (default: error)")
 @click.option("--output", type=click.Choice(["json", "md", "text", "html"]), default="text",
@@ -641,7 +642,13 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
               help="Validate rules without failing CI (exit code always 0)")
 @click.option("--summary-only", is_flag=True,
               help="Output condensed one-line-per-rule summary")
-def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only):
+@click.option("--baseline-logs", type=click.Path(exists=True),
+              help="Historical logs for dynamic P95/P99 baseline comparison")
+@click.option("--baseline-deviation", type=float, default=0.50,
+              help="Deviation threshold for baseline alerts (default: 0.50 = 50%)")
+@click.option("--cost-cap", type=float,
+              help="Maximum allowed total cost in USD (fails CI if exceeded)")
+def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only, baseline_logs, baseline_deviation, cost_cap):
     """Guard against policy violations in JSONL logs
     
     Loads rules from YAML, evaluates log entries, and generates reports.
@@ -664,8 +671,15 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     except click.ClickException:
         raise
     
-    # Handle suppressions
-    suppress = set(suppress or [])
+    # Handle suppressions - support both repeatable and comma-separated formats
+    suppress_set = set()
+    for item in (suppress or []):
+        if ',' in item:
+            # Parse comma-separated: "RL001,RL002,RL003"
+            suppress_set.update(s.strip() for s in item.split(',') if s.strip())
+        else:
+            # Single item: "RL001"
+            suppress_set.add(item)
     
     # Initialize results structure
     results = {
@@ -674,14 +688,18 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             "count": 0,
             "examples": []
         } 
-        for r in ruleset if r.id not in suppress
+        for r in ruleset if r.id not in suppress_set
     }
     
     # Evaluate each log entry against all rules
+    # Also collect metrics for performance threshold checks
+    all_logs = []
     try:
         for entry in load_jsonl(logfile):
+            all_logs.append(entry)  # Store for performance threshold checks
+            
             for r in ruleset:
-                if r.id in suppress:
+                if r.id in suppress_set:
                     continue
                 
                 if eval_condition(r.cond, entry):
@@ -704,6 +722,130 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     except click.ClickException:
         raise
     
+    # Performance threshold checks (env var configured)
+    slow_threshold = int(os.getenv("SLOW_RESPONSE_THRESHOLD_MS", "3000"))
+    expensive_threshold = float(os.getenv("EXPENSIVE_REQUEST_THRESHOLD", "0.05"))
+    error_rate_threshold = float(os.getenv("ERROR_RATE_THRESHOLD", "0.20"))
+    
+    # Dynamic baseline comparison (if baseline logs provided)
+    baseline_violations = []
+    if baseline_logs:
+        try:
+            from .performance_baseline import load_baseline_from_file
+            from pathlib import Path
+            
+            baseline_calc = load_baseline_from_file(Path(baseline_logs))
+            has_violations, violations = baseline_calc.compare_to_baseline(
+                all_logs, 
+                deviation_threshold=baseline_deviation
+            )
+            
+            if has_violations:
+                for violation in violations:
+                    baseline_violations.append({
+                        "id": f"baseline_{violation['metric']}",
+                        "name": f"Baseline: {violation['metric'].upper().replace('_', ' ')}",
+                        "severity": "fatal",
+                        "description": violation['description'],
+                        "count": 1,
+                        "examples": []
+                    })
+        except Exception as e:
+            click.echo(f"⚠️  Warning: Could not load baseline: {e}", err=True)
+    
+    # Cost cap check (if specified)
+    cost_cap_violations = []
+    total_cost = 0.0
+    if cost_cap is not None:
+        # Calculate total cost from all logs
+        for entry in all_logs:
+            total_cost += entry.get("cost_usd", 0.0)
+        
+        if total_cost > cost_cap:
+            cost_cap_violations.append({
+                "id": "cost_cap_exceeded",
+                "name": "Budget: Cost Cap Exceeded",
+                "severity": "fatal",
+                "description": f"Total cost ${total_cost:.4f} exceeds cap ${cost_cap:.4f}",
+                "count": 1,
+                "examples": [],
+                "total_cost": total_cost,
+                "cost_cap": cost_cap,
+                "overspend": total_cost - cost_cap
+            })
+    
+    if all_logs:
+        # Calculate metrics
+        max_latency = max((log.get("response_time_ms", 0) for log in all_logs), default=0)
+        max_cost = max((log.get("cost_usd", 0.0) for log in all_logs), default=0.0)
+        error_count = sum(1 for log in all_logs if log.get("error", False))
+        error_rate = error_count / len(all_logs) if all_logs else 0.0
+        
+        # Create synthetic rules for threshold violations
+        # These are treated as fatal severity rules
+        synthetic_violations = []
+        
+        if max_latency > slow_threshold:
+            synthetic_violations.append({
+                "id": "perf_latency_threshold",
+                "name": "Performance: Latency Threshold",
+                "severity": "fatal",
+                "description": f"Max latency {max_latency}ms exceeds threshold {slow_threshold}ms",
+                "count": 1,
+                "examples": []
+            })
+        
+        if max_cost > expensive_threshold:
+            synthetic_violations.append({
+                "id": "perf_cost_threshold",
+                "name": "Performance: Cost Threshold",
+                "severity": "fatal",
+                "description": f"Max cost ${max_cost:.4f} exceeds threshold ${expensive_threshold:.4f}",
+                "count": 1,
+                "examples": []
+            })
+        
+        if error_rate > error_rate_threshold:
+            synthetic_violations.append({
+                "id": "perf_error_rate_threshold",
+                "name": "Performance: Error Rate Threshold",
+                "severity": "fatal",
+                "description": f"Error rate {error_rate:.2%} exceeds threshold {error_rate_threshold:.2%}",
+                "count": 1,
+                "examples": []
+            })
+        
+        # Add baseline violations
+        synthetic_violations.extend(baseline_violations)
+        
+        # Add cost cap violations
+        synthetic_violations.extend(cost_cap_violations)
+        
+        # Add synthetic violations to results
+        for syn_viol in synthetic_violations:
+            # Create a mock rule object
+            @dataclass
+            class SyntheticRule:
+                id: str
+                name: str
+                description: str
+                severity: str
+                cond: Dict[str, Any]
+                action: str
+            
+            results[syn_viol["id"]] = {
+                "rule": SyntheticRule(
+                    id=syn_viol["id"],
+                    name=syn_viol["name"],
+                    description=syn_viol["description"],
+                    severity=syn_viol["severity"],
+                    cond={},
+                    action="fail_ci"
+                ),
+                "count": syn_viol["count"],
+                "examples": syn_viol["examples"]
+            }
+    
     # Determine highest severity level hit
     highest_hit = 0
     for rid, meta in results.items():
@@ -720,7 +862,10 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         "summary": {
             "total_rules": len(results),
             "violations": sum(1 for m in results.values() if m["count"] > 0),
-            "skipped_lines": _jsonl_skipped_lines  # Track malformed lines
+            "skipped_lines": _jsonl_skipped_lines,  # Track malformed lines
+            "total_cost": total_cost if cost_cap is not None else None,
+            "cost_cap": cost_cap if cost_cap is not None else None,
+            "cost_cap_exceeded": total_cost > cost_cap if cost_cap is not None else False
         },
         "rules": {
             rid: {
@@ -740,6 +885,17 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             f"⚠️  Summary: Skipped {_jsonl_skipped_lines} malformed line(s) during parsing",
             err=True
         )
+    
+    # Print cost cap warning if exceeded
+    if cost_cap is not None:
+        if total_cost > cost_cap:
+            overspend = total_cost - cost_cap
+            click.echo("", err=True)
+            click.echo(f"💰 COST CAP EXCEEDED: ${total_cost:.4f} / ${cost_cap:.4f} (over by ${overspend:.4f})", err=True)
+        else:
+            remaining = cost_cap - total_cost
+            click.echo("", err=True)
+            click.echo(f"💰 Cost Cap: ${total_cost:.4f} / ${cost_cap:.4f} (${remaining:.4f} remaining)", err=True)
     
     # Format and output report (stdout)
     if summary_only:
