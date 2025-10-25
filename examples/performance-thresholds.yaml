@@ -1,0 +1,107 @@
+## Performance Thresholds Example
+## 
+## This file demonstrates how to use environment variables to enforce
+## performance thresholds in CI/CD pipelines. CrashLens Guard will
+## automatically fail if logs show performance degradation.
+
+# Example 1: Cost Limit Rule
+# ---------------------------
+# Fail CI if any single request costs more than $0.50
+# Set environment variable: EXPENSIVE_REQUEST_THRESHOLD=0.50
+#
+# Use case: Prevent budget overruns from expensive models or long context windows
+#
+# In your CI pipeline:
+#   export EXPENSIVE_REQUEST_THRESHOLD=0.50
+#   crashlens guard logs.jsonl --rules rules.yaml --fail-on-violations
+
+# Example 2: Latency SLA Rule
+# ----------------------------
+# Fail CI if any request takes longer than 2000ms
+# Set environment variable: SLOW_RESPONSE_THRESHOLD_MS=2000
+#
+# Use case: Enforce P95 latency SLAs for user-facing APIs
+#
+# In your CI pipeline:
+#   export SLOW_RESPONSE_THRESHOLD_MS=2000
+#   crashlens guard logs.jsonl --rules rules.yaml --fail-on-violations
+
+# Example 3: Error Rate Rule
+# ---------------------------
+# Fail CI if error rate exceeds 5%
+# Set environment variable: ERROR_RATE_THRESHOLD=0.05
+#
+# Use case: Catch reliability regressions before deployment
+#
+# In your CI pipeline:
+#   export ERROR_RATE_THRESHOLD=0.05
+#   crashlens guard logs.jsonl --rules rules.yaml --fail-on-violations
+
+# Example 4: Combined Thresholds
+# --------------------------------
+# Enforce multiple performance metrics simultaneously
+#
+# In your .github/workflows/ci.yml:
+#   - name: Performance Guard
+#     env:
+#       SLOW_RESPONSE_THRESHOLD_MS: 2000
+#       EXPENSIVE_REQUEST_THRESHOLD: 0.10
+#       ERROR_RATE_THRESHOLD: 0.05
+#     run: |
+#       crashlens guard production-logs.jsonl \
+#         --rules .crashlens/rules.yaml \
+#         --fail-on-violations \
+#         --output markdown > report.md
+
+# Example 5: Staging vs Production Thresholds
+# --------------------------------------------
+# Use different thresholds for different environments
+#
+# Staging (more lenient):
+#   SLOW_RESPONSE_THRESHOLD_MS=5000
+#   EXPENSIVE_REQUEST_THRESHOLD=1.00
+#   ERROR_RATE_THRESHOLD=0.20
+#
+# Production (strict):
+#   SLOW_RESPONSE_THRESHOLD_MS=1500
+#   EXPENSIVE_REQUEST_THRESHOLD=0.05
+#   ERROR_RATE_THRESHOLD=0.02
+
+## Default Values (if not set)
+## ----------------------------
+## SLOW_RESPONSE_THRESHOLD_MS: 3000 (3 seconds)
+## EXPENSIVE_REQUEST_THRESHOLD: 0.05 ($0.05 per request)
+## ERROR_RATE_THRESHOLD: 0.20 (20% error rate)
+##
+## These defaults are intentionally lenient to avoid false positives.
+## For production use, set stricter thresholds based on your SLAs.
+
+## How Threshold Violations Are Reported
+## --------------------------------------
+## When a threshold is breached, CrashLens adds synthetic violations:
+##   - perf_latency_threshold (fatal severity)
+##   - perf_cost_threshold (fatal severity)
+##   - perf_error_rate_threshold (fatal severity)
+##
+## These violations always trigger CI failure (even without --fail-on-violations).
+
+## Integration with Regular Rules
+## -------------------------------
+## Performance thresholds work alongside your custom rules in rules.yaml.
+## You can have both rule-based violations AND threshold violations in the same run.
+##
+## Example:
+##   rules.yaml contains: "Block GPT-4 on summary tasks"
+##   Env vars set: EXPENSIVE_REQUEST_THRESHOLD=0.05
+##   
+##   Guard will fail if EITHER:
+##     - Logs show GPT-4 used on summary tasks, OR
+##     - Any request costs more than $0.05
+
+## Testing Your Thresholds
+## ------------------------
+## 1. Start with default (lenient) thresholds
+## 2. Run guard against historical logs to baseline metrics
+## 3. Gradually tighten thresholds based on P95/P99 percentiles
+## 4. Monitor for false positives in CI
+## 5. Adjust thresholds as system performance improves

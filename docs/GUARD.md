@@ -595,6 +595,133 @@ crashlens guard logs.jsonl \
   --severity error
 ```
 
+## Performance Thresholds
+
+CrashLens Guard can automatically enforce performance thresholds to fail CI if logs show degraded performance. Thresholds are configured via environment variables and work independently of rule-based violations.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SLOW_RESPONSE_THRESHOLD_MS` | 3000 | Maximum acceptable response time in milliseconds |
+| `EXPENSIVE_REQUEST_THRESHOLD` | 0.05 | Maximum acceptable cost in USD per request |
+| `ERROR_RATE_THRESHOLD` | 0.20 | Maximum acceptable error rate (0.0-1.0, e.g., 0.20 = 20%) |
+
+### How It Works
+
+1. Guard evaluates all log entries against your rules
+2. Simultaneously calculates performance metrics:
+   - **Max Latency**: Highest `response_time_ms` value across all logs
+   - **Max Cost**: Highest `cost_usd` value across all logs
+   - **Error Rate**: Percentage of logs with `error: true`
+3. If any threshold is exceeded, Guard adds synthetic "fatal" violations
+4. CI fails if `--fail-on-violations` is set (or always for fatal violations)
+
+### Usage Example
+
+```bash
+# Set strict thresholds for production
+export SLOW_RESPONSE_THRESHOLD_MS=2000
+export EXPENSIVE_REQUEST_THRESHOLD=0.10
+export ERROR_RATE_THRESHOLD=0.05
+
+# Run guard - will fail if ANY threshold breached
+crashlens guard production-logs.jsonl \
+  --rules .crashlens/rules.yaml \
+  --fail-on-violations
+```
+
+### Threshold Violation Output
+
+When a threshold is breached, you'll see synthetic violations:
+
+```
+[FATAL] perf_latency_threshold: Max latency 3500ms exceeds threshold 2000ms
+[FATAL] perf_cost_threshold: Max cost $0.25 exceeds threshold $0.10
+[FATAL] perf_error_rate_threshold: Error rate 12.50% exceeds threshold 5.00%
+```
+
+These appear alongside regular rule violations in all output formats (text, JSON, Markdown, HTML).
+
+### CI Integration Example
+
+**GitHub Actions:**
+
+```yaml
+name: Performance Guard
+
+on: [push, pull_request]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install CrashLens
+        run: pip install crashlens
+      
+      - name: Enforce Performance Thresholds
+        env:
+          SLOW_RESPONSE_THRESHOLD_MS: 1500  # 1.5 second SLA
+          EXPENSIVE_REQUEST_THRESHOLD: 0.05  # $0.05 max per request
+          ERROR_RATE_THRESHOLD: 0.02  # 2% max error rate
+        run: |
+          crashlens guard logs/*.jsonl \
+            --rules .crashlens/rules.yaml \
+            --fail-on-violations \
+            --output markdown > performance-report.md
+      
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.md
+```
+
+### Best Practices
+
+1. **Start Lenient**: Use default thresholds initially, then tighten based on baseline metrics
+2. **Environment-Specific**: Use stricter thresholds in production than staging
+3. **Monitor Trends**: Track threshold violations over time to detect performance degradation
+4. **Combine with Rules**: Use thresholds alongside custom rules for comprehensive policy enforcement
+5. **Test Before Enforcing**: Run guard with `--dry-run` to validate thresholds won't cause false positives
+
+### Disabling Thresholds
+
+To disable specific thresholds, set them to very high values:
+
+```bash
+# Disable latency threshold
+export SLOW_RESPONSE_THRESHOLD_MS=999999
+
+# Disable cost threshold
+export EXPENSIVE_REQUEST_THRESHOLD=9999.99
+
+# Disable error rate threshold
+export ERROR_RATE_THRESHOLD=1.0  # 100% = no enforcement
+```
+
+Or don't set the environment variables at all (defaults are intentionally lenient).
+
+### Troubleshooting
+
+**Q: Threshold violations but logs look normal?**
+
+Check your log format. Ensure fields match expected names:
+- `response_time_ms` for latency (milliseconds)
+- `cost_usd` for cost (USD)
+- `error` for error status (boolean: true/false)
+
+**Q: Want per-rule thresholds instead of global?**
+
+Use conditional rules with `if_cost_usd_gt` or `if_response_time_gt` conditions instead of environment variables.
+
+**Q: Can I customize synthetic violation severity?**
+
+Not currently. Performance threshold violations are always "fatal" severity to ensure they fail CI.
+
 ## Integration Patterns
 
 ### Pattern 1: Pre-commit Hook
