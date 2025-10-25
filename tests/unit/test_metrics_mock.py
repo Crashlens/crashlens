@@ -457,6 +457,7 @@ class TestSampling:
             from crashlens.observability import initialize_metrics
             
             metrics = initialize_metrics(enabled=True, sample_rate=0.0)
+            assert metrics is not None, "Metrics should be initialized"
             
             # Try to record 100 times
             for i in range(100):
@@ -475,6 +476,7 @@ class TestSampling:
             from crashlens.observability import initialize_metrics
             
             metrics = initialize_metrics(enabled=True, sample_rate=1.0)
+            assert metrics is not None, "Metrics should be initialized"
             
             # Record multiple times - should all go through
             for i in range(10):
@@ -495,6 +497,7 @@ class TestSampling:
             random.seed(42)
             
             metrics = initialize_metrics(enabled=True, sample_rate=sample_rate)
+            assert metrics is not None, "Metrics should be initialized"
             
             # Call 1000 times
             for i in range(1000):

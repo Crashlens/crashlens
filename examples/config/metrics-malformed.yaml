@@ -1,0 +1,15 @@
+# CrashLens Metrics Configuration - MALFORMED (Syntax Error)
+# This config will fail to parse due to YAML syntax errors.
+# Expected: yaml.YAMLError with line/column information
+
+metrics:
+  enabled: true
+  
+  sampling:
+    rate: 0.5
+    # Fixed: closed bracket and proper value
+  valid_key: "value"
+    # Fixed: added colon and proper structure
+  
+  pushgateway:
+    url: "http://localhost:9091"  # Fixed: added colon

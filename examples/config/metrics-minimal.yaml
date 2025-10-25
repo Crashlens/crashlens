@@ -1,0 +1,12 @@
+# CrashLens Metrics Configuration - Minimal Example
+# This is the simplest valid configuration.
+# All unspecified fields will use defaults.
+
+metrics:
+  enabled: true
+  
+  sampling:
+    rate: 0.1  # 10% sampling
+  
+  pushgateway:
+    url: http://localhost:9091

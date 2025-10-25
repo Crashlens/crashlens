@@ -13,6 +13,7 @@ import pytest
 from crashlens.observability import initialize_metrics, get_metrics
 from crashlens.observability.server import (
     push_metrics_async,
+    push_metrics_sync,
     validate_pushgateway_url
 )
 
@@ -50,24 +51,22 @@ def check_pushgateway(pushgateway_url):
 @pytest.fixture
 def metrics_instance():
     """Create a fresh metrics instance for each test."""
-    # Reset global state
-    import crashlens.observability.metrics as metrics_module
-    metrics_module._metrics_instance = None
-    
     # Initialize with test settings
     metrics = initialize_metrics(enabled=True, max_rules=100)
+    
+    # Ensure metrics was initialized successfully
+    assert metrics is not None, "Metrics initialization failed"
     
     # Record some test data
     metrics.record_rule_hit('test-rule', 'high', 'scan')
     metrics.record_violation('critical')
     metrics.record_trace_processed(count=10)
-    metrics.update_decision_latency('test-rule', 0.01, 0.05)
+    metrics.update_decision_latency('test-rule', 0.01)  # Only 2 params: rule_name, avg_seconds
     metrics.update_run_timestamp('success')
     
     yield metrics
     
-    # Cleanup (optional)
-    metrics_module._metrics_instance = None
+    # No cleanup needed - each test gets its own instance
 
 
 # Optional: Cleanup fixture
@@ -121,6 +120,8 @@ class TestPushgatewayIntegration:
         
         # Initialize and push metrics
         metrics = initialize_metrics(enabled=True, max_rules=100)
+        assert metrics is not None, "Metrics should be initialized"
+        
         metrics.record_rule_hit('integration-test-rule', 'medium', 'check')
         metrics.record_violation('high')
         metrics.record_trace_processed(count=5)
@@ -152,13 +153,14 @@ class TestPushgatewayIntegration:
         
         # Initialize metrics
         metrics = initialize_metrics(enabled=True, max_rules=100)
+        assert metrics is not None, "Metrics should be initialized"
         
         # Record comprehensive metrics
         metrics.record_rule_hit('comprehensive-rule', 'critical', 'scan')
         metrics.record_violation('medium')
         metrics.record_trace_processed(count=100)
         metrics.record_trace_failed('missing_fields', count=5)
-        metrics.update_decision_latency('comprehensive-rule', avg=0.001, max_val=0.005)
+        metrics.update_decision_latency('comprehensive-rule', 0.001)  # Fixed: only 2 params
         metrics.update_run_timestamp('success')
         
         # Push metrics
@@ -180,9 +182,9 @@ class TestPushgatewayIntegration:
             'crashlens_traces_processed_total',
             'crashlens_traces_failed_total',
             'crashlens_decision_latency_avg_seconds',
-            'crashlens_decision_latency_max_seconds',
             'crashlens_last_run_timestamp_seconds',
             'crashlens_metrics_push_status',
+            'crashlens_rule_label_overflow_total',
         ]
         
         missing_metrics = []
@@ -198,6 +200,7 @@ class TestPushgatewayIntegration:
         
         # Initialize with low cardinality limit
         metrics = initialize_metrics(enabled=True, max_rules=5)
+        assert metrics is not None, "Metrics should be initialized"
         
         # Add 10 unique rules (limit is 5)
         for i in range(10):

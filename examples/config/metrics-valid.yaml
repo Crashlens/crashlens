@@ -1,0 +1,39 @@
+# CrashLens Metrics Configuration - Valid Example
+# This is a complete, valid metrics configuration file.
+# Save to: ./.crashlens/metrics.yaml or ~/.crashlens/metrics.yaml
+
+metrics:
+  # Enable metrics collection
+  enabled: true
+  
+  # Sampling configuration
+  sampling:
+    # Global sampling rate: 0.0 (0%) to 1.0 (100%)
+    rate: 0.1  # Sample 10% of all rule evaluations
+    
+    # Per-rule sampling overrides (optional)
+    per_rule:
+      # High-frequency rules: sample less
+      rate_limit_violation: 0.01  # 1%
+      prompt_too_long: 0.01       # 1%
+      token_limit_exceeded: 0.05  # 5%
+      
+      # Critical violations: sample more
+      security_breach: 1.0        # 100%
+      cost_overrun: 1.0           # 100%
+      pii_detected: 1.0           # 100%
+  
+  # Cardinality protection: limit unique rule IDs tracked
+  max_rules: 500
+  
+  # Pushgateway configuration (for push mode)
+  pushgateway:
+    url: http://localhost:9091
+    job: crashlens_scan
+    timeout: 10  # seconds (1-60)
+  
+  # HTTP server configuration (for scrape mode)
+  http_server:
+    enabled: false
+    port: 9090        # 1024-65535 (unprivileged ports)
+    addr: 127.0.0.1   # Bind to localhost only

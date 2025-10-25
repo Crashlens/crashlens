@@ -1,0 +1,17 @@
+﻿# Prometheus configuration for CrashLens observability
+# INTERNAL USE ONLY - Private network deployment
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['localhost:9091']
+        labels:
+          service: 'crashlens'
+
+rule_files:
+  - 'crashlens-alert-rules.yml'

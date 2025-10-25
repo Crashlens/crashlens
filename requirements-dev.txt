@@ -1,0 +1,24 @@
+# Test Dependencies for CrashLens Prometheus Integration Test Suite
+# Install: pip install -r requirements-dev.txt
+
+# Core test framework
+pytest>=7.4.0
+pytest-mock>=3.11.0
+
+# HTTP mocking (for pushgateway tests)
+requests-mock>=1.11.0
+
+# Optional: Memory profiling (can skip if not needed)
+# Uncomment to install, or run benchmarks without it
+# memory-profiler>=0.61.0
+
+# Core dependencies (if not already in main requirements.txt)
+# These should match your main requirements
+prometheus-client>=0.17.0
+PyYAML>=6.0
+click>=8.1.0
+
+# Code quality (optional, for local development)
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.0.0

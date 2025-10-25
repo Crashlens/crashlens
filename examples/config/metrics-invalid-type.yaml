@@ -1,0 +1,13 @@
+# CrashLens Metrics Configuration - INVALID (Type Error)
+# This config will fail validation due to type mismatch.
+# Expected: Pydantic ValidationError about rate field type
+
+metrics:
+  enabled: true
+  
+  sampling:
+    # ✗ INVALID: rate must be float, not string
+    rate: "not_a_number"
+  
+  pushgateway:
+    url: http://localhost:9091

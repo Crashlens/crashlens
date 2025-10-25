@@ -378,7 +378,8 @@ def _initialize_metrics_impl(
     global _prometheus_available, _Counter, _Gauge, _CollectorRegistry, _REGISTRY
 
     # Check kill switch first (highest precedence)
-    if os.environ.get("CRASHLENS_DISABLE_METRICS", "").lower() == "true":
+    disable_value = os.environ.get("CRASHLENS_DISABLE_METRICS", "").lower()
+    if disable_value in ("true", "1", "yes"):
         logger.info(
             "Metrics disabled via CRASHLENS_DISABLE_METRICS environment variable"
         )

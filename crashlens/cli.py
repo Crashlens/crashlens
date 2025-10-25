@@ -690,6 +690,12 @@ def cli():
               help='HTTP server port for metrics (default: 9090, range: 1024-65535)')
 @click.option('--metrics-addr', default='127.0.0.1', envvar='CRASHLENS_METRICS_ADDR',
               help='HTTP server bind address (default: 127.0.0.1 localhost-only, use 0.0.0.0 to expose on network)')
+@click.option('--metrics-auth-user', default=None, envvar='CRASHLENS_METRICS_AUTH_USER',
+              help='Basic auth username for HTTP metrics (required for non-localhost binding)')
+@click.option('--metrics-auth-pass', default=None, envvar='CRASHLENS_METRICS_AUTH_PASS',
+              help='Basic auth password for HTTP metrics (required for non-localhost binding)')
+@click.option('--skip-tty-check', is_flag=True, default=False, envvar='CRASHLENS_SKIP_TTY_CHECK',
+              help='Skip TTY/interactivity check for non-localhost HTTP binding (use in CI/CD)')
 def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), output_format: str = 'slack', config: Optional[Path] = None, 
          demo: bool = False, stdin: bool = False, paste: bool = False, summary: bool = False, 
          summary_only: bool = False, detailed: bool = False, detailed_dir: Path = Path('detailed_output'),
@@ -700,7 +706,9 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
          force: bool = False, flatten: bool = False,
          push_metrics: bool = False, pushgateway_url: str = 'http://localhost:9091', 
          metrics_job: str = 'crashlens_scan', metrics_max_rules: int = 500, metrics_sample_rate: float = 1.0,
-         metrics_http: bool = False, metrics_port: int = 9090, metrics_addr: str = '127.0.0.1') -> str:
+         metrics_http: bool = False, metrics_port: int = 9090, metrics_addr: str = '127.0.0.1',
+         metrics_auth_user: Optional[str] = None, metrics_auth_pass: Optional[str] = None,
+         skip_tty_check: bool = False) -> str:
     """🎯 Scan logs for token waste patterns with production-grade suppression logic
 
     📦 Examples:
@@ -785,8 +793,15 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                 sample_rate=metrics_sample_rate
             )
             
-            # Create and start HTTP server
-            http_server = MetricsHTTPServer(metrics, metrics_addr, metrics_port)
+            # Create and start HTTP server with auth support
+            http_server = MetricsHTTPServer(
+                metrics, 
+                metrics_addr, 
+                metrics_port,
+                auth_username=metrics_auth_user,
+                auth_password=metrics_auth_pass,
+                skip_tty_check=skip_tty_check
+            )
             server_url = http_server.start()
             
             # Register cleanup handler
@@ -1154,6 +1169,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
 
             # Build a base sample dataset simulating detections
             sample_traces = {"trace123": [{"id": "event1", "model": "gpt-4", "usage": 320}]}
+            from datetime import datetime as dt_now
             sample_detections = [
                 {
                     "trace_id": "trace123",
@@ -1162,7 +1178,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                     "waste_cost": 0.45,
                     "waste_tokens": 160,
                     "severity": "medium",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": dt_now.now().isoformat(),
                 },
                 {
                     "trace_id": "trace456",
@@ -1171,7 +1187,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                     "waste_cost": 0.79,
                     "waste_tokens": 275,
                     "severity": "low",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": dt_now.now().isoformat(),
                 },
             ]
 
@@ -1212,7 +1228,7 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                 click.echo(slack_output)
 
             click.echo("\n📂 All demo reports saved inside the 'demo/' directory.")
-            return
+            return ""
 
         
         elif stdin:

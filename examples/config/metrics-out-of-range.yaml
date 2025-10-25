@@ -1,0 +1,17 @@
+# CrashLens Metrics Configuration - INVALID (Out of Range)
+# This config will fail validation due to value out of range.
+# Expected: Pydantic ValidationError about rate > 1.0
+
+metrics:
+  enabled: true
+  
+  sampling:
+    # ✗ INVALID: rate must be 0.0-1.0, not 2.5
+    rate: 2.5
+    
+    per_rule:
+      # ✗ INVALID: per-rule rates must also be 0.0-1.0
+      expensive: 1.5
+  
+  pushgateway:
+    url: http://localhost:9091
