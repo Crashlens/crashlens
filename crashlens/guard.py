@@ -648,22 +648,35 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
               help="Deviation threshold for baseline alerts (default: 0.50 = 50%)")
 @click.option("--cost-cap", type=float,
               help="Maximum allowed total cost in USD (fails CI if exceeded)")
-def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only, baseline_logs, baseline_deviation, cost_cap):
+@click.option("--report-path", type=click.Path(), default="crashlens-report.json",
+              help="Path to write structured JSON report (default: crashlens-report.json)")
+@click.option("--annotation-hook", type=str,
+              help="Command to run after report is written (receives report path as argument)")
+def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only, baseline_logs, baseline_deviation, cost_cap, report_path, annotation_hook):
     """Guard against policy violations in JSONL logs
     
     Loads rules from YAML, evaluates log entries, and generates reports.
-    Designed for CI integration with configurable exit codes.
+    Designed for CI integration with configurable exit codes and GitHub annotation hooks.
     
     Example:
     
+        # Basic usage with violations failing CI
         crashlens guard logs.jsonl --rules .crashlens/rules.yaml --fail-on-violations
+        
+        # Write report and trigger GitHub Checks annotations
+        crashlens guard logs.jsonl --rules rules.yaml \\
+            --report-path crashlens-report.json \\
+            --annotation-hook "python tools/post_crashlens_annotations.py crashlens-report.json $GITHUB_SHA"
+        
+        # Dry-run mode (never fails CI, useful for testing)
+        crashlens guard logs.jsonl --rules rules.yaml --dry-run
     
     Exit Codes:
     
-        0 - No violations or only violations below severity threshold
+        0 - No violations, violations below severity threshold, or --dry-run mode
         
         1 - Violations found that meet or exceed severity threshold
-            (only when --fail-on-violations is set)
+            (only when --fail-on-violations is set and NOT in --dry-run mode)
     """
     # Load rules from YAML
     try:
@@ -914,31 +927,68 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     else:  # text
         click.echo(format_text_report(report, logfile))
     
-    # Write JSON artifact for auditability (guard-<RUN_ID>.json)
+    # Write JSON report to specified path (for auditability and annotation hooks)
     # Done after stdout output to avoid contaminating piped JSON
-    run_id = os.getenv("CRASHLENS_RUN_ID") or generate_run_id()
-    artifact_path = f"guard-{run_id}.json"
     try:
-        with open(artifact_path, "w") as f:
+        with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
-        click.echo(f"📋 Artifact written: {artifact_path}", err=True)
+        click.echo(f"📋 Report written: {report_path}", err=True)
     except IOError as e:
-        click.echo(f"⚠️  Warning: Could not write artifact to {artifact_path}: {e}", err=True)
+        click.echo(f"⚠️  Warning: Could not write report to {report_path}: {e}", err=True)
     
-    # Determine exit code
-    should_fail = fail_on_violations and highest_hit >= threshold_rank
+    # Run annotation hook if provided (e.g., GitHub Checks API posting)
+    if annotation_hook:
+        try:
+            # Substitute {report_path} placeholder if present
+            hook_cmd = annotation_hook.replace("{report_path}", report_path)
+            
+            click.echo(f"🔗 Running annotation hook: {hook_cmd}", err=True)
+            result = subprocess.run(
+                hook_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=60  # 60 second timeout for external hooks
+            )
+            
+            if result.returncode == 0:
+                click.echo("✅ Annotation hook completed successfully", err=True)
+                if result.stdout:
+                    click.echo(result.stdout, err=True)
+            else:
+                click.echo(f"⚠️  Annotation hook failed with exit code {result.returncode}", err=True)
+                if result.stderr:
+                    click.echo(result.stderr, err=True)
+        except subprocess.TimeoutExpired:
+            click.echo("⚠️  Annotation hook timed out after 60 seconds", err=True)
+        except Exception as e:
+            click.echo(f"⚠️  Error running annotation hook: {e}", err=True)
     
-    # Dry-run mode overrides exit code
+    # Determine exit code based on violations and cost cap
+    should_fail = False
+    
+    # Check policy violations
+    if fail_on_violations and highest_hit >= threshold_rank:
+        should_fail = True
+    
+    # Check cost cap (if specified)
+    if cost_cap is not None and total_cost > cost_cap:
+        should_fail = True
+    
+    # Dry-run mode ALWAYS overrides exit code (never fails)
     if dry_run:
         should_fail = False
     
     # Always output status to stderr to keep stdout clean for JSON/structured output
-    if dry_run and report['summary']['violations'] > 0:
+    if dry_run and (report['summary']['violations'] > 0 or (cost_cap and total_cost > cost_cap)):
         click.echo("", err=True)
-        click.echo("🔍 Guard (dry-run): Violations found but not failing CI", err=True)
+        click.echo("🔍 Guard (dry-run): Issues found but not failing CI", err=True)
     elif should_fail:
         click.echo("", err=True)
-        click.echo("❌ Guard: Failing due to policy violations", err=True)
+        if cost_cap and total_cost > cost_cap:
+            click.echo("❌ Guard: Failing due to cost cap violation", err=True)
+        else:
+            click.echo("❌ Guard: Failing due to policy violations", err=True)
         sys.exit(1)
     else:
         if report['summary']['violations'] > 0:
