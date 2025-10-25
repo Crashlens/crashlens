@@ -311,8 +311,8 @@ def evaluate_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
     """Evaluate a single condition (atomic or composite) against a log entry
     
     Supports boolean composition:
-    - "and": List of conditions (all must be true)
-    - "or": List of conditions (at least one must be true)
+    - "and" / "all_of": List of conditions (all must be true)
+    - "or" / "any_of": List of conditions (at least one must be true)
     - "not": Single condition (negates result)
     
     Atomic conditions:
@@ -336,27 +336,32 @@ def evaluate_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
         # Simple atomic condition
         {"if_model": "gpt-4o"}
         
-        # OR composition
+        # OR composition (both syntaxes supported)
         {"or": [{"if_model": "gpt-4o"}, {"if_model": "claude-3"}]}
+        {"any_of": [{"if_model": "gpt-4o"}, {"if_model": "claude-3"}]}
+        
+        # AND composition (both syntaxes supported)
+        {"and": [{"if_cost_usd_gt": 0.10}, {"if_model": "gpt-4o"}]}
+        {"all_of": [{"if_cost_usd_gt": 0.10}, {"if_model": "gpt-4o"}]}
         
         # NOT composition
         {"not": {"if_model": "gpt-3.5-turbo"}}
         
         # Nested composition
-        {"and": [
+        {"all_of": [
             {"if_cost_usd_gt": 0.10},
-            {"or": [{"if_model": "gpt-4o"}, {"if_retry_count_gt": 2}]}
+            {"any_of": [{"if_model": "gpt-4o"}, {"if_retry_count_gt": 2}]}
         ]}
     """
-    # Handle boolean composition
-    if "and" in cond:
-        conditions = cond["and"]
+    # Handle boolean composition (support both syntaxes)
+    if "and" in cond or "all_of" in cond:
+        conditions = cond.get("and") or cond.get("all_of")
         if not isinstance(conditions, list):
             return False
         return all(evaluate_condition(sub_cond, entry) for sub_cond in conditions)
     
-    if "or" in cond:
-        conditions = cond["or"]
+    if "or" in cond or "any_of" in cond:
+        conditions = cond.get("or") or cond.get("any_of")
         if not isinstance(conditions, list):
             return False
         return any(evaluate_condition(sub_cond, entry) for sub_cond in conditions)
