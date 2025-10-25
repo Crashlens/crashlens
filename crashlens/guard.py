@@ -551,12 +551,13 @@ def format_markdown_report(report: Dict[str, Any], logfile: str) -> str:
     return "\n".join(lines)
 
 
-def format_html_report(report: Dict[str, Any], logfile: str) -> str:
+def format_html_report(report: Dict[str, Any], logfile: str, summary_only: bool = False) -> str:
     """Format report as HTML with Bootstrap styling
     
     Args:
         report: Report data structure
         logfile: Path to log file that was scanned
+        summary_only: If True, omit content examples
         
     Returns:
         HTML report string with inline styles for email compatibility
@@ -637,8 +638,8 @@ def format_html_report(report: Dict[str, Any], logfile: str) -> str:
                 f'            <div><span class="summary-label">Violation Count:</span> <span class="count">{meta["count"]}</span></div>',
             ])
             
-            # Add examples if available
-            if meta['examples']:
+            # Add examples if available and not summary_only
+            if meta['examples'] and not summary_only:
                 html_parts.append('            <div class="examples">')
                 html_parts.append('                <div class="summary-label">Example Violations:</div>')
                 
@@ -1074,7 +1075,7 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     elif output == "md":
         click.echo(format_markdown_report(report, logfile))
     elif output == "html":
-        click.echo(format_html_report(report, logfile))
+        click.echo(format_html_report(report, logfile, summary_only))
     else:  # text
         click.echo(format_text_report(report, logfile))
     
