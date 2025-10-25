@@ -25,7 +25,12 @@ from crashlens.io.stream_reader import stream_jsonl
 
 # PII detection patterns
 EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
-PHONE_RE = re.compile(r"\+?\d[\d\-\s]{7,}\d")
+# Phone: more restrictive - require + prefix or longer sequences to avoid SSN/date matches
+PHONE_RE = re.compile(r"(\+\d[\d\-\s]{8,}|(?<!\d)\d{3}[\-\s]\d{3}[\-\s]\d{4}(?!\d))")
+# SSN: exactly XXX-XX-XXXX format (US Social Security Number)
+SSN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
+# Credit card: 16 digits with optional spaces/dashes between 4-digit groups
+CREDIT_CARD_RE = re.compile(r"(?<!\d)(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4})(?!\d)")
 
 # Severity ranking for threshold comparison
 SEVERITY_RANK = {"warn": 1, "error": 2, "fatal": 3}
@@ -274,12 +279,20 @@ class PIIDetector:
     
     This class provides an extensible interface for PII detection.
     Override detect() and redact() methods to customize behavior.
+    
+    Supports:
+    - Email addresses
+    - Phone numbers (US and international)
+    - Social Security Numbers (SSN)
+    - Credit card numbers
     """
     
     def __init__(self):
         """Initialize detector with default regex patterns"""
         self.email_pattern = EMAIL_RE
         self.phone_pattern = PHONE_RE
+        self.ssn_pattern = SSN_RE
+        self.credit_card_pattern = CREDIT_CARD_RE
     
     def detect(self, text: str) -> bool:
         """Check if text contains PII
@@ -292,7 +305,12 @@ class PIIDetector:
         """
         if not text:
             return False
-        return bool(self.email_pattern.search(text) or self.phone_pattern.search(text))
+        return bool(
+            self.email_pattern.search(text) or 
+            self.phone_pattern.search(text) or
+            self.ssn_pattern.search(text) or
+            self.credit_card_pattern.search(text)
+        )
     
     def redact(self, text: str) -> str:
         """Redact PII from text
@@ -305,7 +323,11 @@ class PIIDetector:
         """
         if not text:
             return ""
+        # Redact in order: email, SSN, credit card, then phone
+        # (SSN and CC first to avoid phone regex overlapping)
         output = self.email_pattern.sub("[REDACTED_EMAIL]", text)
+        output = self.ssn_pattern.sub("[REDACTED_SSN]", output)
+        output = self.credit_card_pattern.sub("[REDACTED_CREDIT_CARD]", output)
         output = self.phone_pattern.sub("[REDACTED_PHONE]", output)
         return output
 
