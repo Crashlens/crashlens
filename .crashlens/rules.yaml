@@ -1,0 +1,64 @@
+# CrashLens Guard Rules Configuration
+# 
+# This file defines policy rules for the `crashlens guard` command.
+# Rules are evaluated against JSONL log entries to detect violations.
+#
+# Rule Structure:
+#   - id: Unique identifier for the rule
+#   - description: Human-readable explanation
+#   - if: Condition block (all conditions are AND-ed)
+#   - action: fail_ci | error | warn
+#   - severity: fatal | error | warn
+#
+# Supported Conditions:
+#   - if_model: Exact string match on model field
+#   - if_tokens_gt: Token count greater than threshold
+#   - if_retry_count_gt: Retry count greater than threshold
+#   - if_fallback_triggered: Boolean match (true/false)
+#   - if_prompt_contains_pii: Detects emails/phones in prompt
+#   - if_cost_usd_gt: Cost greater than threshold (USD)
+
+rules:
+  - id: RL001
+    description: "High token usage on expensive models (gpt-4o)"
+    if:
+      if_model: "gpt-4o"
+      if_tokens_gt: 2000
+    action: fail_ci
+    severity: fatal
+
+  - id: RL002
+    description: "Excessive retry attempts"
+    if:
+      if_retry_count_gt: 2
+    action: error
+    severity: error
+
+  - id: RL003
+    description: "Fallback mechanism triggered"
+    if:
+      if_fallback_triggered: true
+    action: warn
+    severity: warn
+
+  - id: RL004
+    description: "PII detected in prompts"
+    if:
+      if_prompt_contains_pii: true
+    action: error
+    severity: error
+
+  - id: RL005
+    description: "High cost per request"
+    if:
+      if_cost_usd_gt: 0.50
+    action: fail_ci
+    severity: fatal
+
+  - id: RL006
+    description: "Medium retry count on expensive models"
+    if:
+      if_model: "gpt-4o"
+      if_retry_count_gt: 1
+    action: warn
+    severity: warn

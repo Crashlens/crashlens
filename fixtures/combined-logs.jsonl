@@ -1,0 +1,6 @@
+{"timestamp":"2025-10-24T10:00:00Z","model":"gpt-4o","tokens":2500,"retry_count":0,"fallback_triggered":false,"prompt":"Generate a detailed report for order id 12345 for customer email joe@example.com","cost_usd":0.25,"endpoint":"/api/generate"}
+{"timestamp":"2025-10-24T10:01:00Z","model":"gpt-3.5-turbo","tokens":500,"retry_count":3,"fallback_triggered":false,"prompt":"What is the capital of France?","cost_usd":0.01,"endpoint":"/api/generate"}
+{"timestamp":"2025-10-24T10:02:00Z","model":"gpt-3.5-turbo","tokens":100,"retry_count":0,"fallback_triggered":true,"prompt":"Fallback query: summarize the document","cost_usd":0.02,"endpoint":"/api/stream"}
+{"timestamp":"2025-10-24T10:03:00Z","model":"gpt-4o","tokens":1500,"retry_count":2,"fallback_triggered":false,"prompt":"Complex reasoning task with multiple steps","cost_usd":0.75,"endpoint":"/api/generate"}
+{"timestamp":"2025-10-24T10:04:00Z","model":"gpt-3.5-turbo","tokens":300,"retry_count":0,"fallback_triggered":false,"prompt":"Simple query without issues","cost_usd":0.005,"endpoint":"/api/generate"}
+{"timestamp":"2025-10-24T10:05:00Z","model":"gpt-4o","tokens":3000,"retry_count":1,"fallback_triggered":false,"prompt":"Contact support at +1-555-123-4567 for assistance","cost_usd":0.30,"endpoint":"/api/generate"}
