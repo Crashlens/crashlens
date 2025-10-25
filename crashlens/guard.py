@@ -13,11 +13,15 @@ import sys
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import click
 import yaml
 from jsonschema import ValidationError, validate
+
+# Import streaming reader for large file support
+from crashlens.io.stream_reader import stream_jsonl
 
 # PII detection patterns
 EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
@@ -25,6 +29,11 @@ PHONE_RE = re.compile(r"\+?\d[\d\-\s]{7,}\d")
 
 # Severity ranking for threshold comparison
 SEVERITY_RANK = {"warn": 1, "error": 2, "fatal": 3}
+
+# Streaming threshold (file size in bytes, default: 10 MB)
+# Use environment variable CRASHLENS_STREAM_THRESHOLD to customize
+STREAM_THRESHOLD_BYTES = int(os.getenv("CRASHLENS_STREAM_THRESHOLD", str(10 * 1024 * 1024)))
+STREAM_BATCH_SIZE = int(os.getenv("CRASHLENS_STREAM_BATCH_SIZE", "5000"))
 
 
 def generate_run_id() -> str:
@@ -704,34 +713,73 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         for r in ruleset if r.id not in suppress_set
     }
     
+    # Detect file size and choose processing strategy
+    from pathlib import Path as PathLib  # Avoid conflict with click.Path
+    logfile_path = PathLib(logfile)
+    file_size_bytes = logfile_path.stat().st_size
+    use_streaming = file_size_bytes > STREAM_THRESHOLD_BYTES
+    
+    if use_streaming:
+        file_size_mb = file_size_bytes / (1024 * 1024)
+        click.echo(f"📊 Large file detected ({file_size_mb:.2f} MB), using streaming mode (batch_size={STREAM_BATCH_SIZE})", err=True)
+    
     # Evaluate each log entry against all rules
     # Also collect metrics for performance threshold checks
     all_logs = []
+    
     try:
-        for entry in load_jsonl(logfile):
-            all_logs.append(entry)  # Store for performance threshold checks
-            
-            for r in ruleset:
-                if r.id in suppress_set:
-                    continue
-                
-                if eval_condition(r.cond, entry):
-                    results[r.id]["count"] += 1
+        if use_streaming:
+            # Streaming mode for large files
+            for batch in stream_jsonl(logfile_path, batch_size=STREAM_BATCH_SIZE, skip_malformed=True, verbose=False):
+                for entry in batch:
+                    all_logs.append(entry)  # Store for performance threshold checks
                     
-                    # Collect example (unless no-content flag is set)
-                    # Limit to get_max_examples() to prevent OOM on large logs
-                    max_examples = get_max_examples()
-                    if not no_content and len(results[r.id]["examples"]) < max_examples:
-                        example = {
-                            "timestamp": entry.get("timestamp"),
-                            "model": entry.get("model"),
-                            "tokens": entry.get("tokens"),
-                            "retry_count": entry.get("retry_count"),
-                            "fallback_triggered": entry.get("fallback_triggered"),
-                            "endpoint": entry.get("endpoint"),
-                            "prompt": redact_text(entry.get("prompt", ""), strip_pii)
-                        }
-                        results[r.id]["examples"].append(example)
+                    for r in ruleset:
+                        if r.id in suppress_set:
+                            continue
+                        
+                        if eval_condition(r.cond, entry):
+                            results[r.id]["count"] += 1
+                            
+                            # Collect example (unless no-content flag is set)
+                            max_examples = get_max_examples()
+                            if not no_content and len(results[r.id]["examples"]) < max_examples:
+                                example = {
+                                    "timestamp": entry.get("timestamp"),
+                                    "model": entry.get("model"),
+                                    "tokens": entry.get("tokens"),
+                                    "retry_count": entry.get("retry_count"),
+                                    "fallback_triggered": entry.get("fallback_triggered"),
+                                    "endpoint": entry.get("endpoint"),
+                                    "prompt": redact_text(entry.get("prompt", ""), strip_pii)
+                                }
+                                results[r.id]["examples"].append(example)
+        else:
+            # Original line-by-line mode for small files
+            for entry in load_jsonl(logfile):
+                all_logs.append(entry)  # Store for performance threshold checks
+                
+                for r in ruleset:
+                    if r.id in suppress_set:
+                        continue
+                    
+                    if eval_condition(r.cond, entry):
+                        results[r.id]["count"] += 1
+                        
+                        # Collect example (unless no-content flag is set)
+                        # Limit to get_max_examples() to prevent OOM on large logs
+                        max_examples = get_max_examples()
+                        if not no_content and len(results[r.id]["examples"]) < max_examples:
+                            example = {
+                                "timestamp": entry.get("timestamp"),
+                                "model": entry.get("model"),
+                                "tokens": entry.get("tokens"),
+                                "retry_count": entry.get("retry_count"),
+                                "fallback_triggered": entry.get("fallback_triggered"),
+                                "endpoint": entry.get("endpoint"),
+                                "prompt": redact_text(entry.get("prompt", ""), strip_pii)
+                            }
+                            results[r.id]["examples"].append(example)
     except click.ClickException:
         raise
     
