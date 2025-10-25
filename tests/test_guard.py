@@ -709,7 +709,7 @@ rules:
         assert "Duplicate rule IDs" in result.output
     
     def test_truncated_jsonl_line(self, tmp_path):
-        """Test handling of truncated JSONL line"""
+        """Test fail-safe handling of truncated JSONL line"""
         logs_file = tmp_path / "truncated.jsonl"
         logs_file.write_text('{"model": "gpt-4", "tokens": 100}\n{"model": "gpt-3.5", "token', encoding="utf-8")
         
@@ -728,9 +728,10 @@ rules:
             "--rules", str(rules_file)
         ])
         
-        # Should fail with JSON decode error
-        assert result.exit_code == 1
-        assert "Invalid JSON" in result.output or "JSONDecodeError" in result.output
+        # Should succeed (fail-safe: skips bad line and continues)
+        assert result.exit_code == 0
+        # Should warn about skipped line
+        assert "Skipping malformed JSON" in result.output or "Skipped 1 malformed line" in result.output
     
     def test_max_examples_limit(self, tmp_path):
         """Test that MAX_EXAMPLES limit is enforced"""

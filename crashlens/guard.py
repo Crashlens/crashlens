@@ -153,7 +153,10 @@ def load_rules(path: str) -> List[Rule]:
 
 
 def load_jsonl(path: str):
-    """Generator that yields parsed JSON objects from JSONL file
+    """Generator that yields parsed JSON objects from JSONL file (fail-safe)
+    
+    Skips malformed lines and logs warnings to stderr. Tracks skipped line count
+    as a global variable that can be accessed after iteration.
     
     Args:
         path: Path to JSONL log file
@@ -162,8 +165,11 @@ def load_jsonl(path: str):
         Dict containing log entry data
         
     Raises:
-        click.ClickException: If file cannot be read or contains invalid JSON
+        click.ClickException: If file cannot be read
     """
+    global _jsonl_skipped_lines
+    _jsonl_skipped_lines = 0
+    
     try:
         with open(path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
@@ -173,11 +179,20 @@ def load_jsonl(path: str):
                 try:
                     yield json.loads(line)
                 except json.JSONDecodeError as e:
-                    raise click.ClickException(
-                        f"Invalid JSON at line {line_num} in {path}: {e}"
+                    # Fail-safe: skip malformed line and warn
+                    _jsonl_skipped_lines += 1
+                    content_snippet = line[:80] + "..." if len(line) > 80 else line
+                    click.echo(
+                        f"⚠️  Warning: Skipping malformed JSON at line {line_num}: {e}",
+                        err=True
                     )
+                    click.echo(f"   Content: {content_snippet}", err=True)
     except FileNotFoundError:
         raise click.ClickException(f"Log file not found: {path}")
+
+
+# Global variable to track skipped lines (set by load_jsonl)
+_jsonl_skipped_lines = 0
 
 
 class PIIDetector:
@@ -704,7 +719,8 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     report = {
         "summary": {
             "total_rules": len(results),
-            "violations": sum(1 for m in results.values() if m["count"] > 0)
+            "violations": sum(1 for m in results.values() if m["count"] > 0),
+            "skipped_lines": _jsonl_skipped_lines  # Track malformed lines
         },
         "rules": {
             rid: {
@@ -717,17 +733,15 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         }
     }
     
-    # Write JSON artifact for auditability (guard-<RUN_ID>.json)
-    run_id = os.getenv("CRASHLENS_RUN_ID") or generate_run_id()
-    artifact_path = f"guard-{run_id}.json"
-    try:
-        with open(artifact_path, "w") as f:
-            json.dump(report, f, indent=2)
-        click.echo(f"📋 Artifact written: {artifact_path}", err=True)
-    except IOError as e:
-        click.echo(f"⚠️  Warning: Could not write artifact to {artifact_path}: {e}", err=True)
+    # Print skipped lines summary to stderr
+    if _jsonl_skipped_lines > 0:
+        click.echo("", err=True)
+        click.echo(
+            f"⚠️  Summary: Skipped {_jsonl_skipped_lines} malformed line(s) during parsing",
+            err=True
+        )
     
-    # Format and output report
+    # Format and output report (stdout)
     if summary_only:
         # Condensed one-line-per-rule output
         click.echo("Rule ID | Violations | Severity")
@@ -743,6 +757,17 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         click.echo(format_html_report(report, logfile))
     else:  # text
         click.echo(format_text_report(report, logfile))
+    
+    # Write JSON artifact for auditability (guard-<RUN_ID>.json)
+    # Done after stdout output to avoid contaminating piped JSON
+    run_id = os.getenv("CRASHLENS_RUN_ID") or generate_run_id()
+    artifact_path = f"guard-{run_id}.json"
+    try:
+        with open(artifact_path, "w") as f:
+            json.dump(report, f, indent=2)
+        click.echo(f"📋 Artifact written: {artifact_path}", err=True)
+    except IOError as e:
+        click.echo(f"⚠️  Warning: Could not write artifact to {artifact_path}: {e}", err=True)
     
     # Determine exit code
     should_fail = fail_on_violations and highest_hit >= threshold_rank
