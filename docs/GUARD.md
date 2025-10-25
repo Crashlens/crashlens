@@ -85,7 +85,7 @@ rules:
 
 ### Supported Conditions
 
-All conditions within a rule are AND-ed together. A log entry must match ALL conditions to trigger the rule.
+All conditions within a rule are AND-ed together by default. A log entry must match ALL conditions to trigger the rule.
 
 | Condition | Type | Description | Example |
 |-----------|------|-------------|---------|
@@ -95,6 +95,105 @@ All conditions within a rule are AND-ed together. A log entry must match ALL con
 | `if_fallback_triggered` | boolean | Fallback was triggered | `if_fallback_triggered: true` |
 | `if_prompt_contains_pii` | boolean | PII detected in prompt (email/phone) | `if_prompt_contains_pii: true` |
 | `if_cost_usd_gt` | float | Cost (USD) greater than threshold | `if_cost_usd_gt: 0.50` |
+| `if_response_time_gt` | float | Response time (ms) greater than threshold | `if_response_time_gt: 5000` |
+| `if_error_rate_gt` | float | Error rate (%) greater than threshold | `if_error_rate_gt: 10.0` |
+
+### Boolean Composition (AND/OR/NOT)
+
+Rules support boolean composition for complex logic:
+
+#### OR Composition
+
+Match when **any** condition is true:
+
+```yaml
+rules:
+  - id: RL010
+    description: "Expensive models (gpt-4o or claude-3)"
+    if:
+      or:
+        - if_model: "gpt-4o"
+        - if_model: "claude-3"
+    action: warn
+    severity: warn
+```
+
+#### NOT Composition
+
+Negate a condition (match when condition is **false**):
+
+```yaml
+rules:
+  - id: RL011
+    description: "Non-cheap models"
+    if:
+      not:
+        if_model: "gpt-3.5-turbo"
+    action: warn
+    severity: warn
+```
+
+#### AND Composition (Explicit)
+
+Match when **all** conditions are true (default behavior, but can be explicit):
+
+```yaml
+rules:
+  - id: RL012
+    description: "Expensive model with high tokens"
+    if:
+      and:
+        - if_model: "gpt-4o"
+        - if_tokens_gt: 2000
+    action: error
+    severity: error
+```
+
+#### Nested Composition
+
+Combine boolean operators for complex rules:
+
+```yaml
+rules:
+  - id: RL013
+    description: "High cost from expensive models OR excessive retries"
+    if:
+      or:
+        - and:
+            - if_model: "gpt-4o"
+            - if_cost_usd_gt: 0.50
+        - if_retry_count_gt: 3
+    action: fail_ci
+    severity: fatal
+
+  - id: RL014
+    description: "Cheap model WITHOUT fallback"
+    if:
+      and:
+        - if_model: "gpt-3.5-turbo"
+        - not:
+            if_fallback_triggered: true
+    action: warn
+    severity: warn
+
+  - id: RL015
+    description: "PII in expensive models (either gpt-4o or claude-3)"
+    if:
+      and:
+        - if_prompt_contains_pii: true
+        - or:
+            - if_model: "gpt-4o"
+            - if_model: "claude-3"
+    action: error
+    severity: error
+```
+
+**Key Points**:
+- `and`: List of conditions (all must be true)
+- `or`: List of conditions (at least one must be true)
+- `not`: Single condition (negates result)
+- Nesting is unlimited - combine operators as needed
+- Backward compatible: flat dictionaries still use implicit AND
 
 ### Actions
 
@@ -150,7 +249,7 @@ crashlens guard LOGFILE --rules RULES_FILE [OPTIONS]
 | `--rules` | path | (required) | Path to rules YAML file |
 | `--suppress`, `-s` | string | - | Rule ID to suppress (repeatable) |
 | `--severity` | choice | `error` | Minimum severity threshold: `warn`, `error`, `fatal` |
-| `--output` | choice | `text` | Output format: `json`, `md`, `text` |
+| `--output` | choice | `text` | Output format: `json`, `md`, `text`, `html` |
 | `--no-content` | flag | false | Redact examples from report (privacy mode) |
 | `--strip-pii` | flag | false | Remove emails/phones from example prompts |
 | `--fail-on-violations` | flag | false | Exit 1 when violations meet severity threshold |

@@ -225,26 +225,67 @@ def redact_text(s: str, strip_pii: bool) -> str:
     return s
 
 
-def eval_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
-    """Evaluate rule conditions against a log entry
+def evaluate_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
+    """Evaluate a single condition (atomic or composite) against a log entry
     
-    Supported conditions:
+    Supports boolean composition:
+    - "and": List of conditions (all must be true)
+    - "or": List of conditions (at least one must be true)
+    - "not": Single condition (negates result)
+    
+    Atomic conditions:
     - if_model: exact string match on model field
     - if_tokens_gt: token count greater than threshold
     - if_retry_count_gt: retry count greater than threshold
     - if_fallback_triggered: boolean match on fallback_triggered
     - if_prompt_contains_pii: detects emails/phones in prompt
     - if_cost_usd_gt: cost greater than threshold
-    
-    All conditions within a rule are AND-ed together.
+    - if_response_time_gt: response time (ms) greater than threshold
+    - if_error_rate_gt: error rate (%) greater than threshold
     
     Args:
-        cond: Dictionary of condition key-value pairs
+        cond: Condition dictionary (atomic or composite)
         entry: Log entry to evaluate
         
     Returns:
-        True if all conditions match, False otherwise
+        True if condition matches, False otherwise
+        
+    Examples:
+        # Simple atomic condition
+        {"if_model": "gpt-4o"}
+        
+        # OR composition
+        {"or": [{"if_model": "gpt-4o"}, {"if_model": "claude-3"}]}
+        
+        # NOT composition
+        {"not": {"if_model": "gpt-3.5-turbo"}}
+        
+        # Nested composition
+        {"and": [
+            {"if_cost_usd_gt": 0.10},
+            {"or": [{"if_model": "gpt-4o"}, {"if_retry_count_gt": 2}]}
+        ]}
     """
+    # Handle boolean composition
+    if "and" in cond:
+        conditions = cond["and"]
+        if not isinstance(conditions, list):
+            return False
+        return all(evaluate_condition(sub_cond, entry) for sub_cond in conditions)
+    
+    if "or" in cond:
+        conditions = cond["or"]
+        if not isinstance(conditions, list):
+            return False
+        return any(evaluate_condition(sub_cond, entry) for sub_cond in conditions)
+    
+    if "not" in cond:
+        sub_cond = cond["not"]
+        if not isinstance(sub_cond, dict):
+            return False
+        return not evaluate_condition(sub_cond, entry)
+    
+    # Handle atomic conditions (backward compatibility)
     if "if_model" in cond:
         if entry.get("model") != cond["if_model"]:
             return False
@@ -272,7 +313,39 @@ def eval_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
         if float(entry.get("cost_usd", 0.0)) <= float(cond["if_cost_usd_gt"]):
             return False
     
+    if "if_response_time_gt" in cond:
+        # Response time in milliseconds
+        response_time_ms = float(entry.get("response_time_ms", 0.0))
+        if response_time_ms <= float(cond["if_response_time_gt"]):
+            return False
+    
+    if "if_error_rate_gt" in cond:
+        # Error rate as percentage (0-100)
+        error_rate = float(entry.get("error_rate", 0.0))
+        if error_rate <= float(cond["if_error_rate_gt"]):
+            return False
+    
     return True
+
+
+def eval_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
+    """Evaluate rule conditions against a log entry (backward compatibility wrapper)
+    
+    This function maintains backward compatibility with existing code.
+    All conditions within a rule are implicitly AND-ed together when using
+    the flat dictionary format.
+    
+    For boolean composition (and/or/not), use evaluate_condition() directly
+    or nest conditions under "and", "or", "not" keys.
+    
+    Args:
+        cond: Dictionary of condition key-value pairs
+        entry: Log entry to evaluate
+        
+    Returns:
+        True if all conditions match, False otherwise
+    """
+    return evaluate_condition(cond, entry)
 
 
 def format_json_report(report: Dict[str, Any]) -> str:
@@ -345,6 +418,129 @@ def format_markdown_report(report: Dict[str, Any], logfile: str) -> str:
     return "\n".join(lines)
 
 
+def format_html_report(report: Dict[str, Any], logfile: str) -> str:
+    """Format report as HTML with Bootstrap styling
+    
+    Args:
+        report: Report data structure
+        logfile: Path to log file that was scanned
+        
+    Returns:
+        HTML report string with inline styles for email compatibility
+    """
+    # Color mapping for severity levels
+    severity_colors = {
+        'critical': '#dc3545',  # Red
+        'high': '#fd7e14',      # Orange
+        'medium': '#ffc107',    # Yellow
+        'low': '#6c757d'        # Gray
+    }
+    
+    # Start HTML with inline styles
+    html_parts = [
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '    <meta charset="UTF-8">',
+        '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+        '    <title>CrashLens Guard Report</title>',
+        '    <style>',
+        '        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background-color: #f8f9fa; }',
+        '        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }',
+        '        h1 { color: #212529; border-bottom: 3px solid #0d6efd; padding-bottom: 10px; }',
+        '        .summary { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }',
+        '        .summary-item { display: inline-block; margin-right: 30px; }',
+        '        .summary-label { font-weight: 600; color: #495057; }',
+        '        .violation-card { border-left: 4px solid #dee2e6; padding: 15px; margin: 15px 0; background: #f8f9fa; border-radius: 4px; }',
+        '        .violation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }',
+        '        .rule-id { font-weight: 700; font-size: 1.1em; color: #212529; }',
+        '        .severity-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; color: white; }',
+        '        .description { color: #6c757d; margin: 10px 0; }',
+        '        .count { font-size: 1.2em; font-weight: 600; color: #dc3545; }',
+        '        .examples { margin-top: 15px; }',
+        '        .example-item { background: white; padding: 12px; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6; }',
+        '        .example-row { margin: 5px 0; }',
+        '        .example-label { font-weight: 600; color: #495057; min-width: 120px; display: inline-block; }',
+        '        .example-value { color: #212529; }',
+        '        code { background: #f1f3f5; padding: 2px 6px; border-radius: 3px; font-family: "Courier New", monospace; }',
+        '        .no-violations { text-align: center; padding: 40px; color: #28a745; font-size: 1.3em; }',
+        '        .success-icon { font-size: 3em; }',
+        '    </style>',
+        '</head>',
+        '<body>',
+        '    <div class="container">',
+        '        <h1>🛡️ CrashLens Guard Report</h1>',
+        '        <div class="summary">',
+        f'            <div class="summary-item"><span class="summary-label">Scanned:</span> <code>{logfile}</code></div>',
+        f'            <div class="summary-item"><span class="summary-label">Rules Checked:</span> {len(report["rules"])}</div>',
+        f'            <div class="summary-item"><span class="summary-label">Violations Found:</span> <span class="count">{report["summary"]["violations"]}</span></div>',
+        '        </div>',
+    ]
+    
+    # No violations case
+    if report['summary']['violations'] == 0:
+        html_parts.extend([
+            '        <div class="no-violations">',
+            '            <div class="success-icon">✅</div>',
+            '            <div>No violations detected - All policies passed!</div>',
+            '        </div>',
+        ])
+    else:
+        # Add violation cards
+        for rid, meta in report["rules"].items():
+            if meta["count"] == 0:
+                continue
+            
+            severity = meta['severity'].lower()
+            color = severity_colors.get(severity, '#6c757d')
+            
+            html_parts.extend([
+                f'        <div class="violation-card" style="border-left-color: {color};">',
+                '            <div class="violation-header">',
+                f'                <span class="rule-id">{rid}</span>',
+                f'                <span class="severity-badge" style="background-color: {color};">{severity.upper()}</span>',
+                '            </div>',
+                f'            <div class="description">{meta["description"]}</div>',
+                f'            <div><span class="summary-label">Violation Count:</span> <span class="count">{meta["count"]}</span></div>',
+            ])
+            
+            # Add examples if available
+            if meta['examples']:
+                html_parts.append('            <div class="examples">')
+                html_parts.append('                <div class="summary-label">Example Violations:</div>')
+                
+                for i, ex in enumerate(meta['examples'][:3], 1):
+                    html_parts.append('                <div class="example-item">')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Example #{i}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Timestamp:</span> <span class="example-value">{ex.get("timestamp", "N/A")}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Model:</span> <code>{ex.get("model", "N/A")}</code></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Tokens:</span> <span class="example-value">{ex.get("tokens", "N/A")}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Retry Count:</span> <span class="example-value">{ex.get("retry_count", "N/A")}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Fallback:</span> <span class="example-value">{ex.get("fallback_triggered", "N/A")}</span></div>')
+                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Endpoint:</span> <code>{ex.get("endpoint", "N/A")}</code></div>')
+                    
+                    if ex.get('prompt'):
+                        prompt_preview = ex['prompt'][:80]
+                        if len(ex['prompt']) > 80:
+                            prompt_preview += "..."
+                        html_parts.append(f'                    <div class="example-row"><span class="example-label">Prompt:</span> <span class="example-value">{prompt_preview}</span></div>')
+                    
+                    html_parts.append('                </div>')
+                
+                html_parts.append('            </div>')
+            
+            html_parts.append('        </div>')
+    
+    # Close HTML
+    html_parts.extend([
+        '    </div>',
+        '</body>',
+        '</html>'
+    ])
+    
+    return "\n".join(html_parts)
+
+
 def format_text_report(report: Dict[str, Any], logfile: str) -> str:
     """Format report as plain text
     
@@ -401,7 +597,7 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
               help="Rule IDs to suppress (repeatable)")
 @click.option("--severity", type=click.Choice(["warn", "error", "fatal"]), default="error",
               help="Minimum severity threshold for failing (default: error)")
-@click.option("--output", type=click.Choice(["json", "md", "text"]), default="text",
+@click.option("--output", type=click.Choice(["json", "md", "text", "html"]), default="text",
               help="Output format (default: text)")
 @click.option("--no-content", is_flag=True,
               help="Redact content examples from report")
@@ -505,6 +701,8 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         click.echo(format_json_report(report))
     elif output == "md":
         click.echo(format_markdown_report(report, logfile))
+    elif output == "html":
+        click.echo(format_html_report(report, logfile))
     else:  # text
         click.echo(format_text_report(report, logfile))
     
