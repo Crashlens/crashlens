@@ -300,14 +300,6 @@ class MetricsHTTPServer:
         auth_password: Optional[str] = None,
         skip_tty_check: bool = False
     ):
-    def __init__(
-        self,
-        metrics: Any,
-        host: str = '127.0.0.1',
-        port: int = 9090,
-        auth_username: Optional[str] = None,
-        auth_password: Optional[str] = None,
-        skip_tty_check: bool = False
     ):
         """
         Initialize HTTP server for metrics.
