@@ -23,16 +23,21 @@ from crashlens.guard import (
 def extract_json_from_output(output: str) -> dict:
     """Extract JSON from CLI output that may contain status messages
     
-    The guard command outputs JSON followed by status messages.
-    This function finds the JSON block and parses it.
+    The guard command outputs status messages (to stderr) and JSON (to stdout).
+    This function finds the JSON block and parses it, skipping any leading messages.
     """
+    # Find the first opening brace which should be the start of the JSON
+    first_brace = output.find('{')
+    if first_brace == -1:
+        raise ValueError("No JSON found in output")
+    
     # Find the last closing brace which should be the end of the JSON
     last_brace = output.rfind('}')
     if last_brace == -1:
         raise ValueError("No JSON found in output")
     
-    # Extract just the JSON part
-    json_str = output[:last_brace + 1]
+    # Extract just the JSON part (skip any leading progress messages)
+    json_str = output[first_brace:last_brace + 1]
     return json.loads(json_str)
 
 
