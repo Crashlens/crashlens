@@ -114,6 +114,14 @@ QUICK_TEST*.md
 !SECURITY.md
 !README.md
 
+# Guard implementation temporary docs (exclude from commits)
+IMPLEMENTATION_COMPLETE.md
+CRITICAL_FIXES_*.md
+QA_ISSUES_RESOLVED.md
+EXECUTIVE_SUMMARY.md
+PR_DESCRIPTION.md
+DOCS_INDEX.md
+
 # Temporary test files
 test-*.jsonl
 !tests/test-*.jsonl
