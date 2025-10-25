@@ -4031,7 +4031,12 @@ from .guard import guard
 @click.option('--output', type=click.Choice(['slack', 'md', 'text']), default='md',
               help='Output format for the report')
 @click.option('--webhook-url', help='Slack webhook URL for sending reports')
-def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
+@click.option('--email', help='Email address to send report to (requires SMTP configuration)')
+@click.option('--attach-html', type=click.Path(exists=True, path_type=Path),
+              help='Path to HTML file to attach (e.g., guard-<RUN_ID>.html)')
+@click.option('--previous-logs', type=click.Path(exists=True, path_type=Path),
+              help='Previous period logs for week-over-week comparison')
+def run_report(logfile: Path, output: str, webhook_url: Optional[str], email: Optional[str], attach_html: Optional[Path], previous_logs: Optional[Path]):
     """Generate cost digest report from JSONL logs
     
     Provides quick aggregate statistics by model and endpoint.
@@ -4045,16 +4050,16 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
     """
     from .guard import load_jsonl
     
-    # Aggregate costs
-    total_cost = 0.0
-    total_tokens = 0
-    per_model = {}
-    per_endpoint = {}
-    retry_count = 0
-    fallback_count = 0
-    
-    try:
-        for entry in load_jsonl(str(logfile)):
+    # Helper function to aggregate logs
+    def aggregate_logs(log_path: Path):
+        total_cost = 0.0
+        total_tokens = 0
+        per_model = {}
+        per_endpoint = {}
+        retry_count = 0
+        fallback_count = 0
+        
+        for entry in load_jsonl(str(log_path)):
             cost = float(entry.get("cost_usd", 0.0))
             tokens = int(entry.get("tokens", 0))
             model = entry.get("model", "unknown")
@@ -4082,18 +4087,79 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
             per_endpoint[endpoint]["cost"] += cost
             per_endpoint[endpoint]["count"] += 1
         
+        return {
+            "total_cost": total_cost,
+            "total_tokens": total_tokens,
+            "per_model": per_model,
+            "per_endpoint": per_endpoint,
+            "retry_count": retry_count,
+            "fallback_count": fallback_count
+        }
+    
+    # Aggregate current period
+    try:
+        current = aggregate_logs(logfile)
     except Exception as e:
         click.echo(f"❌ Error reading log file: {e}", err=True)
         sys.exit(1)
+    
+    # Aggregate previous period if provided
+    previous = None
+    delta_cost = None
+    delta_pct = None
+    trend_icon = ""
+    
+    if previous_logs:
+        try:
+            previous = aggregate_logs(previous_logs)
+            delta_cost = current["total_cost"] - previous["total_cost"]
+            if previous["total_cost"] > 0:
+                delta_pct = (delta_cost / previous["total_cost"]) * 100
+            else:
+                delta_pct = 100.0 if current["total_cost"] > 0 else 0.0
+            
+            # Trend indicators
+            if delta_cost > 0:
+                trend_icon = "↑"
+            elif delta_cost < 0:
+                trend_icon = "↓"
+            else:
+                trend_icon = "→"
+        except Exception as e:
+            click.echo(f"⚠️  Warning: Could not read previous logs: {e}", err=True)
+            previous = None
+    
+    total_cost = current["total_cost"]
+    total_tokens = current["total_tokens"]
+    per_model = current["per_model"]
+    per_endpoint = current["per_endpoint"]
+    retry_count = current["retry_count"]
+    fallback_count = current["fallback_count"]
     
     # Format output
     if output == "md":
         lines = ["# 📊 CrashLens Cost Digest", ""]
         lines.append(f"**Log File**: `{logfile}`")
-        lines.append(f"**Total Spend**: ${total_cost:.2f}")
+        
+        # Show delta if available
+        if delta_cost is not None and delta_pct is not None:
+            delta_str = f"${abs(delta_cost):.2f}" if delta_cost >= 0 else f"-${abs(delta_cost):.2f}"
+            lines.append(f"**Total Spend**: ${total_cost:.2f} ({trend_icon} {delta_str}, {delta_pct:+.1f}%)")
+        else:
+            lines.append(f"**Total Spend**: ${total_cost:.2f}")
+        
         lines.append(f"**Total Tokens**: {total_tokens:,}")
         lines.append(f"**Retries**: {retry_count}")
         lines.append(f"**Fallbacks**: {fallback_count}")
+        
+        if previous:
+            lines.append("")
+            lines.append("### 📈 Week-over-Week Comparison")
+            lines.append("")
+            lines.append(f"- **Previous Period**: ${previous['total_cost']:.2f}")
+            lines.append(f"- **Current Period**: ${total_cost:.2f}")
+            lines.append(f"- **Change**: {trend_icon} ${abs(delta_cost):.2f} ({delta_pct:+.1f}%)")
+        
         lines.append("")
         
         lines.append("## 💰 Cost by Model")
@@ -4114,10 +4180,24 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
         click.echo("CrashLens Cost Digest")
         click.echo("=" * 60)
         click.echo(f"Log File: {logfile}")
-        click.echo(f"Total Spend: ${total_cost:.2f}")
+        
+        if delta_cost is not None and delta_pct is not None:
+            delta_str = f"${abs(delta_cost):.2f}" if delta_cost >= 0 else f"-${abs(delta_cost):.2f}"
+            click.echo(f"Total Spend: ${total_cost:.2f} ({trend_icon} {delta_str}, {delta_pct:+.1f}%)")
+        else:
+            click.echo(f"Total Spend: ${total_cost:.2f}")
+        
         click.echo(f"Total Tokens: {total_tokens:,}")
         click.echo(f"Retries: {retry_count}")
         click.echo(f"Fallbacks: {fallback_count}")
+        
+        if previous:
+            click.echo("")
+            click.echo("Week-over-Week Comparison:")
+            click.echo(f"  Previous: ${previous['total_cost']:.2f}")
+            click.echo(f"  Current: ${total_cost:.2f}")
+            click.echo(f"  Change: {trend_icon} ${abs(delta_cost):.2f} ({delta_pct:+.1f}%)")
+        
         click.echo("")
         click.echo("Cost by Model:")
         for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True):
@@ -4128,6 +4208,12 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
             click.echo(f"  {endpoint}: ${stats['cost']:.2f} ({stats['count']} requests)")
         
     elif output == "slack":
+        # Prepare spend text with delta if available
+        if delta_cost is not None and delta_pct is not None:
+            spend_text = f"*Total Spend:*\n${total_cost:.2f}\n{trend_icon} ${abs(delta_cost):.2f} ({delta_pct:+.1f}%)"
+        else:
+            spend_text = f"*Total Spend:*\n${total_cost:.2f}"
+        
         # Slack Block Kit format
         blocks = [
             {
@@ -4140,7 +4226,7 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
             {
                 "type": "section",
                 "fields": [
-                    {"type": "mrkdwn", "text": f"*Total Spend:*\n${total_cost:.2f}"},
+                    {"type": "mrkdwn", "text": spend_text},
                     {"type": "mrkdwn", "text": f"*Total Tokens:*\n{total_tokens:,}"},
                     {"type": "mrkdwn", "text": f"*Retries:*\n{retry_count}"},
                     {"type": "mrkdwn", "text": f"*Fallbacks:*\n{fallback_count}"}
@@ -4189,6 +4275,238 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
         else:
             # Just print the JSON
             click.echo(json.dumps(payload, indent=2))
+    
+    # Send email if --email flag is provided
+    if email:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        from .config.smtp_config import load_smtp_config
+        
+        # Load SMTP configuration (precedence: env vars > YAML > defaults)
+        smtp_config = load_smtp_config()
+        
+        if not smtp_config:
+            click.echo("❌ Email sending requires SMTP configuration", err=True)
+            click.echo("\n💡 Configure SMTP in one of two ways:", err=True)
+            click.echo("\n1️⃣  Environment Variables:", err=True)
+            click.echo("   export SMTP_SERVER=smtp.gmail.com", err=True)
+            click.echo("   export SMTP_PORT=587", err=True)
+            click.echo("   export SMTP_USER=your-email@example.com", err=True)
+            click.echo("   export SMTP_PASSWORD=your-app-password", err=True)
+            click.echo("   export SMTP_FROM=noreply@example.com", err=True)
+            click.echo("\n2️⃣  YAML Configuration File (.crashlens/smtp.yaml):", err=True)
+            click.echo("   Run: crashlens config smtp-example", err=True)
+            click.echo("   Then edit: .crashlens/smtp.yaml", err=True)
+            sys.exit(1)
+        
+        # Extract SMTP parameters
+        smtp_params = smtp_config.to_dict()
+        smtp_server = smtp_params['server']
+        smtp_port = smtp_params['port']
+        smtp_user = smtp_params['user']
+        smtp_password = smtp_params['password']
+        smtp_from = smtp_params['from']
+        
+        try:
+            # Create message (mixed if attachment, alternative if not)
+            if attach_html:
+                # Use multipart/mixed for attachments
+                msg_root = MIMEMultipart('mixed')
+                msg_root['Subject'] = '📊 CrashLens Cost Digest Report'
+                msg_root['From'] = smtp_from
+                msg_root['To'] = email
+                
+                # Create alternative part for text/html content
+                msg_alternative = MIMEMultipart('alternative')
+                msg_root.attach(msg_alternative)
+                msg = msg_alternative  # Use this for attaching text/html parts
+            else:
+                # Use multipart/alternative for text/html only
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = '📊 CrashLens Cost Digest Report'
+                msg['From'] = smtp_from
+                msg['To'] = email
+                msg_root = msg  # Use same for sending
+            
+            # Generate email body based on output format
+            if output == "md" or output == "text":
+                # Regenerate markdown content for email
+                email_body = f"""
+# 📊 CrashLens Cost Digest
+
+**Log File**: `{logfile}`
+**Total Spend**: ${total_cost:.2f}
+**Total Tokens**: {total_tokens:,}
+**Retries**: {retry_count}
+**Fallbacks**: {fallback_count}
+
+## 💰 Cost by Model
+
+"""
+                for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True):
+                    email_body += f"- **{model}**: ${stats['cost']:.2f} ({stats['count']} requests, {stats['tokens']:,} tokens)\n"
+                
+                email_body += "\n## 🔗 Cost by Endpoint\n\n"
+                for endpoint, stats in sorted(per_endpoint.items(), key=lambda x: x[1]["cost"], reverse=True):
+                    email_body += f"- **{endpoint}**: ${stats['cost']:.2f} ({stats['count']} requests)\n"
+                
+                # HTML version for better rendering
+                html_body = f"""
+<html>
+<head>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; }}
+        h1 {{ color: #0066cc; border-bottom: 2px solid #0066cc; padding-bottom: 10px; }}
+        h2 {{ color: #333; margin-top: 30px; }}
+        .summary {{ background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+        .summary-item {{ display: block; margin: 5px 0; }}
+        .label {{ font-weight: 600; color: #555; }}
+        ul {{ list-style: none; padding: 0; }}
+        li {{ padding: 8px; margin: 5px 0; background: #f9f9f9; border-radius: 3px; }}
+        code {{ background: #eee; padding: 2px 6px; border-radius: 3px; }}
+    </style>
+</head>
+<body>
+    <h1>📊 CrashLens Cost Digest</h1>
+    <div class="summary">
+        <div class="summary-item"><span class="label">Log File:</span> <code>{logfile}</code></div>
+        <div class="summary-item"><span class="label">Total Spend:</span> ${total_cost:.2f}</div>
+        <div class="summary-item"><span class="label">Total Tokens:</span> {total_tokens:,}</div>
+        <div class="summary-item"><span class="label">Retries:</span> {retry_count}</div>
+        <div class="summary-item"><span class="label">Fallbacks:</span> {fallback_count}</div>
+    </div>
+    
+    <h2>💰 Cost by Model</h2>
+    <ul>
+"""
+                for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True):
+                    html_body += f"        <li><strong>{model}</strong>: ${stats['cost']:.2f} ({stats['count']} requests, {stats['tokens']:,} tokens)</li>\n"
+                
+                html_body += """    </ul>
+    
+    <h2>🔗 Cost by Endpoint</h2>
+    <ul>
+"""
+                for endpoint, stats in sorted(per_endpoint.items(), key=lambda x: x[1]["cost"], reverse=True):
+                    html_body += f"        <li><strong>{endpoint}</strong>: ${stats['cost']:.2f} ({stats['count']} requests)</li>\n"
+                
+                html_body += """    </ul>
+</body>
+</html>
+"""
+                
+                # Attach both plain text and HTML
+                part1 = MIMEText(email_body, 'plain')
+                part2 = MIMEText(html_body, 'html')
+                msg.attach(part1)
+                msg.attach(part2)
+            
+            elif output == "slack":
+                # For Slack format, send as plain text with Slack-style formatting
+                slack_text = f"""📊 CrashLens Cost Digest
+
+Total Spend: ${total_cost:.2f}
+Total Tokens: {total_tokens:,}
+Retries: {retry_count}
+Fallbacks: {fallback_count}
+
+💰 Top Models by Cost:
+"""
+                for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True)[:5]:
+                    slack_text += f"• {model}: ${stats['cost']:.2f} ({stats['count']} requests)\n"
+                
+                part = MIMEText(slack_text, 'plain')
+                msg.attach(part)
+            
+            # Attach HTML file if provided
+            if attach_html:
+                try:
+                    from email.mime.base import MIMEBase
+                    from email import encoders
+                    
+                    # Read HTML file
+                    with open(attach_html, 'rb') as f:
+                        html_content = f.read()
+                    
+                    # Create attachment
+                    html_part = MIMEBase('text', 'html')
+                    html_part.set_payload(html_content)
+                    encoders.encode_base64(html_part)
+                    
+                    # Set filename
+                    html_part.add_header(
+                        'Content-Disposition',
+                        f'attachment; filename="{attach_html.name}"'
+                    )
+                    
+                    # Attach to root message (not the alternative part)
+                    msg_root.attach(html_part)
+                    
+                except Exception as e:
+                    click.echo(f"⚠️  Warning: Could not attach HTML file: {e}", err=True)
+            
+            # Send email
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()  # Upgrade to secure connection
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg_root)  # Send root message
+            
+            if attach_html:
+                click.echo(f"✅ Report sent via email to {email} (with attachment: {attach_html.name})")
+            else:
+                click.echo(f"✅ Report sent via email to {email}")
+            
+        except smtplib.SMTPAuthenticationError:
+            click.echo(f"❌ SMTP authentication failed. Check SMTP_USER and SMTP_PASSWORD", err=True)
+            sys.exit(1)
+        except smtplib.SMTPException as e:
+            click.echo(f"❌ SMTP error: {e}", err=True)
+            sys.exit(1)
+        except Exception as e:
+            click.echo(f"❌ Error sending email: {e}", err=True)
+            sys.exit(1)
+
+
+# ========================================
+# Config Commands
+# ========================================
+
+@click.group()
+def config():
+    """Configuration management commands"""
+    pass
+
+
+@config.command('smtp-example')
+@click.option('--output', type=click.Path(path_type=Path), 
+              default=Path('.crashlens/smtp.yaml'),
+              help='Output path for example config (default: .crashlens/smtp.yaml)')
+def smtp_example(output: Path):
+    """Generate example SMTP configuration file
+    
+    Creates a template SMTP configuration file with comments explaining
+    each setting. Environment variables will override these values.
+    
+    Examples:
+    
+        crashlens config smtp-example
+        
+        crashlens config smtp-example --output my-smtp.yaml
+    """
+    from .config.smtp_config import SMTPConfig
+    
+    try:
+        SMTPConfig.create_example_config(output)
+        click.echo(f"✅ Example SMTP config created: {output}")
+        click.echo(f"\n💡 Next steps:")
+        click.echo(f"   1. Edit {output} with your SMTP credentials")
+        click.echo(f"   2. Or set environment variables (SMTP_SERVER, SMTP_PORT, etc.)")
+        click.echo(f"   3. Run: crashlens report logs.jsonl --email recipient@example.com")
+        
+    except Exception as e:
+        click.echo(f"❌ Error creating example config: {e}", err=True)
+        sys.exit(1)
 
 
 # Add commands to CLI
@@ -4197,6 +4515,7 @@ cli.add_command(list_policy_templates)
 cli.add_command(init)
 cli.add_command(simulate)
 cli.add_command(slack)
+cli.add_command(config)
 cli.add_command(pii_remove)
 cli.add_command(pii_clean_command)
 cli.add_command(validate_metrics_config)
