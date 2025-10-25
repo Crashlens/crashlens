@@ -154,7 +154,7 @@ def load_rules(path: str) -> List[Rule]:
         rules.append(Rule(
             id=r["id"],
             description=r.get("description", ""),
-            cond=r["if"],
+            cond=interpolate_variables(r["if"]),  # Interpolate variables in conditions
             action=r["action"],
             severity=severity
         ))
@@ -203,6 +203,46 @@ def load_jsonl(path: str):
 
 # Global variable to track skipped lines (set by load_jsonl)
 _jsonl_skipped_lines = 0
+
+
+def interpolate_variables(value: Any) -> Any:
+    """
+    Interpolate environment variables in string values.
+    
+    Supports both $VAR and ${VAR} syntax. Non-string values are returned unchanged.
+    
+    Args:
+        value: Value to interpolate (can be string, dict, list, or other)
+        
+    Returns:
+        Value with variables interpolated
+        
+    Examples:
+        >>> os.environ['TEAM'] = 'platform'
+        >>> interpolate_variables('team=$TEAM')
+        'team=platform'
+        >>> interpolate_variables('${THRESHOLD}')
+        '100' (if THRESHOLD=100)
+    """
+    if isinstance(value, str):
+        # Replace ${VAR} format
+        import re
+        def replace_var(match):
+            var_name = match.group(1)
+            return os.getenv(var_name, match.group(0))  # Keep original if not found
+        
+        value = re.sub(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}', replace_var, value)
+        
+        # Replace $VAR format (word boundary required)
+        value = re.sub(r'\$([A-Za-z_][A-Za-z0-9_]*)\b', replace_var, value)
+        
+        return value
+    elif isinstance(value, dict):
+        return {k: interpolate_variables(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [interpolate_variables(item) for item in value]
+    else:
+        return value
 
 
 class PIIDetector:
