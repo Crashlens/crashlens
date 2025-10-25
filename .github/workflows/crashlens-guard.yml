@@ -55,6 +55,7 @@ jobs:
           RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD)"
           echo "run_id=${RUN_ID}" >> $GITHUB_OUTPUT
           echo "📋 Run ID: ${RUN_ID}"
+          echo "CRASHLENS_RUN_ID=${RUN_ID}" >> $GITHUB_ENV
       
       - name: Run CrashLens guard
         env:
@@ -64,14 +65,14 @@ jobs:
             --rules .crashlens/rules.yaml \
             --fail-on-violations \
             --severity error \
-            --output json | tee guard-${{ steps.runid.outputs.run_id }}.json
+            --output text
       
       - name: Upload guard report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: crashlens-guard-report-${{ steps.runid.outputs.run_id }}
-          path: guard-${{ steps.runid.outputs.run_id }}.json
+          name: crashlens-guard-report
+          path: guard-*.json
           retention-days: 90
       
       - name: Generate Report Summary

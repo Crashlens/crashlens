@@ -9,7 +9,9 @@ import json
 import os
 import re
 import sys
+import subprocess
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import click
@@ -22,6 +24,21 @@ PHONE_RE = re.compile(r"\+?\d[\d\-\s]{7,}\d")
 
 # Severity ranking for threshold comparison
 SEVERITY_RANK = {"warn": 1, "error": 2, "fatal": 3}
+
+
+def generate_run_id() -> str:
+    """Generate unique run ID for artifact tracking (timestamp + git hash)"""
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback if git is unavailable or not a git repo
+        git_hash = "nogit"
+    return f"{timestamp}-{git_hash}"
 
 
 def get_max_examples() -> int:
@@ -699,6 +716,16 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             for rid, meta in results.items()
         }
     }
+    
+    # Write JSON artifact for auditability (guard-<RUN_ID>.json)
+    run_id = os.getenv("CRASHLENS_RUN_ID") or generate_run_id()
+    artifact_path = f"guard-{run_id}.json"
+    try:
+        with open(artifact_path, "w") as f:
+            json.dump(report, f, indent=2)
+        click.echo(f"📋 Artifact written: {artifact_path}", err=True)
+    except IOError as e:
+        click.echo(f"⚠️  Warning: Could not write artifact to {artifact_path}: {e}", err=True)
     
     # Format and output report
     if summary_only:
