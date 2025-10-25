@@ -4022,6 +4022,175 @@ def show_metrics_config(config_file: Optional[Path]):
         sys.exit(1)
 
 
+# Import guard command
+from .guard import guard
+
+
+@click.command("report")
+@click.argument('logfile', type=click.Path(exists=True, path_type=Path))
+@click.option('--output', type=click.Choice(['slack', 'md', 'text']), default='md',
+              help='Output format for the report')
+@click.option('--webhook-url', help='Slack webhook URL for sending reports')
+def run_report(logfile: Path, output: str, webhook_url: Optional[str]):
+    """Generate cost digest report from JSONL logs
+    
+    Provides quick aggregate statistics by model and endpoint.
+    Useful for weekly digests or Slack notifications.
+    
+    Examples:
+    
+        crashlens report logs.jsonl
+        
+        crashlens report logs.jsonl --output slack --webhook-url $SLACK_WEBHOOK
+    """
+    from .guard import load_jsonl
+    
+    # Aggregate costs
+    total_cost = 0.0
+    total_tokens = 0
+    per_model = {}
+    per_endpoint = {}
+    retry_count = 0
+    fallback_count = 0
+    
+    try:
+        for entry in load_jsonl(str(logfile)):
+            cost = float(entry.get("cost_usd", 0.0))
+            tokens = int(entry.get("tokens", 0))
+            model = entry.get("model", "unknown")
+            endpoint = entry.get("endpoint", "unknown")
+            
+            total_cost += cost
+            total_tokens += tokens
+            
+            if entry.get("retry_count", 0) > 0:
+                retry_count += 1
+            
+            if entry.get("fallback_triggered", False):
+                fallback_count += 1
+            
+            # Per-model aggregation
+            if model not in per_model:
+                per_model[model] = {"cost": 0.0, "tokens": 0, "count": 0}
+            per_model[model]["cost"] += cost
+            per_model[model]["tokens"] += tokens
+            per_model[model]["count"] += 1
+            
+            # Per-endpoint aggregation
+            if endpoint not in per_endpoint:
+                per_endpoint[endpoint] = {"cost": 0.0, "count": 0}
+            per_endpoint[endpoint]["cost"] += cost
+            per_endpoint[endpoint]["count"] += 1
+        
+    except Exception as e:
+        click.echo(f"❌ Error reading log file: {e}", err=True)
+        sys.exit(1)
+    
+    # Format output
+    if output == "md":
+        lines = ["# 📊 CrashLens Cost Digest", ""]
+        lines.append(f"**Log File**: `{logfile}`")
+        lines.append(f"**Total Spend**: ${total_cost:.2f}")
+        lines.append(f"**Total Tokens**: {total_tokens:,}")
+        lines.append(f"**Retries**: {retry_count}")
+        lines.append(f"**Fallbacks**: {fallback_count}")
+        lines.append("")
+        
+        lines.append("## 💰 Cost by Model")
+        lines.append("")
+        for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True):
+            lines.append(f"- **{model}**: ${stats['cost']:.2f} ({stats['count']} requests, {stats['tokens']:,} tokens)")
+        lines.append("")
+        
+        lines.append("## 🔗 Cost by Endpoint")
+        lines.append("")
+        for endpoint, stats in sorted(per_endpoint.items(), key=lambda x: x[1]["cost"], reverse=True):
+            lines.append(f"- **{endpoint}**: ${stats['cost']:.2f} ({stats['count']} requests)")
+        
+        click.echo("\n".join(lines))
+        
+    elif output == "text":
+        click.echo("=" * 60)
+        click.echo("CrashLens Cost Digest")
+        click.echo("=" * 60)
+        click.echo(f"Log File: {logfile}")
+        click.echo(f"Total Spend: ${total_cost:.2f}")
+        click.echo(f"Total Tokens: {total_tokens:,}")
+        click.echo(f"Retries: {retry_count}")
+        click.echo(f"Fallbacks: {fallback_count}")
+        click.echo("")
+        click.echo("Cost by Model:")
+        for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True):
+            click.echo(f"  {model}: ${stats['cost']:.2f} ({stats['count']} requests)")
+        click.echo("")
+        click.echo("Cost by Endpoint:")
+        for endpoint, stats in sorted(per_endpoint.items(), key=lambda x: x[1]["cost"], reverse=True):
+            click.echo(f"  {endpoint}: ${stats['cost']:.2f} ({stats['count']} requests)")
+        
+    elif output == "slack":
+        # Slack Block Kit format
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "📊 CrashLens Cost Digest"
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Total Spend:*\n${total_cost:.2f}"},
+                    {"type": "mrkdwn", "text": f"*Total Tokens:*\n{total_tokens:,}"},
+                    {"type": "mrkdwn", "text": f"*Retries:*\n{retry_count}"},
+                    {"type": "mrkdwn", "text": f"*Fallbacks:*\n{fallback_count}"}
+                ]
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*💰 Top Models by Cost:*"
+                }
+            }
+        ]
+        
+        # Add top 5 models
+        for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True)[:5]:
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"• *{model}*: ${stats['cost']:.2f} ({stats['count']} requests)"
+                }
+            })
+        
+        payload = {"blocks": blocks}
+        
+        if webhook_url:
+            # Send to Slack
+            try:
+                import requests
+                response = requests.post(webhook_url, json=payload)
+                if response.status_code == 200:
+                    click.echo("✅ Report sent to Slack successfully")
+                else:
+                    click.echo(f"❌ Failed to send to Slack: {response.status_code}", err=True)
+                    click.echo(json.dumps(payload, indent=2))
+            except ImportError:
+                click.echo("❌ requests library not installed. Install with: pip install requests", err=True)
+                click.echo(json.dumps(payload, indent=2))
+            except Exception as e:
+                click.echo(f"❌ Error sending to Slack: {e}", err=True)
+                click.echo(json.dumps(payload, indent=2))
+        else:
+            # Just print the JSON
+            click.echo(json.dumps(payload, indent=2))
+
+
 # Add commands to CLI
 cli.add_command(policy_check)
 cli.add_command(list_policy_templates)
@@ -4032,6 +4201,8 @@ cli.add_command(pii_remove)
 cli.add_command(pii_clean_command)
 cli.add_command(validate_metrics_config)
 cli.add_command(show_metrics_config)
+cli.add_command(guard)
+cli.add_command(run_report)
 
 
 if __name__ == "__main__":
