@@ -8,28 +8,55 @@
     "cost_cap_exceeded": false
   },
   "rules": {
-    "HIGH_TOKENS": {
-      "count": 10,
+    "ANY_MODEL": {
+      "count": 1000,
       "severity": "warn",
-      "description": "",
+      "description": "Any model",
       "examples": [
         {
-          "timestamp": null,
+          "timestamp": "2025-10-25T00:00:00Z",
           "model": "gpt-4",
-          "tokens": 5000,
+          "tokens": 500,
           "retry_count": 0,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": ""
+          "fallback_triggered": true,
+          "endpoint": "/api/generate",
+          "prompt": "Test prompt 0"
         },
         {
-          "timestamp": null,
+          "timestamp": "2025-10-25T01:01:01Z",
+          "model": "gpt-3.5-turbo",
+          "tokens": 501,
+          "retry_count": 1,
+          "fallback_triggered": false,
+          "endpoint": "/api/generate",
+          "prompt": "Test prompt 1"
+        },
+        {
+          "timestamp": "2025-10-25T02:02:02Z",
+          "model": "claude-2",
+          "tokens": 502,
+          "retry_count": 2,
+          "fallback_triggered": false,
+          "endpoint": "/api/generate",
+          "prompt": "Test prompt 2"
+        },
+        {
+          "timestamp": "2025-10-25T03:03:03Z",
+          "model": "claude-instant",
+          "tokens": 503,
+          "retry_count": 3,
+          "fallback_triggered": false,
+          "endpoint": "/api/generate",
+          "prompt": "Test prompt 3"
+        },
+        {
+          "timestamp": "2025-10-25T04:04:04Z",
           "model": "gpt-4",
-          "tokens": 5000,
-          "retry_count": 0,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": ""
+          "tokens": 504,
+          "retry_count": 4,
+          "fallback_triggered": false,
+          "endpoint": "/api/generate",
+          "prompt": "Test prompt 4"
         }
       ]
     }
