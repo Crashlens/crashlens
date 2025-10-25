@@ -35,6 +35,10 @@ from .loader import (
     validate_config_file,
     get_config_summary,
 )
+from .variables import (
+    load_config,
+    resolve_variables_in_obj,
+)
 
 __all__ = [
     # Config models
@@ -47,4 +51,7 @@ __all__ = [
     "find_config_file",
     "validate_config_file",
     "get_config_summary",
+    # Variable resolution
+    "load_config",
+    "resolve_variables_in_obj",
 ]

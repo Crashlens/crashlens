@@ -300,7 +300,6 @@ class MetricsHTTPServer:
         auth_password: Optional[str] = None,
         skip_tty_check: bool = False
     ):
-    ):
         """
         Initialize HTTP server for metrics.
         

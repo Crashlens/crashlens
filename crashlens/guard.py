@@ -20,6 +20,9 @@ import click
 import yaml
 from jsonschema import ValidationError, validate
 
+# Import config resolution for .crashlens/config.yaml fallback
+from crashlens.config import resolve_variables_in_obj
+
 # Import streaming reader for large file support
 from crashlens.io.stream_reader import stream_jsonl
 
@@ -159,7 +162,7 @@ def load_rules(path: str) -> List[Rule]:
         rules.append(Rule(
             id=r["id"],
             description=r.get("description", ""),
-            cond=interpolate_variables(r["if"]),  # Interpolate variables in conditions
+            cond=resolve_variables_in_obj(r["if"]),  # Resolve variables from env/.crashlens/config.yaml
             action=r["action"],
             severity=severity
         ))
