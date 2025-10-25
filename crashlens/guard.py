@@ -205,6 +205,30 @@ def load_jsonl(path: str):
 _jsonl_skipped_lines = 0
 
 
+def autodiscover_rules() -> Optional[str]:
+    """Autodiscover rules.yaml in standard locations.
+    
+    Search order:
+    1. .crashlens/rules.yaml (project-specific)
+    2. .github/crashlens/rules.yaml (GitHub Actions convention)
+    3. rules.yaml (root directory)
+    
+    Returns:
+        Path to discovered rules file, or None if not found
+    """
+    search_paths = [
+        ".crashlens/rules.yaml",
+        ".github/crashlens/rules.yaml",
+        "rules.yaml"
+    ]
+    
+    for path in search_paths:
+        if os.path.exists(path):
+            return path
+    
+    return None
+
+
 def interpolate_variables(value: Any) -> Any:
     """
     Interpolate environment variables in string values.
@@ -678,8 +702,8 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
 
 @click.command("guard")
 @click.argument("logfile", type=click.Path(exists=True))
-@click.option("--rules", type=click.Path(exists=True), required=True,
-              help="Path to rules.yaml file")
+@click.option("--rules", type=click.Path(exists=True), required=False,
+              help="Path to rules.yaml file (auto-discovers if not specified)")
 @click.option("--suppress", "-s", multiple=True,
               help="Rule IDs to suppress (repeatable or comma-separated, e.g., 'RL001' or 'RL001,RL002')")
 @click.option("--severity", type=click.Choice(["warn", "error", "fatal"]), default="error",
@@ -732,6 +756,18 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         1 - Violations found that meet or exceed severity threshold
             (only when --fail-on-violations is set and NOT in --dry-run mode)
     """
+    # Autodiscover rules if not specified
+    if rules is None:
+        rules = autodiscover_rules()
+        if rules is None:
+            raise click.ClickException(
+                "No rules file found. Specify --rules or create rules.yaml in:\n"
+                "  - .crashlens/rules.yaml\n"
+                "  - .github/crashlens/rules.yaml\n"
+                "  - rules.yaml"
+            )
+        click.echo(f"📋 Autodiscovered rules: {rules}", err=True)
+    
     # Load rules from YAML
     try:
         ruleset = load_rules(rules)
