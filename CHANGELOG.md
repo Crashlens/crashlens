@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.21] - 2025-10-25
+
+### Added - Guard Critical Fixes for Production
+- **Strict schema validation**: Rules YAML now validated with jsonschema on load (fail-fast on malformed config)
+- **Duplicate rule ID detection**: Prevents silent conflicts when multiple rules share the same ID
+- **Pluggable PII detection**: New `PIIDetector` class interface for extensible PII detection and redaction
+- **Dynamic example limits**: `CRASHLENS_MAX_EXAMPLES` environment variable (default: 5) to prevent OOM on large logs
+- **Provenance tracking**: GitHub Actions workflow generates RUN_ID (timestamp + git hash) for audit trail
+- **CI artifact upload**: Guard reports automatically uploaded with 90-day retention for compliance
+- **Rule promotion helper**: New `scripts/promote-rule.py` for safe severity escalation (warn → error → fatal)
+
+### Changed
+- **Default severity now "warn"**: New rules default to warn severity for safer CI adoption (prevents immediate breakage)
+- **Improved error messages**: Schema validation errors now show precise jsonschema error messages
+- **Example collection**: Report output now respects CRASHLENS_MAX_EXAMPLES (previously hardcoded to 3)
+
+### Fixed
+- **Guard test suite**: 9 new edge case tests covering malformed rules, duplicate IDs, truncated JSONL, and example limits
+- **PII detection consistency**: PII detector now used consistently across redaction and condition evaluation
+
+### Technical Debt
+- Migrated from hardcoded MAX_EXAMPLES constant to dynamic `get_max_examples()` function for runtime configurability
+- Added JSON schema validation to prevent silent rule file corruption
+
+## [2.9.20] - 2025-10-25
+
 ### Added - Phase 2: Observability & Metrics (October 2025)
 
 #### Prometheus & Grafana Integration
