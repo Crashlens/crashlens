@@ -253,15 +253,59 @@ crashlens guard LOGFILE --rules RULES_FILE [OPTIONS]
 | `--no-content` | flag | false | Redact examples from report (privacy mode) |
 | `--strip-pii` | flag | false | Remove emails/phones from example prompts |
 | `--fail-on-violations` | flag | false | Exit 1 when violations meet severity threshold |
+| `--dry-run` | flag | false | Validate rules without failing CI (exit code always 0) |
+| `--summary-only` | flag | false | Output condensed one-line-per-rule summary |
 
 ### Exit Codes
 
-- `0`: No violations detected OR violations below severity threshold
-- `1`: Violations detected that meet/exceed severity threshold (only with `--fail-on-violations`)
+- `0`: No violations detected OR violations below severity threshold OR `--dry-run` enabled
+- `1`: Violations detected that meet/exceed severity threshold (only with `--fail-on-violations` and not `--dry-run`)
 
 ## Usage Examples
 
-### Example 1: CI Pipeline Integration
+### Example 1: Dry-Run Mode (Validate Without Failing)
+
+Useful for testing rules without blocking CI:
+
+```bash
+# Test rules without failing
+crashlens guard logs.jsonl \
+  --rules .crashlens/rules.yaml \
+  --fail-on-violations \
+  --dry-run
+
+# Output shows violations but exit code is always 0
+# stderr: 🔍 Guard (dry-run): Violations found but not failing CI
+```
+
+### Example 2: Summary-Only Mode (Condensed Output)
+
+Get a quick overview of violations:
+
+```bash
+crashlens guard logs.jsonl \
+  --rules .crashlens/rules.yaml \
+  --summary-only
+
+# Output:
+# Rule ID | Violations | Severity
+# ----------------------------------------
+# RL001         | 5          | fatal
+# RL003         | 12         | warn
+```
+
+### Example 3: Combined Flags
+
+```bash
+# Dry-run with summary for quick validation
+crashlens guard logs.jsonl \
+  --rules .crashlens/rules.yaml \
+  --fail-on-violations \
+  --dry-run \
+  --summary-only
+```
+
+### Example 4: CI Pipeline Integration
 
 ```yaml
 # .github/workflows/guard-check.yml

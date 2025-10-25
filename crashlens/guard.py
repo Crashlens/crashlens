@@ -605,7 +605,11 @@ def format_text_report(report: Dict[str, Any], logfile: str) -> str:
               help="Strip emails/phones from prompts in examples")
 @click.option("--fail-on-violations", is_flag=True,
               help="Exit with code 1 when violations meet severity threshold")
-def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations):
+@click.option("--dry-run", is_flag=True,
+              help="Validate rules without failing CI (exit code always 0)")
+@click.option("--summary-only", is_flag=True,
+              help="Output condensed one-line-per-rule summary")
+def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only):
     """Guard against policy violations in JSONL logs
     
     Loads rules from YAML, evaluates log entries, and generates reports.
@@ -697,7 +701,14 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     }
     
     # Format and output report
-    if output == "json":
+    if summary_only:
+        # Condensed one-line-per-rule output
+        click.echo("Rule ID | Violations | Severity")
+        click.echo("-" * 40)
+        for rid, meta in report["rules"].items():
+            if meta["count"] > 0:  # Only show rules with violations
+                click.echo(f"{rid:15} | {meta['count']:10} | {meta['severity']:8}")
+    elif output == "json":
         click.echo(format_json_report(report))
     elif output == "md":
         click.echo(format_markdown_report(report, logfile))
@@ -709,8 +720,15 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     # Determine exit code
     should_fail = fail_on_violations and highest_hit >= threshold_rank
     
+    # Dry-run mode overrides exit code
+    if dry_run:
+        should_fail = False
+    
     # Always output status to stderr to keep stdout clean for JSON/structured output
-    if should_fail:
+    if dry_run and report['summary']['violations'] > 0:
+        click.echo("", err=True)
+        click.echo("🔍 Guard (dry-run): Violations found but not failing CI", err=True)
+    elif should_fail:
         click.echo("", err=True)
         click.echo("❌ Guard: Failing due to policy violations", err=True)
         sys.exit(1)
