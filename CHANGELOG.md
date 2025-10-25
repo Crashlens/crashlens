@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.9.21] - 2025-10-25
+## [2.9.21] - 2025-01-05
+
+### Added - Boolean Composition and CLI Enhancements
+- **Boolean logic for policy rules**: Added support for `and`, `or`, and `not` composition in rule conditions
+  - `or`: List of conditions where ANY must be true (logical OR)
+  - `not`: Negate a condition (logical NOT)
+  - `and`: Explicit list of conditions where ALL must be true (logical AND)
+  - Supports arbitrary nesting (e.g., `or: [{and: [...]}, {not: {...}}]`)
+  - Backward compatible with existing atomic conditions (implicit AND)
+- **New CLI flags for guard command**:
+  - `--dry-run`: Validate rules without failing CI (exit code always 0, useful for testing)
+  - `--summary-only`: Output condensed one-line-per-rule summary table (`Rule ID | Violations | Severity`)
+  - Both flags can be combined for quick validation workflows
+
+### Changed
+- Exit code behavior: `--dry-run` now overrides `--fail-on-violations` to always return exit code 0
+- Report output: `--summary-only` displays only rules with violations in condensed format
+
+### Technical Enhancements
+- Added `evaluate_condition()` function with recursive boolean composition support
+- Maintained backward compatibility: `eval_condition()` wrapper preserves existing API
+- Comprehensive test suite: 54 new tests for boolean logic and CLI flags (95 total guard tests)
+
+---
+
+## [2.9.20] - 2025-10-25
 
 ### Added - Guard Critical Fixes for Production
 - **Strict schema validation**: Rules YAML now validated with jsonschema on load (fail-fast on malformed config)
