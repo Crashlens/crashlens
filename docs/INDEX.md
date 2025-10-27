@@ -13,6 +13,7 @@ Welcome to CrashLens documentation! This index will help you find the right guid
 ## 📖 User Guides
 
 ### Core Features
+- **[WHAT_IS_CRASHLENS.md](WHAT_IS_CRASHLENS.md)** - Complete guide to understanding CrashLens (NEW!)
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for common tasks
 - **[COMMAND-REFERENCE.md](COMMAND-REFERENCE.md)** - Complete CLI command documentation
 - **[USER_MANUAL.md](USER_MANUAL.md)** - Comprehensive usage guide with examples
@@ -27,6 +28,7 @@ Welcome to CrashLens documentation! This index will help you find the right guid
 
 ### Integrations
 - **[SLACK_INTEGRATION.md](SLACK_INTEGRATION.md)** - Slack webhook setup and notifications
+- **[PROMETHEUS_GRAFANA_SETUP.md](PROMETHEUS_GRAFANA_SETUP.md)** - Prometheus & Grafana installation guide (NEW!)
 - **[OBSERVABILITY.md](OBSERVABILITY.md)** - Prometheus & Grafana monitoring setup
 
 ### CI/CD
@@ -43,6 +45,7 @@ Welcome to CrashLens documentation! This index will help you find the right guid
 ## 📊 Advanced Topics
 
 ### Observability Stack
+- **[PROMETHEUS_GRAFANA_SETUP.md](PROMETHEUS_GRAFANA_SETUP.md)** - Complete installation guide for macOS & Windows (NEW!)
 - **[OBSERVABILITY.md](OBSERVABILITY.md)** - Complete Prometheus & Grafana guide
   - 8 metrics definitions
   - Dashboard setup
@@ -54,6 +57,9 @@ Welcome to CrashLens documentation! This index will help you find the right guid
 ## 🗂️ Documentation by Use Case
 
 ### I want to...
+
+**Understand what CrashLens does and all its features**
+→ Read [WHAT_IS_CRASHLENS.md](WHAT_IS_CRASHLENS.md) - comprehensive overview
 
 **Analyze my AI usage logs**
 → Start with [QUICKSTART.md](QUICKSTART.md), then see [USER_MANUAL.md](USER_MANUAL.md)
@@ -68,7 +74,7 @@ Welcome to CrashLens documentation! This index will help you find the right guid
 → Configure with [SLACK_INTEGRATION.md](SLACK_INTEGRATION.md)
 
 **Monitor with Prometheus & Grafana**
-→ Set up using [OBSERVABILITY.md](OBSERVABILITY.md)
+→ Install using [PROMETHEUS_GRAFANA_SETUP.md](PROMETHEUS_GRAFANA_SETUP.md), configure with [OBSERVABILITY.md](OBSERVABILITY.md)
 
 **Understand specific commands**
 → Check [COMMAND-REFERENCE.md](COMMAND-REFERENCE.md)

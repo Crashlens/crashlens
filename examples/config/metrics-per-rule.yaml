@@ -43,5 +43,5 @@ metrics:
   
   pushgateway:
     url: http://prometheus.internal:9091
-    job: crashlens_production
+    job: crashlens
     timeout: 15
