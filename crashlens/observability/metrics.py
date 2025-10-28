@@ -146,6 +146,22 @@ class CrashLensMetrics:
             "Count of rule label overflow events",
         )
 
+        # FinOps cost tracking counters
+        self.cost_savings = Counter(
+            "crashlens_cost_savings_total",
+            "Total estimated cost savings from waste detection (USD)",
+        )
+
+        self.total_llm_cost = Counter(
+            "crashlens_total_llm_cost",
+            "Total LLM API costs observed in traces (USD)",
+        )
+
+        self.tokens_wasted = Counter(
+            "crashlens_tokens_wasted_total",
+            "Total tokens wasted (prompt + completion)",
+        )
+
     def _init_gauges(self):
         """Initialize gauge metrics."""
         # Guard against static analyzers / None at import time: ensure Gauge callable exists
@@ -350,6 +366,48 @@ class CrashLensMetrics:
             success: Whether the push succeeded
         """
         self.metrics_push_status.set(1 if success else 0)
+
+    def record_cost_savings(self, amount_usd: float):
+        """
+        Record cost savings from waste detection.
+
+        Args:
+            amount_usd: Amount saved in USD (from waste_cost in detections)
+        """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
+        if amount_usd > 0:
+            self.cost_savings.inc(amount_usd)
+
+    def record_llm_cost(self, amount_usd: float):
+        """
+        Record total LLM API cost observed.
+
+        Args:
+            amount_usd: LLM cost in USD (calculated from token usage * pricing)
+        """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
+        if amount_usd > 0:
+            self.total_llm_cost.inc(amount_usd)
+
+    def record_tokens_wasted(self, token_count: int):
+        """
+        Record tokens wasted (from waste_tokens in detections).
+
+        Args:
+            token_count: Number of tokens wasted (prompt + completion)
+        """
+        # Sampling: Skip recording based on sample rate
+        if random.random() >= self._sample_rate:
+            return
+        
+        if token_count > 0:
+            self.tokens_wasted.inc(token_count)
 
 
 def _initialize_metrics_impl(

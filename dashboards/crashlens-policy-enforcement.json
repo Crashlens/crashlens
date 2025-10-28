@@ -1,18 +1,19 @@
 {
   "title": "CrashLens Policy Enforcement (Production)",
-  "description": "Comprehensive monitoring for AI token waste detection and policy violations",
+  "description": "Comprehensive monitoring for AI token waste detection and policy violations with FinOps cost tracking",
   "tags": [
     "crashlens",
     "ai",
     "llm",
     "policy",
     "observability",
-    "prometheus"
+    "finops",
+    "cost"
   ],
   "timezone": "browser",
   "refresh": "30s",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "editable": true,
   "graphTooltip": 1,
   "time": {
@@ -26,7 +27,7 @@
         "label": "Job",
         "type": "query",
         "query": "label_values(crashlens_rule_hits_total, job)",
-        "datasource": "Prometheus",
+        "datasource": "${DS_PROMETHEUS}",
         "multi": true,
         "includeAll": true,
         "refresh": 1,
@@ -42,7 +43,7 @@
         "label": "Severity",
         "type": "query",
         "query": "label_values(crashlens_violations_total, severity)",
-        "datasource": "Prometheus",
+        "datasource": "${DS_PROMETHEUS}",
         "multi": true,
         "includeAll": true,
         "refresh": 1,
@@ -58,7 +59,7 @@
         "label": "Rule",
         "type": "query",
         "query": "label_values(crashlens_rule_hits_total{job=~\"$job\"}, rule)",
-        "datasource": "Prometheus",
+        "datasource": "${DS_PROMETHEUS}",
         "multi": true,
         "includeAll": true,
         "refresh": 2,
@@ -74,7 +75,7 @@
         "label": "Mode",
         "type": "query",
         "query": "label_values(crashlens_rule_hits_total, mode)",
-        "datasource": "Prometheus",
+        "datasource": "${DS_PROMETHEUS}",
         "multi": true,
         "includeAll": true,
         "refresh": 1,
@@ -105,7 +106,7 @@
     {
       "id": 100,
       "type": "row",
-      "title": "\ud83d\udcca Overview - Key Performance Indicators",
+      "title": "\ud83d\udcb0 FinOps & Cost Impact",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -116,15 +117,248 @@
     },
     {
       "id": 1,
+      "title": "\ud83d\udcb0 Total Cost Saved",
+      "description": "Total estimated cost savings from detecting wasteful patterns (retry loops, fallback storms, model overkill). Metric: crashlens_cost_savings_total",
+      "type": "stat",
+      "datasource": "${DS_PROMETHEUS}",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(crashlens_cost_savings_total{job=~\"$job\"})",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.01,
+                "color": "yellow"
+              },
+              {
+                "value": 0.1,
+                "color": "orange"
+              },
+              {
+                "value": 1.0,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "currencyUSD",
+          "decimals": 4
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "\ud83d\udd25 Tokens Saved from Waste",
+      "description": "Total tokens prevented from being wasted (prompt + completion). Higher is better. Metric: crashlens_tokens_wasted_total",
+      "type": "stat",
+      "datasource": "${DS_PROMETHEUS}",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(crashlens_tokens_wasted_total{job=~\"$job\"})",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "\ud83d\udcca Cost per Violation",
+      "description": "Average LLM cost per policy violation detected. Lower is better. Calculated: total_llm_cost / violations_total",
+      "type": "stat",
+      "datasource": "${DS_PROMETHEUS}",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(crashlens_total_llm_cost{job=~\"$job\"}) / sum(crashlens_violations_total)",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.001,
+                "color": "yellow"
+              },
+              {
+                "value": 0.01,
+                "color": "orange"
+              },
+              {
+                "value": 0.1,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "currencyUSD",
+          "decimals": 6
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Cost Savings Over Time",
+      "description": "Total cost savings accumulated over time from detecting wasteful patterns (retry loops, fallback storms, model overkill)",
+      "type": "timeseries",
+      "datasource": "${DS_PROMETHEUS}",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "sum(crashlens_cost_savings_total{job=~\"$job\"})",
+          "legendFormat": "Total Cost Savings",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "last",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 60,
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          },
+          "unit": "currencyUSD",
+          "decimals": 4
+        }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "\ud83d\udcca Overview - Key Performance Indicators",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "id": 5,
       "title": "Total Violations",
       "description": "Total number of policy violations across all severities. Critical threshold: >100",
       "type": "stat",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 1
+        "y": 16
       },
       "targets": [
         {
@@ -173,20 +407,20 @@
       }
     },
     {
-      "id": 2,
-      "title": "Critical Violations",
-      "description": "Number of critical severity violations requiring immediate attention",
+      "id": 6,
+      "title": "High Severity Violations",
+      "description": "Number of high severity violations requiring immediate attention",
       "type": "stat",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 1
+        "y": 16
       },
       "targets": [
         {
-          "expr": "sum(crashlens_violations_total{severity=\"critical\"})",
+          "expr": "sum(crashlens_violations_total{severity=\"high\"})",
           "refId": "A",
           "instant": true
         }
@@ -231,20 +465,20 @@
       }
     },
     {
-      "id": 3,
-      "title": "Traces Processed",
-      "description": "Total number of traces successfully processed",
+      "id": 7,
+      "title": "Total Rule Hits",
+      "description": "Total number of policy rule triggers across all rules",
       "type": "stat",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 1
+        "y": 16
       },
       "targets": [
         {
-          "expr": "crashlens_traces_processed_total",
+          "expr": "sum(crashlens_rule_hits_total{job=~\"$job\", rule=~\"$rule\", mode=~\"$mode\"})",
           "refId": "A",
           "instant": true
         }
@@ -272,20 +506,20 @@
       }
     },
     {
-      "id": 4,
-      "title": "Failure Rate",
-      "description": "Percentage of traces that failed processing. Alert threshold: >10%",
+      "id": 8,
+      "title": "Time Since Last Scan",
+      "description": "Minutes since last successful scan. Alert if >60 minutes",
       "type": "gauge",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 1
+        "y": 16
       },
       "targets": [
         {
-          "expr": "(sum(crashlens_traces_failed_total) / (sum(crashlens_traces_processed_total) + sum(crashlens_traces_failed_total))) * 100",
+          "expr": "(time() - crashlens_last_run_timestamp_seconds{status=\"success\"}) / 60",
           "refId": "A",
           "instant": true
         }
@@ -306,31 +540,31 @@
             "mode": "thresholds"
           },
           "thresholds": {
-            "mode": "percentage",
+            "mode": "absolute",
             "steps": [
               {
                 "value": 0,
                 "color": "green"
               },
               {
-                "value": 5,
+                "value": 30,
                 "color": "yellow"
               },
               {
-                "value": 10,
+                "value": 60,
                 "color": "red"
               }
             ]
           },
-          "unit": "percent",
-          "decimals": 1,
+          "unit": "m",
+          "decimals": 0,
           "min": 0,
-          "max": 100
+          "max": 120
         }
       }
     },
     {
-      "id": 101,
+      "id": 102,
       "type": "row",
       "title": "\ud83d\udea8 Violations Analysis",
       "collapsed": false,
@@ -338,20 +572,20 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 22
       }
     },
     {
-      "id": 5,
+      "id": 9,
       "title": "Rule Hits Rate (per minute)",
       "description": "Rate of policy rule hits over time. Shows which rules are triggering most frequently.",
       "type": "timeseries",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 23
       },
       "targets": [
         {
@@ -417,16 +651,16 @@
       }
     },
     {
-      "id": 6,
+      "id": 10,
       "title": "Violations by Severity",
       "description": "Breakdown of violations by severity level over time",
       "type": "timeseries",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 23
       },
       "targets": [
         {
@@ -530,16 +764,16 @@
       }
     },
     {
-      "id": 7,
+      "id": 11,
       "title": "Severity Distribution",
       "description": "Current distribution of violations across severity levels",
       "type": "piechart",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 8,
         "x": 0,
-        "y": 16
+        "y": 31
       },
       "targets": [
         {
@@ -639,16 +873,16 @@
       }
     },
     {
-      "id": 8,
+      "id": 12,
       "title": "Top 10 Rules by Hit Count",
       "description": "Most frequently triggered policy rules in the selected time range",
       "type": "bargauge",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
         "h": 8,
-        "w": 18,
-        "x": 6,
-        "y": 16
+        "w": 16,
+        "x": 8,
+        "y": 31
       },
       "targets": [
         {
@@ -698,201 +932,32 @@
       }
     },
     {
-      "id": 102,
+      "id": 103,
       "type": "row",
-      "title": "\u26a1 Trace Processing & Performance",
+      "title": "\u26a1 Performance & System Health",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 39
       }
     },
     {
-      "id": 9,
-      "title": "Trace Processing Rate",
-      "description": "Rate of successful trace processing (green) vs failures (red) per minute",
-      "type": "timeseries",
-      "datasource": "Prometheus",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 25
-      },
-      "targets": [
-        {
-          "expr": "rate(crashlens_traces_processed_total[$interval]) * 60",
-          "legendFormat": "Processed",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(crashlens_traces_failed_total[$interval]) * 60",
-          "legendFormat": "Failed",
-          "refId": "B"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "last",
-            "max",
-            "mean"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 20,
-            "gradientMode": "opacity",
-            "axisPlacement": "auto"
-          },
-          "unit": "short",
-          "decimals": 1
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Processed"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 30
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Failed"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 30
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": 10,
-      "title": "Rule Evaluation Latency (Average)",
-      "description": "Average time to evaluate each policy rule. Alert if >100ms",
-      "type": "timeseries",
-      "datasource": "Prometheus",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 25
-      },
-      "targets": [
-        {
-          "expr": "topk(10, crashlens_decision_latency_avg_seconds{rule=~\"$rule\"}) * 1000",
-          "legendFormat": "{{rule}}",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "last",
-            "max",
-            "mean"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "axisPlacement": "auto",
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "unit": "ms",
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 50,
-                "color": "yellow"
-              },
-              {
-                "value": 100,
-                "color": "red"
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": 11,
-      "title": "Last Scan Status",
-      "description": "Time since last successful scan. Alert if >1 hour",
+      "id": 13,
+      "title": "Metrics Push Status",
+      "description": "Pushgateway connectivity status. 1 = Success, 0 = Failed",
       "type": "stat",
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
-        "h": 8,
-        "w": 6,
+        "h": 6,
+        "w": 8,
         "x": 0,
-        "y": 33
+        "y": 40
       },
       "targets": [
         {
-          "expr": "(time() - crashlens_last_run_timestamp_seconds{status=\"success\"}) / 60",
+          "expr": "crashlens_metrics_push_status",
           "refId": "A",
           "instant": true
         }
@@ -919,27 +984,27 @@
             "steps": [
               {
                 "value": null,
-                "color": "green"
-              },
-              {
-                "value": 30,
-                "color": "yellow"
-              },
-              {
-                "value": 60,
                 "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
               }
             ]
           },
-          "unit": "m",
+          "unit": "short",
           "decimals": 0,
           "mappings": [
             {
-              "type": "special",
+              "type": "value",
               "options": {
-                "match": "null",
-                "result": {
-                  "text": "No data"
+                "0": {
+                  "text": "Failed",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Success",
+                  "color": "green"
                 }
               }
             }
@@ -948,42 +1013,40 @@
       }
     },
     {
-      "id": 12,
-      "title": "Trace Failures by Reason",
-      "description": "Breakdown of trace processing failures by reason",
-      "type": "table",
-      "datasource": "Prometheus",
+      "id": 14,
+      "title": "Rule Label Overflow Events",
+      "description": "Count of cardinality protection triggers. Should be 0 under normal operation.",
+      "type": "stat",
+      "datasource": "${DS_PROMETHEUS}",
       "gridPos": {
-        "h": 8,
-        "w": 18,
-        "x": 6,
-        "y": 33
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 40
       },
       "targets": [
         {
-          "expr": "sum by (reason) (crashlens_traces_failed_total)",
-          "format": "table",
+          "expr": "sum(crashlens_rule_label_overflow_total)",
           "refId": "A",
           "instant": true
         }
       ],
       "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "displayName": "Value",
-            "desc": true
-          }
-        ]
+        "graphMode": "area",
+        "colorMode": "value",
+        "orientation": "auto",
+        "textMode": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto"
           },
           "thresholds": {
             "mode": "absolute",
@@ -993,73 +1056,94 @@
                 "color": "green"
               },
               {
-                "value": 10,
+                "value": 1,
                 "color": "yellow"
               },
               {
-                "value": 50,
+                "value": 10,
                 "color": "red"
               }
             ]
           },
           "unit": "short",
           "decimals": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "reason"
-            },
-            "properties": [
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Exporter Uptime",
+      "description": "CrashLens exporter availability. 1 = Up, 0 = Down",
+      "type": "stat",
+      "datasource": "${DS_PROMETHEUS}",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 40
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"crashlens\"}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "custom.width",
-                "value": 300
+                "value": null,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
               }
             ]
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Failure Count"
-              },
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "custom.width",
-                "value": 150
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Down",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                }
               }
-            ]
-          }
-        ]
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "instance": true,
-              "job": true
-            },
-            "renameByName": {}
-          }
+            }
+          ]
         }
-      ]
+      }
     }
   ],
   "annotations": {
     "list": [
       {
-        "datasource": "Prometheus",
+        "datasource": "${DS_PROMETHEUS}",
         "enable": true,
         "expr": "ALERTS{alertname=~\"CrashLens.*\"}",
         "iconColor": "red",

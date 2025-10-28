@@ -1721,6 +1721,30 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
                     return ""
         # If file doesn't exist, no action needed
 
+    # =========================================================================
+    # Record FinOps metrics from detections BEFORE formatters
+    # (Must be here because formatters return early)
+    # =========================================================================
+    if metrics and all_active_detections:
+        total_waste_cost = sum(d.get('waste_cost', 0.0) for d in all_active_detections)
+        total_waste_tokens = sum(d.get('waste_tokens', 0) for d in all_active_detections)
+        
+        # Calculate total LLM cost from traces (sum of all costs in traces)
+        total_llm_cost = 0.0
+        for trace_records in traces.values():
+            for record in trace_records:
+                cost = record.get('cost', 0.0)
+                if cost and isinstance(cost, (int, float)):
+                    total_llm_cost += float(cost)
+        
+        # Record FinOps metrics
+        if total_waste_cost > 0:
+            metrics.record_cost_savings(total_waste_cost)
+        if total_llm_cost > 0:
+            metrics.record_llm_cost(total_llm_cost)
+        if total_waste_tokens > 0:
+            metrics.record_tokens_wasted(total_waste_tokens)
+
     report_dir = report_path.parent
     
     if output_format == 'json':

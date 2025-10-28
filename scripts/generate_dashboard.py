@@ -11,6 +11,29 @@ Generates a comprehensive Grafana dashboard with:
 - Color-coded severity visualization
 
 Version: 2.0 (Production Enhanced)
+
+Required Prometheus Metrics:
+==========================
+
+Core Policy Metrics (Available in CrashLens v2.9.12+):
+- crashlens_violations_total{severity, rule, job}        # Total policy violations
+- crashlens_rule_hits_total{rule, severity, job, mode}   # Rule trigger count
+- crashlens_traces_processed_total                        # Successfully processed traces
+- crashlens_traces_failed_total{reason}                   # Failed trace processing
+- crashlens_last_run_timestamp_seconds{status}           # Last scan execution time
+- crashlens_metrics_push_status                          # Metrics delivery status (0/1)
+- crashlens_decision_latency_avg_seconds{rule}           # Average rule evaluation time
+
+FinOps Cost Metrics (Available in CrashLens v2.9.13+):
+- crashlens_cost_savings_total                           # Estimated cost savings (USD)
+- crashlens_total_llm_cost                               # Total LLM API costs (USD)
+- crashlens_tokens_wasted_total                          # Total tokens saved
+
+Health Metrics:
+- up{job="crashlens"}                                    # Exporter uptime (0/1)
+
+Note: FinOps metrics require running CrashLens v2.9.13+ with --push-metrics flag.
+      Older versions will show "No data" for these panels.
 """
 
 import json
@@ -797,6 +820,21 @@ def generate_alert_rules():
     Generate Prometheus alert rules for CrashLens metrics.
     
     These rules can be loaded into Prometheus via prometheus-rules.yml
+    
+    Alert Coverage:
+    - Policy violations (critical severity threshold)
+    - Trace processing failure rate
+    - Scan staleness (last run time)
+    - Rule evaluation performance
+    - Metrics push failures
+    
+    FinOps Alerts (Available in CrashLens v2.9.13+):
+    - High cost per violation threshold
+    - Unexpectedly low cost savings
+    - Token waste rate anomalies
+    
+    Note: FinOps alerts are commented out by default. Uncomment them in the generated
+          YAML file to enable. Requires CrashLens v2.9.13+ with metrics enabled.
     """
     
     alert_rules = {
@@ -870,6 +908,54 @@ def generate_alert_rules():
                             "description": "Check pushgateway connectivity and CrashLens logs"
                         }
                     }
+                    # ===================================================================
+                    # FinOps Alert Rules (Available in CrashLens v2.9.13+)
+                    # ===================================================================
+                    # Uncomment these rules to enable FinOps alerting.
+                    # Requires CrashLens v2.9.13+ with --push-metrics enabled.
+                    #
+                    # {
+                    #     "alert": "CrashLensHighCostPerViolation",
+                    #     "expr": '(sum(crashlens_total_llm_cost) / sum(crashlens_violations_total)) > 10',
+                    #     "for": "15m",
+                    #     "labels": {
+                    #         "severity": "warning",
+                    #         "component": "crashlens",
+                    #         "category": "finops"
+                    #     },
+                    #     "annotations": {
+                    #         "summary": "High cost per policy violation detected",
+                    #         "description": "Average cost per violation is ${{ $value | humanize }} (threshold: $10)"
+                    #     }
+                    # },
+                    # {
+                    #     "alert": "CrashLensLowCostSavings",
+                    #     "expr": 'rate(crashlens_cost_savings_total[1h]) < 1',
+                    #     "for": "1h",
+                    #     "labels": {
+                    #         "severity": "info",
+                    #         "component": "crashlens",
+                    #         "category": "finops"
+                    #     },
+                    #     "annotations": {
+                    #         "summary": "Cost savings rate below expected threshold",
+                    #         "description": "CrashLens has saved less than $1/hour in the last hour. Review policy effectiveness."
+                    #     }
+                    # },
+                    # {
+                    #     "alert": "CrashLensHighTokenWaste",
+                    #     "expr": 'rate(crashlens_tokens_wasted_total[5m]) > 10000',
+                    #     "for": "10m",
+                    #     "labels": {
+                    #         "severity": "critical",
+                    #         "component": "crashlens",
+                    #         "category": "finops"
+                    #     },
+                    #     "annotations": {
+                    #         "summary": "High rate of token waste detected",
+                    #         "description": "Token waste rate exceeds 10,000 tokens/min. Investigate retry loops or fallback storms."
+                    #     }
+                    # }
                 ]
             }
         ]
@@ -915,6 +1001,13 @@ def save_alert_rules(alert_rules, output_path: Path):
 
 
 if __name__ == '__main__':
+    # Set UTF-8 encoding for Windows console
+    import sys
+    if sys.platform == 'win32':
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    
     print("=" * 80)
     print("  CrashLens Grafana Dashboard Generator (Production-Ready v2.0)")
     print("=" * 80)
@@ -1023,6 +1116,28 @@ if __name__ == '__main__':
     print("  ✅ 5 Prometheus alert rules included")
     print("  ✅ Annotations for alert visualization")
     print("  ✅ Shared crosshair for multi-panel analysis")
+    
+    print("\n" + "=" * 80)
+    print("  📊 Metrics Overview")
+    print("=" * 80)
+    print("  ✅ Available Now (CrashLens v2.9.12+):")
+    print("     • crashlens_violations_total{severity, rule, job}")
+    print("     • crashlens_rule_hits_total{rule, severity, job, mode}")
+    print("     • crashlens_traces_processed_total")
+    print("     • crashlens_traces_failed_total{reason}")
+    print("     • crashlens_last_run_timestamp_seconds{status}")
+    print("     • crashlens_metrics_push_status")
+    print("     • crashlens_decision_latency_avg_seconds{rule}")
+    print("     • up{job=\"crashlens\"}")
+    print()
+    print("  ✅ FinOps Metrics (Available in CrashLens v2.9.13+):")
+    print("     • crashlens_cost_savings_total         (Requires --push-metrics)")
+    print("     • crashlens_total_llm_cost             (Requires --push-metrics)")
+    print("     • crashlens_tokens_wasted_total        (Requires --push-metrics)")
+    print()
+    print("     Note: To enable FinOps metrics, run CrashLens with:")
+    print("           crashlens scan logs.jsonl --push-metrics \\")
+    print("           --pushgateway-url http://localhost:9091")
     
     print("\n" + "=" * 80)
     print("  Need Help?")
