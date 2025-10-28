@@ -4198,7 +4198,7 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str], email: Op
         lines.append(f"**Retries**: {retry_count}")
         lines.append(f"**Fallbacks**: {fallback_count}")
         
-        if previous:
+        if previous and delta_cost is not None and delta_pct is not None:
             lines.append("")
             lines.append("### 📈 Week-over-Week Comparison")
             lines.append("")
@@ -4242,8 +4242,9 @@ def run_report(logfile: Path, output: str, webhook_url: Optional[str], email: Op
             click.echo("Week-over-Week Comparison:")
             click.echo(f"  Previous: ${previous['total_cost']:.2f}")
             click.echo(f"  Current: ${total_cost:.2f}")
-            click.echo(f"  Change: {trend_icon} ${abs(delta_cost):.2f} ({delta_pct:+.1f}%)")
-        
+            if delta_cost is not None and delta_pct is not None:
+                click.echo(f"  Change: {trend_icon} ${abs(delta_cost):.2f} ({delta_pct:+.1f}%)")
+    
         click.echo("")
         click.echo("Cost by Model:")
         for model, stats in sorted(per_model.items(), key=lambda x: x[1]["cost"], reverse=True):
