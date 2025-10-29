@@ -1,0 +1,29 @@
+🚨 *CrashLens Token Waste Report* 🚨
+📊 *Analysis Date:* 2025-10-29 22:15:11
+
+📋 *Report Summary:*
+• 💰 *Total AI Spend:* $0.0000
+• 🔥 *Potential Savings:* $0.0000
+• 🎯 *Wasted Tokens:* 435
+• ⚠️ *Issues Found:* 2
+• 📈 *Traces Analyzed:* 2
+
+❓ *Overkill Model* • 1 traces • $0.79 wasted
+   💡 *Fix:* optimize usage
+   🎯 *Wasted tokens:* 275
+   🔗 *Traces (1):* `trace456`
+
+🔄 *Retry Loop* • 1 traces • $0.45 wasted
+   💡 *Fix:* exponential backoff
+   🎯 *Wasted tokens:* 160
+   🔗 *Traces (1):* `trace123`
+
+
+🤖 *Cost by Model:*
+• gpt-4 → $0.0000 (0%)
+• gpt-3.5-turbo → $0.0000 (0%)
+
+💡 *Next Steps:*
+• Run `crashlens --detailed` for grouped JSON reports
+• Review trace patterns to optimize model routing
+• Implement suggested fixes to reduce token waste
