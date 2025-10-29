@@ -1168,7 +1168,29 @@ def scan(logfile: Optional[Path] = None, extra_files: Tuple[str, ...] = (), outp
             demo_dir.mkdir(exist_ok=True)
 
             # Build a base sample dataset simulating detections
-            sample_traces = {"trace123": [{"id": "event1", "model": "gpt-4", "usage": 320}]}
+            sample_traces = {
+    "trace123": [
+        {
+            "id": "event1",
+            "model": "gpt-4",
+            "usage": {
+                "prompt_tokens": 200,
+                "completion_tokens": 120
+            }
+        }
+    ],
+    "trace456": [
+        {
+            "id": "event2",
+            "model": "gpt-3.5-turbo",
+            "usage": {
+                "prompt_tokens": 150,
+                "completion_tokens": 100
+            }
+        }
+    ]
+}
+
             from datetime import datetime as dt_now
             sample_detections = [
                 {
