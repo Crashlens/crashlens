@@ -57,8 +57,6 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
     Handles:
     - GET /metrics -> Return Prometheus metrics (with optional auth)
     - GET /health -> Return 200 OK (no auth required)
-    - GET /metrics -> Return Prometheus metrics (with optional auth)
-    - GET /health -> Return 200 OK (no auth required)
     - All other requests -> 404
     
     Security:
