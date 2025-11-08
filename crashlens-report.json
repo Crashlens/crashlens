@@ -1,24 +1,39 @@
 {
   "summary": {
-    "total_rules": 2,
-    "violations": 0,
+    "total_rules": 1,
+    "violations": 1,
     "skipped_lines": 0,
     "total_cost": null,
     "cost_cap": null,
     "cost_cap_exceeded": false
   },
   "rules": {
-    "RL001": {
-      "count": 0,
-      "severity": "fatal",
-      "description": "High token usage",
-      "examples": []
-    },
-    "RL002": {
-      "count": 0,
+    "HIGH_TOKENS": {
+      "count": 10,
       "severity": "warn",
-      "description": "Many retries",
-      "examples": []
+      "description": "",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 5000,
+          "retry_count": 0,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "tokens=5000 (rule: >1000)"
+        },
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 5000,
+          "retry_count": 0,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "tokens=5000 (rule: >1000)"
+        }
+      ]
     }
   }
 }

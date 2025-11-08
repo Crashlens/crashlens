@@ -144,9 +144,22 @@ class GuardPolicyEngineAdapter:
             
             for field, condition in if_block.items():
                 if isinstance(condition, dict):
-                    # Handle operator conditions like {">": 3}
+                    # Handle operator conditions like {">": 3} or {"==": true}
                     for op, value in condition.items():
-                        match_conditions[field] = f"{op}{value}"
+                        # Special handling for boolean comparisons
+                        if isinstance(value, bool):
+                            # For booleans, pass the value directly (not as string)
+                            if op == "==":
+                                match_conditions[field] = value
+                            else:
+                                # Other operators with booleans - convert to string
+                                match_conditions[field] = f"{op}{value}"
+                        elif op == "regex":
+                            # Regex operator needs space after colon
+                            match_conditions[field] = f"{op}: {value}"
+                        else:
+                            # Standard operators (>, <, >=, etc.)
+                            match_conditions[field] = f"{op}{value}"
                 else:
                     # Direct equality
                     match_conditions[field] = condition
