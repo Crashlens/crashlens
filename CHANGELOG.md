@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2025-01-15
+
+### 🚨 BREAKING CHANGES
+
+#### Deprecated
+- **`guard` command** is now deprecated and will be removed in v3.1.0
+  - Currently works as an alias for `policy-check` with deprecation warning
+  - See [MIGRATION.md](MIGRATION.md) for migration guide
+  - Use `policy-check` for all new workflows
+
+#### Changed
+- **Artifact naming**: Changed prefix from `guard-*.json` → `policy-*.json`
+  - Example: `guard-20250115-103045.json` → `policy-20250115-103045.json`
+  - Affects CI/CD scripts that parse artifact filenames
+- **PII redaction format**: Changed from `[REDACTED-EMAIL]` (hyphen) → `[REDACTED_EMAIL]` (underscore)
+  - Consistent with Python naming conventions
+  - Update regex patterns: `r'\[REDACTED-EMAIL\]'` → `r'\[REDACTED_EMAIL\]'`
+- **JSON schema normalization**: Renamed fields for consistency
+  - `guard_severity` → `severity`
+  - `guard_action` → `action`
+  - Added: `policy_engine` field (value: "unified")
+  - Added: `detection_timestamp` field
+
+### Added
+- **Unified PolicyEngine**: All policy evaluation now uses single engine
+  - Consistent behavior across `scan` and `policy-check` commands
+  - Better performance and maintainability
+- **Migration guide**: Comprehensive `MIGRATION.md` with examples
+  - CLI command mapping
+  - Artifact naming changes
+  - PII format changes
+  - CI/CD pipeline updates
+  - Testing guidance
+
+### Documentation
+- **README.md**: Updated all examples to use `policy-check`
+- **QUICK_START.md**: Rewritten 5-minute quick start guide
+- **COMMAND-REFERENCE.md**: Added deprecation notice for `guard`
+- Version badge updated to 3.0.0
+
+### Compatibility
+- **Policy YAML files**: No changes required (backward compatible)
+- **Exit codes**: Unchanged behavior
+- **Environment variables**: All existing variables still work
+
+### Migration Timeline
+| Version | Status | Notes |
+|---------|--------|-------|
+| v3.0.0 (current) | `guard` shows warning | Fully functional alias |
+| v3.1.0 (Q2 2025) | `guard` removed | Use `policy-check` only |
+
+---
+
 ## [2.9.21] - 2025-01-05
 
 ### Added - Boolean Composition and CLI Enhancements
