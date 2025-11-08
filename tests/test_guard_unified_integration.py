@@ -1,8 +1,8 @@
 """
-Tests for Step 4 Phase 2: Guard.py Integration with GuardPolicyEngineAdapter
+Tests for Guard.py Integration with PolicyEngine
 
-This test suite verifies that the unified engine is properly wired into
-the guard() CLI command when CRASHLENS_USE_UNIFIED_ENGINE=1.
+This test suite verifies that the PolicyEngine is properly wired into
+the guard() CLI command with the unified engine.
 """
 
 import json
@@ -48,8 +48,8 @@ def parse_json_from_output(output: str) -> Optional[dict]:
     return None
 
 
-class TestGuardUnifiedIntegration:
-    """Test guard() function with unified engine enabled/disabled"""
+class TestGuardIntegration:
+    """Test guard() function with PolicyEngine"""
     
     def setup_method(self):
         """Set up test fixtures"""
@@ -100,25 +100,17 @@ rules:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
     
-    def test_guard_legacy_mode_default(self):
-        """Test that guard uses legacy mode by default (USE_UNIFIED_ENGINE=0)"""
-        # Ensure feature flag is disabled
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '0'
-        
+    def test_guard_with_violations(self):
+        """Test that guard detects violations with unified engine"""
         result = self.runner.invoke(
             cli,
             ['guard', str(self.log_file), '--rules', str(self.rules_file), '--output', 'json'],
-            env=env
+            catch_exceptions=False
         )
         
         # Should succeed (violations found)
         assert result.exit_code == 0
         
-        # Should NOT contain unified engine message
-        assert '🔧 Using unified PolicyEngine' not in result.output
-        assert 'CRASHLENS_USE_UNIFIED_ENGINE=1' not in result.output
-        
         # Parse JSON output to verify violations detected
         json_output = parse_json_from_output(result.output)
         
@@ -127,39 +119,8 @@ rules:
         assert 'high_cost_test' in json_output['rules']
         assert json_output['rules']['high_cost_test']['count'] > 0
     
-    def test_guard_unified_mode_enabled(self):
-        """Test that guard uses unified engine when USE_UNIFIED_ENGINE=1"""
-        # Enable feature flag
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
-        result = self.runner.invoke(
-            cli,
-            ['guard', str(self.log_file), '--rules', str(self.rules_file), '--output', 'json'],
-            env=env,
-            catch_exceptions=False
-        )
-        
-        # Should succeed
-        assert result.exit_code == 0, f"Command failed: {result.output}"
-        
-        # Should contain unified engine message
-        assert '🔧 Using unified PolicyEngine' in result.output or '🔧 Using unified PolicyEngine' in result.stderr
-        
-        # Parse JSON output to verify violations detected
-        json_output = parse_json_from_output(result.output)
-        
-        assert json_output is not None, "No JSON output found"
-        assert 'rules' in json_output
-        assert 'high_cost_test' in json_output['rules']
-        assert json_output['rules']['high_cost_test']['count'] > 0
-    
-    def test_guard_unified_mode_with_suppressions(self):
-        """Test that suppressions work correctly in unified mode"""
-        # Enable feature flag
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
+    def test_guard_with_suppressions(self):
+        """Test that suppressions work correctly with unified engine"""
         result = self.runner.invoke(
             cli,
             [
@@ -168,7 +129,6 @@ rules:
                 '--suppress', 'high_cost_test',
                 '--output', 'json'
             ],
-            env=env,
             catch_exceptions=False
         )
         
@@ -187,16 +147,13 @@ rules:
         assert 'retry_test' in json_output['rules']
         assert json_output['rules']['retry_test']['count'] > 0
     
-    def test_guard_unified_mode_pii_stripping(self):
-        """Test that PII stripping works in unified mode"""
+    def test_guard_pii_stripping(self):
+        """Test that PII stripping works with unified engine"""
         # Create log with PII
         pii_log = Path(self.temp_dir) / "pii.jsonl"
         pii_log.write_text("""
 {"traceId": "trace1", "model": "gpt-4", "cost_usd": 0.05, "prompt": "Email: test@example.com"}
 """.strip())
-        
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
         
         result = self.runner.invoke(
             cli,
@@ -206,7 +163,6 @@ rules:
                 '--strip-pii',
                 '--output', 'json'
             ],
-            env=env,
             catch_exceptions=False
         )
         
@@ -225,11 +181,8 @@ rules:
                     assert 'test@example.com' not in example['prompt']
                     assert '[REDACTED_EMAIL]' in example['prompt']
     
-    def test_guard_unified_mode_no_content(self):
-        """Test that --no-content flag works in unified mode"""
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
+    def test_guard_no_content(self):
+        """Test that --no-content flag works with unified engine"""
         result = self.runner.invoke(
             cli,
             [
@@ -238,7 +191,6 @@ rules:
                 '--no-content',
                 '--output', 'json'
             ],
-            env=env,
             catch_exceptions=False
         )
         
@@ -253,11 +205,8 @@ rules:
         for rule_id, rule_data in json_output['rules'].items():
             assert rule_data.get('examples', []) == []
     
-    def test_guard_unified_mode_fail_on_violations(self):
-        """Test that --fail-on-violations works in unified mode"""
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
+    def test_guard_fail_on_violations(self):
+        """Test that --fail-on-violations works with unified engine"""
         # Should fail on violations
         result = self.runner.invoke(
             cli,
@@ -267,18 +216,14 @@ rules:
                 '--fail-on-violations',
                 '--output', 'json'
             ],
-            env=env,
             catch_exceptions=False
         )
         
         # Should exit with code 1 (violations found)
         assert result.exit_code == 1
     
-    def test_guard_unified_mode_clean_logs(self):
-        """Test that clean logs produce no violations in unified mode"""
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
+    def test_guard_clean_logs(self):
+        """Test that clean logs produce no violations with unified engine"""
         result = self.runner.invoke(
             cli,
             [
@@ -286,7 +231,6 @@ rules:
                 '--rules', str(self.rules_file),
                 '--output', 'json'
             ],
-            env=env,
             catch_exceptions=False
         )
         
@@ -298,51 +242,8 @@ rules:
         assert json_output is not None
         assert json_output['summary']['violations'] == 0
     
-    def test_guard_unified_vs_legacy_equivalence(self):
-        """Test that unified and legacy modes produce equivalent results"""
-        # Run with legacy mode
-        env_legacy = os.environ.copy()
-        env_legacy['CRASHLENS_USE_UNIFIED_ENGINE'] = '0'
-        
-        result_legacy = self.runner.invoke(
-            cli,
-            ['guard', str(self.log_file), '--rules', str(self.rules_file), '--output', 'json'],
-            env=env_legacy,
-            catch_exceptions=False
-        )
-        
-        # Run with unified mode
-        env_unified = os.environ.copy()
-        env_unified['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
-        result_unified = self.runner.invoke(
-            cli,
-            ['guard', str(self.log_file), '--rules', str(self.rules_file), '--output', 'json'],
-            env=env_unified,
-            catch_exceptions=False
-        )
-        
-        assert result_legacy.exit_code == 0
-        assert result_unified.exit_code == 0
-        
-        # Parse both outputs using the module-level helper
-        json_legacy = parse_json_from_output(result_legacy.output)
-        json_unified = parse_json_from_output(result_unified.output)
-        
-        assert json_legacy is not None
-        assert json_unified is not None
-        
-        # Compare violation counts (should be identical)
-        for rule_id in json_legacy['rules']:
-            assert rule_id in json_unified['rules'], f"Rule {rule_id} missing in unified output"
-            assert json_legacy['rules'][rule_id]['count'] == json_unified['rules'][rule_id]['count'], \
-                f"Count mismatch for rule {rule_id}"
-    
-    def test_guard_unified_mode_markdown_output(self):
-        """Test that markdown output works in unified mode"""
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
+    def test_guard_markdown_output(self):
+        """Test that markdown output works with unified engine"""
         result = self.runner.invoke(
             cli,
             [
@@ -350,21 +251,17 @@ rules:
                 '--rules', str(self.rules_file),
                 '--output', 'md'
             ],
-            env=env,
             catch_exceptions=False
         )
         
         assert result.exit_code == 0
         assert '# CrashLens Guard Report' in result.output or 'Guard Report' in result.output
     
-    def test_guard_unified_mode_error_handling(self):
-        """Test error handling in unified mode"""
+    def test_guard_error_handling(self):
+        """Test error handling with unified engine"""
         # Create malformed rules file
         bad_rules = Path(self.temp_dir) / "bad_rules.yaml"
         bad_rules.write_text("invalid: yaml: content: [[[")
-        
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
         
         result = self.runner.invoke(
             cli,
@@ -372,8 +269,7 @@ rules:
                 'guard', str(self.log_file),
                 '--rules', str(bad_rules),
                 '--output', 'json'
-            ],
-            env=env
+            ]
         )
         
         # Should fail gracefully

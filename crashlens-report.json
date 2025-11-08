@@ -1,7 +1,11 @@
 {
   "summary": {
     "total_rules": 1,
+<<<<<<< HEAD
     "violations": 0,
+=======
+    "violations": 1,
+>>>>>>> 225a46dcfad66ed03e5d7937ac7213d9b5cfc3e6
     "skipped_lines": 0,
     "total_cost": null,
     "cost_cap": null,
@@ -9,10 +13,38 @@
   },
   "rules": {
     "HIGH_TOKENS": {
+<<<<<<< HEAD
       "count": 0,
       "severity": "warn",
       "description": "",
       "examples": []
+=======
+      "count": 10,
+      "severity": "warn",
+      "description": "",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 5000,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "tokens=5000 (rule: >1000)"
+        },
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 5000,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "tokens=5000 (rule: >1000)"
+        }
+      ]
+>>>>>>> 225a46dcfad66ed03e5d7937ac7213d9b5cfc3e6
     }
   }
 }

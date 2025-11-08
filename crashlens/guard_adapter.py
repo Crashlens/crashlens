@@ -62,45 +62,42 @@ class GuardPolicyEngineAdapter:
         # Load guard's rules.yaml and convert to PolicyEngine format
         # Guard rules.yaml format is simpler than policy-check format
         # We need to convert it directly
-            with open(self.rules_yaml_path, 'r') as f:
-                import yaml
-                guard_rules = yaml.safe_load(f)
-            
-            policy_rules = self._convert_guard_rules_to_policy_format(guard_rules.get('rules', []))
-            
-            # Create temporary policy file for PolicyEngine
-            policy_dict = {
-                "version": 1,
-                "rules": policy_rules
-            }
-            
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-                yaml.dump(policy_dict, f)
-                temp_policy_path = Path(f.name)
-            
-            try:
-                self.policy_engine = PolicyEngine(policy_file=temp_policy_path)
-            finally:
-                # Clean up temp file
-                temp_policy_path.unlink(missing_ok=True)
-            
-            # Initialize detector driver if needed
-            if detector_mode != "none":
-                self.detector_driver = DetectorDriver(
-                    mode=detector_mode,
-                    detector_config=detector_config,
-                    verbose=verbose,
-                )
-            else:
-                self.detector_driver = None
-            
-            if self.verbose:
-                print(f"   Loaded {len(policy_rules)} rules")
-                print(f"   Detector mode: {detector_mode}")
+        with open(self.rules_yaml_path, 'r') as f:
+            import yaml
+            guard_rules = yaml.safe_load(f)
+        
+        policy_rules = self._convert_guard_rules_to_policy_format(guard_rules.get('rules', []))
+        
+        # Create temporary policy file for PolicyEngine
+        policy_dict = {
+            "version": 1,
+            "rules": policy_rules
+        }
+        
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(policy_dict, f)
+            temp_policy_path = Path(f.name)
+        
+        try:
+            self.policy_engine = PolicyEngine(policy_file=temp_policy_path)
+        finally:
+            # Clean up temp file
+            temp_policy_path.unlink(missing_ok=True)
+        
+        # Initialize detector driver if needed
+        if detector_mode != "none":
+            self.detector_driver = DetectorDriver(
+                mode=detector_mode,
+                detector_config=detector_config,
+                verbose=verbose,
+            )
         else:
-            self.policy_engine = None
             self.detector_driver = None
+        
+        if self.verbose:
+            print(f"   Loaded {len(policy_rules)} rules")
+            print(f"   Detector mode: {detector_mode}")
     
     def _convert_guard_rules_to_policy_format(self, guard_rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Convert guard rules.yaml format to PolicyEngine format.
@@ -147,9 +144,22 @@ class GuardPolicyEngineAdapter:
             
             for field, condition in if_block.items():
                 if isinstance(condition, dict):
-                    # Handle operator conditions like {">": 3}
+                    # Handle operator conditions like {">": 3} or {"==": true}
                     for op, value in condition.items():
-                        match_conditions[field] = f"{op}{value}"
+                        # Special handling for boolean comparisons
+                        if isinstance(value, bool):
+                            # For booleans, pass the value directly (not as string)
+                            if op == "==":
+                                match_conditions[field] = value
+                            else:
+                                # Other operators with booleans - convert to string
+                                match_conditions[field] = f"{op}{value}"
+                        elif op == "regex":
+                            # Regex operator needs space after colon
+                            match_conditions[field] = f"{op}: {value}"
+                        else:
+                            # Standard operators (>, <, >=, etc.)
+                            match_conditions[field] = f"{op}{value}"
                 else:
                     # Direct equality
                     match_conditions[field] = condition
@@ -292,14 +302,16 @@ class GuardPolicyEngineAdapter:
             if not no_content:
                 for violation in violations[:max_examples]:
                     entry = violation.log_entry
+                    # Extract prompt from either flat format or Langfuse nested format
+                    prompt = entry.get("prompt") or entry.get("input", {}).get("prompt", "")
                     example = {
                         "timestamp": entry.get("timestamp") or entry.get("startTime"),
-                        "model": entry.get("model"),
+                        "model": entry.get("model") or entry.get("input", {}).get("model"),
                         "tokens": entry.get("tokens") or entry.get("usage", {}).get("prompt_tokens", 0),
-                        "retry_count": entry.get("retry_count"),
-                        "fallback_triggered": entry.get("fallback_triggered"),
-                        "endpoint": entry.get("endpoint"),
-                        "prompt": redact_text(entry.get("prompt", ""), strip_pii),
+                        "retry_count": entry.get("retry_count") or entry.get("metadata", {}).get("retry_count"),
+                        "fallback_triggered": entry.get("fallback_triggered") or entry.get("metadata", {}).get("fallback_triggered"),
+                        "endpoint": entry.get("endpoint") or entry.get("metadata", {}).get("endpoint"),
+                        "prompt": redact_text(prompt, strip_pii),
                         "reason": violation.reason,
                     }
                     examples.append(example)
