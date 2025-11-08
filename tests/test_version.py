@@ -18,8 +18,8 @@ from crashlens import __version__
 from crashlens.cli import cli
 
 
-# Expected version for v2.9.21 release
-EXPECTED_VERSION = "2.9.21"
+# Expected version for v3.0.0 release
+EXPECTED_VERSION = "3.0.0"
 
 
 class TestVersionConsistency:
