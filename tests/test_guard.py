@@ -101,50 +101,46 @@ rules:
 
     def test_guard_with_violations(self, tmp_path):
         """Test guard detecting violations"""
-        # Create sample logs with violations
+        # Create sample logs with violations (Langfuse format with nested structure)
         logs = tmp_path / "logs.jsonl"
         logs.write_text('\n'.join([
             json.dumps({
-                "timestamp": "t1",
-                "model": "gpt-4o",
-                "tokens": 2500,
-                "retry_count": 0,
-                "fallback_triggered": False,
-                "prompt": "joe@example.com",
-                "cost_usd": 0.25,
-                "endpoint": "/api"
+                "traceId": "trace-1",
+                "startTime": "2025-01-01T10:00:00Z",
+                "input": {"model": "gpt-4o", "prompt": "joe@example.com"},
+                "usage": {"prompt_tokens": 2500, "completion_tokens": 100, "total_tokens": 2600},
+                "cost": 0.25,
+                "metadata": {"retry_count": 0, "fallback_triggered": False, "endpoint": "/api"}
             }),
             json.dumps({
-                "timestamp": "t2",
-                "model": "gpt-3.5-turbo",
-                "tokens": 100,
-                "retry_count": 3,
-                "fallback_triggered": False,
-                "prompt": "ok",
-                "cost_usd": 0.01,
-                "endpoint": "/api"
+                "traceId": "trace-2",
+                "startTime": "2025-01-01T10:01:00Z",
+                "input": {"model": "gpt-3.5-turbo", "prompt": "ok"},
+                "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+                "cost": 0.01,
+                "metadata": {"retry_count": 3, "fallback_triggered": False, "endpoint": "/api"}
             })
         ]), encoding="utf-8")
-        
-        # Create rules
+
+        # Create rules (match Langfuse nested structure)
         rules = tmp_path / "rules.yaml"
         rules.write_text("""
 rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      usage.prompt_tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
   - id: RL002
     description: "Many retries"
     if:
-      if_retry_count_gt: 2
+      metadata.retry_count:
+        ">": 2
     action: warn
     severity: warn
-""", encoding="utf-8")
-        
-        # Run without fail-on-violations
+""", encoding="utf-8")        # Run without fail-on-violations
         result = self.runner.invoke(cli, [
             "guard",
             str(logs),
@@ -161,31 +157,28 @@ rules:
 
     def test_guard_fail_on_violations(self, tmp_path):
         """Test guard with --fail-on-violations flag"""
-        # Create logs with high severity violations
+        # Create logs with high severity violations (Langfuse format)
         logs = tmp_path / "logs.jsonl"
         logs.write_text(json.dumps({
-            "timestamp": "t1",
-            "model": "gpt-4o",
-            "tokens": 3000,
-            "retry_count": 0,
-            "fallback_triggered": False,
-            "prompt": "test",
-            "cost_usd": 0.30,
-            "endpoint": "/api"
+            "traceId": "trace-1",
+            "startTime": "2025-01-01T10:00:00Z",
+            "input": {"model": "gpt-4o", "prompt": "test"},
+            "usage": {"prompt_tokens": 3000, "completion_tokens": 150, "total_tokens": 3150},
+            "cost": 0.30,
+            "metadata": {"retry_count": 0, "fallback_triggered": False, "endpoint": "/api"}
         }), encoding="utf-8")
-        
+
         rules = tmp_path / "rules.yaml"
         rules.write_text("""
 rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      usage.prompt_tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
-""", encoding="utf-8")
-        
-        # Run with fail-on-violations
+""", encoding="utf-8")        # Run with fail-on-violations
         result = self.runner.invoke(cli, [
             "guard",
             str(logs),
@@ -215,13 +208,15 @@ rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
   - id: RL002
     description: "Many retries"
     if:
-      if_retry_count_gt: 2
+      retry_count:
+        ">": 2
     action: error
     severity: error
 """, encoding="utf-8")
@@ -260,7 +255,8 @@ rules:
   - id: RL001
     description: "Fallback triggered"
     if:
-      if_fallback_triggered: true
+      fallback_triggered:
+        "==": true
     action: warn
     severity: warn
 """, encoding="utf-8")
@@ -307,7 +303,8 @@ rules:
   - id: RL001
     description: "PII in prompt"
     if:
-      if_prompt_contains_pii: true
+      prompt:
+        regex: "@"
     action: error
     severity: error
 """, encoding="utf-8")
@@ -348,7 +345,8 @@ rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
 """, encoding="utf-8")
@@ -387,7 +385,8 @@ rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
 """, encoding="utf-8")
@@ -424,7 +423,8 @@ rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
 """, encoding="utf-8")
@@ -605,19 +605,22 @@ rules:
   - id: RL001
     description: "High token usage"
     if:
-      if_tokens_gt: 2000
+      tokens:
+        ">": 2000
     action: fail_ci
     severity: fatal
   - id: RL002
     description: "Many retries"
     if:
-      if_retry_count_gt: 2
+      retry_count:
+        ">": 2
     action: error
     severity: error
   - id: RL003
     description: "Fallback triggered"
     if:
-      if_fallback_triggered: true
+      fallback_triggered:
+        "==": true
     action: warn
     severity: warn
 """, encoding="utf-8")
@@ -693,12 +696,14 @@ rules:
   - id: DUPLICATE
     description: "First rule"
     if:
-      if_tokens_gt: 100
+      tokens:
+        ">": 100
     action: warn
   - id: DUPLICATE
     description: "Second rule with same ID"
     if:
-      if_tokens_gt: 200
+      tokens:
+        ">": 200
     action: error
 """, encoding="utf-8")
         
@@ -724,7 +729,8 @@ rules:
 rules:
   - id: TEST
     if:
-      if_tokens_gt: 50
+      tokens:
+        ">": 50
     action: warn
 """, encoding="utf-8")
         
@@ -757,7 +763,8 @@ rules:
 rules:
   - id: HIGH_TOKENS
     if:
-      if_tokens_gt: 1000
+      tokens:
+        ">": 1000
     action: warn
 """, encoding="utf-8")
             
