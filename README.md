@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-2.9.12-blue.svg)](https://pypi.org/project/crashlens/)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://pypi.org/project/crashlens/)
 [![Python](https://img.shields.io/badge/python-3.12+-green.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CLI](https://img.shields.io/badge/interface-CLI-orange.svg)]()
@@ -255,6 +255,8 @@ crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
 # Privacy-safe reports (strip PII, exclude content)
 crashlens policy-check logs.jsonl --policy-template all --strip-pii --no-content
 ```
+
+> **Note:** The legacy `guard` command is deprecated as of v3.0.0 and will be removed in v3.1.0. Use `policy-check` instead. See [MIGRATION.md](MIGRATION.md) for details.
 
 **📁 Output Organization:**
 Policy violation reports are automatically organized in the `policy-violations/` folder:

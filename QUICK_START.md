@@ -1,103 +1,206 @@
-# 🚀 QUICK START - Prometheus Test Suite
+# 🚀 QUICK START - CrashLens v3.0
 
-**You now have 49 automated tests proving production readiness. Here's how to run them:**
+**Get started with CrashLens in 5 minutes.** Detect token waste, enforce policies, and optimize your AI spending.
 
 ---
 
-## ⚡ Run Everything (5 Minutes)
-
-### Option 1: Automated Script (Recommended)
-
-**Linux/Mac:**
-```bash
-bash scripts/run_all_prometheus_tests.sh
-```
-
-**Windows PowerShell:**
-```powershell
-.\scripts\run_all_prometheus_tests.ps1
-```
-
-### Option 2: Manual (Step-by-Step)
+## ⚡ Installation
 
 ```bash
-# 1. Install dependencies (if not already done)
-pip install -e .[dev,metrics]
+# Install CrashLens
+pip install crashlens
 
-# 2. Run all tests
-pytest tests/test_lazy_import.py -v
-pytest tests/test_registry_isolation.py -v
-pytest tests/test_cardinality_cap_and_overflow.py -v
-pytest tests/test_fire_and_forget_push_default_non_blocking.py -v
-pytest tests/test_fire_and_forget_push_strict_mode_fails.py -v
-pytest tests/test_push_success_failure_counters.py -v
-pytest tests/test_registry_cardinality_gauge_value.py -v
-pytest tests/test_log_rotation_to_tmp.py -v
-
-# 3. Run benchmark
-python benchmarks/benchmark_memory_and_runtime.py
+# Verify installation
+crashlens --version
+# Output: crashlens, version 3.0.0
 ```
 
 ---
 
-## 📊 Expected Results
+## 🔍 Basic Usage
 
-**All tests should PASS:**
-- ✅ 48 unit tests PASSED
-- ✅ 1 benchmark PASSED
-- ✅ Runtime overhead: <10% (e.g., +8.26%)
-- ✅ Memory overhead: <30MB (e.g., +2.7MB)
-
-**Example benchmark output:**
-```
-Runtime Overhead: +8.26% (0.121s → 0.131s)
-  Threshold: <10%
-  Status: ✓ PASS
-
-Memory Overhead: +2.7MB (2.5MB → 5.2MB)
-  Threshold: <30MB
-  Status: ✓ PASS
-
-OVERALL: ✓ PASS - Metrics overhead within acceptable limits
-```
-
----
-
-## 📚 Documentation
-
-**Complete guides:**
-- `PROMETHEUS_TEST_SUITE_README.md` - Full test suite documentation (750 lines)
-- `PROMETHEUS_TEST_SUITE_DELIVERY_REPORT.md` - What was delivered (summary)
-- This file (`QUICK_START.md`) - Fast validation
-
----
-
-## 🧪 Test Individual Files (Standalone)
-
-Each test file can run without pytest:
+### Option 1: Demo Mode (No Logs Required)
 
 ```bash
-python tests/test_lazy_import.py
-python tests/test_registry_isolation.py
-python tests/test_cardinality_cap_and_overflow.py
-python tests/test_fire_and_forget_push_default_non_blocking.py
-python tests/test_fire_and_forget_push_strict_mode_fails.py
-python tests/test_push_success_failure_counters.py
-python tests/test_registry_cardinality_gauge_value.py
-python tests/test_log_rotation_to_tmp.py
+# Run with built-in sample data
+crashlens scan --demo
+
+# Output: Detects retry loops, model overkill, fallback storms
+```
+
+### Option 2: Analyze Your Logs
+
+```bash
+# Scan local JSONL file
+crashlens scan logs/your-logs.jsonl
+
+# Generate detailed JSON report
+crashlens scan logs/your-logs.jsonl --format json --detailed
+
+# Fetch from Langfuse API
+crashlens scan --from-langfuse --hours-back 24 --limit 1000
 ```
 
 ---
 
-## 🐛 Troubleshooting
+## 🛡️ Policy Enforcement
 
-### "prometheus_client not installed"
+### Quick Policy Check
+
 ```bash
-pip install prometheus-client
-# OR: pip install -e .[metrics]
+# Check logs against all built-in policies
+crashlens policy-check logs/your-logs.jsonl --policy-template all
+
+# Check specific policy templates
+crashlens policy-check logs/your-logs.jsonl --policy-template retry-loop-prevention
+
+# Use custom policy file
+crashlens policy-check logs/your-logs.jsonl --policy-file my-policy.yaml
 ```
 
-### "pytest not found"
+### CI/CD Integration
+
+```bash
+# Fail build on policy violations
+crashlens policy-check logs/your-logs.jsonl \
+  --policy-template all \
+  --fail-on-violations \
+  --severity-threshold high
+```
+
+**Exit Codes:**
+- `0`: No violations or violations below threshold
+- `1`: Violations found (when using `--fail-on-violations`)
+
+> **Note:** The legacy `guard` command is deprecated as of v3.0.0. Use `policy-check` instead. See [MIGRATION.md](MIGRATION.md) for migration details.
+
+---
+
+## 🧹 PII Removal
+
+```bash
+# Remove all PII types
+crashlens pii-remove logs/production.jsonl
+
+# Preview without modifying
+crashlens pii-remove logs/production.jsonl --dry-run --verbose
+
+# Remove specific PII types
+crashlens pii-remove logs/production.jsonl --types email --types phone_us
+```
+
+---
+
+## 📊 Output Formats
+
+```bash
+# Markdown (human-readable)
+crashlens scan logs.jsonl --format markdown
+
+# JSON (automation/dashboards)
+crashlens scan logs.jsonl --format json
+
+# Slack (team notifications)
+crashlens scan logs.jsonl --format slack
+```
+
+---
+
+## 🎯 Common Workflows
+
+### Workflow 1: Daily Cost Analysis
+
+```bash
+# Fetch last 24 hours from Langfuse
+crashlens scan --from-langfuse --hours-back 24
+
+# Analyze local logs with cost breakdown
+crashlens scan logs/daily.jsonl --summary --detailed
+```
+
+### Workflow 2: Pre-Production Validation
+
+```bash
+# 1. Remove PII
+crashlens pii-remove logs/staging.jsonl --output logs/clean.jsonl
+
+# 2. Validate against policies
+crashlens policy-check logs/clean.jsonl --policy-template all --fail-on-violations
+
+# 3. Generate report
+crashlens scan logs/clean.jsonl --format markdown
+```
+
+### Workflow 3: CI/CD Pipeline
+
+```yaml
+# .github/workflows/crashlens.yml
+name: CrashLens Policy Check
+
+on: [push, pull_request]
+
+jobs:
+  policy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install CrashLens
+        run: pip install crashlens
+      
+      - name: Run Policy Check
+        run: |
+          crashlens policy-check logs/*.jsonl \
+            --policy-template all \
+            --fail-on-violations \
+            --severity-threshold high
+```
+
+---
+
+## 📚 Next Steps
+
+- **Full Documentation**: [docs/USER_MANUAL.md](docs/USER_MANUAL.md)
+- **Command Reference**: [docs/COMMAND-REFERENCE.md](docs/COMMAND-REFERENCE.md)
+- **Policy Templates**: [policies/README.md](policies/README.md)
+- **Migration Guide**: [MIGRATION.md](MIGRATION.md)
+- **Examples**: [examples/](examples/)
+
+---
+
+## 🆘 Troubleshooting
+
+### Issue: "No log files found"
+
+```bash
+# Ensure your logs are in JSONL format
+file logs/your-logs.jsonl  # Should output: ASCII text
+
+# Check for valid JSON lines
+head -n 1 logs/your-logs.jsonl | python -m json.tool
+```
+
+### Issue: "Policy violations not detected"
+
+```bash
+# Verify log schema
+crashlens scan --contract-check logs/your-logs.jsonl --log-format langfuse-v1
+
+# Use verbose mode
+crashlens policy-check logs/your-logs.jsonl --policy-template all -v
+```
+
+### Issue: "Module not found" errors
+
+```bash
+# Reinstall with all dependencies
+pip install --upgrade crashlens[metrics]
+```
+
+---
+
+**Last Updated:** January 2025 (v3.0.0)
+
 ```bash
 pip install pytest
 # OR: pip install -e .[dev]
