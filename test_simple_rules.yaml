@@ -1,8 +1,0 @@
-rules:
-  - id: RL001
-    description: "High token usage"
-    if:
-      usage.prompt_tokens:
-        ">": 2000
-    action: fail_ci
-    severity: fatal
