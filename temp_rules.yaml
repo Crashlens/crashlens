@@ -1,0 +1,8 @@
+rules:
+  - id: RL001
+    description: Test high token usage
+    if:
+      usage.prompt_tokens:
+        ">": 2000
+    action: error
+    severity: error
