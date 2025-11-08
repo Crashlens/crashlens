@@ -1023,14 +1023,28 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             duration = time.time() - start_time
             metrics_status = 'success' if not should_fail else 'failure'
             
+            # Prepare violations dict for metrics
+            violations_dict = {}
+            rules_data = report.get('rules', {})
+            if isinstance(rules_data, dict):
+                for rule_id, rule_meta in rules_data.items():
+                    violations_dict[rule_id] = {
+                        'severity': rule_meta.get('severity', 'unknown'),
+                        'count': rule_meta.get('count', 0)
+                    }
+            
+            # Get rules count safely
+            rules_list = ruleset.get('rules', []) if isinstance(ruleset, dict) else []
+            rules_count = len(rules_list)
+            
             metrics = MetricsCollector(pushgateway_url, metrics_job)
             metrics.record_guard_run(
                 status=metrics_status,
-                violations=report.get('rules', {}),
+                violations=violations_dict,
                 duration=duration,
                 logs_processed=report.get('summary', {}).get('total_logs', 0),
                 severity=severity,
-                rules_count=len(ruleset.get('rules', []))
+                rules_count=rules_count
             )
             
             metrics.push()
