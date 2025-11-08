@@ -5,7 +5,6 @@ Parses rules.yaml, evaluates JSONL logs, respects suppressions/severity threshol
 Emits json/markdown/text reports and exits nonzero on violations for CI integration.
 """
 
-import html
 import json
 import os
 import re
@@ -24,7 +23,6 @@ from jsonschema import ValidationError, validate
 from crashlens.config import resolve_variables_in_obj
 
 # Import streaming reader for large file support
-from crashlens.io.stream_reader import stream_jsonl
 
 # Import unified engine adapter
 from crashlens.guard_adapter import GuardPolicyEngineAdapter
