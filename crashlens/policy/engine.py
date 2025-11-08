@@ -51,7 +51,7 @@ class PolicyMatcher:
         '>': lambda a, b: a is not None and b is not None and float(a) > float(b),
         '<': lambda a, b: a is not None and b is not None and float(a) < float(b),
         'in': lambda a, b: a in b,
-        'regex': lambda a, b: bool(re.match(b, str(a))),
+        'regex': lambda a, b: bool(re.search(b, str(a))),  # Changed from re.match to re.search
         'contains': lambda a, b: b in str(a),
         'startswith': lambda a, b: str(a).startswith(b),
         'endswith': lambda a, b: str(a).endswith(b)
@@ -70,11 +70,14 @@ class PolicyMatcher:
             True if the condition matches, False otherwise
         """
         if isinstance(rule_value, str) and any(op in rule_value for op in cls.OPERATORS):
-            # Handle operator-based conditions like ">2", "!=gpt-4"
+            # Handle operator-based conditions like ">2", "!=gpt-4", "regex: pattern"
             for op_str, op_func in cls.OPERATORS.items():
                 if rule_value.startswith(op_str):
                     try:
                         expected = rule_value[len(op_str):].strip()
+                        # Remove leading colon if present (for "regex: pattern" format)
+                        if expected.startswith(':'):
+                            expected = expected[1:].strip()
                         # Handle special operators
                         if op_str in ['not in']:
                             # Parse the list from the string format "not in:['item1', 'item2']"
@@ -347,11 +350,10 @@ class PolicyEngine:
                 self.violation_counts[rule.id] += 1
                 
                 # Mark trace as flagged for early exit on future evaluations
+                # NOTE: Removed early break to allow multiple violations per trace
+                # This is needed for guard command which reports all violations
                 self.traces_flagged.add(trace_id)
-                
-                # Early exit: once a trace is flagged, don't check remaining rules
-                self.logger.debug(f"Trace {trace_id} flagged by rule {rule.id}, skipping remaining rules")
-                break
+                self.logger.debug(f"Trace {trace_id} flagged by rule {rule.id}, continuing to check remaining rules")
                 
         return violations, skipped_rules
     

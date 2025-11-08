@@ -302,14 +302,16 @@ class GuardPolicyEngineAdapter:
             if not no_content:
                 for violation in violations[:max_examples]:
                     entry = violation.log_entry
+                    # Extract prompt from either flat format or Langfuse nested format
+                    prompt = entry.get("prompt") or entry.get("input", {}).get("prompt", "")
                     example = {
                         "timestamp": entry.get("timestamp") or entry.get("startTime"),
-                        "model": entry.get("model"),
+                        "model": entry.get("model") or entry.get("input", {}).get("model"),
                         "tokens": entry.get("tokens") or entry.get("usage", {}).get("prompt_tokens", 0),
-                        "retry_count": entry.get("retry_count"),
-                        "fallback_triggered": entry.get("fallback_triggered"),
-                        "endpoint": entry.get("endpoint"),
-                        "prompt": redact_text(entry.get("prompt", ""), strip_pii),
+                        "retry_count": entry.get("retry_count") or entry.get("metadata", {}).get("retry_count"),
+                        "fallback_triggered": entry.get("fallback_triggered") or entry.get("metadata", {}).get("fallback_triggered"),
+                        "endpoint": entry.get("endpoint") or entry.get("metadata", {}).get("endpoint"),
+                        "prompt": redact_text(prompt, strip_pii),
                         "reason": violation.reason,
                     }
                     examples.append(example)
