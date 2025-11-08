@@ -258,6 +258,7 @@ class GuardPolicyEngineAdapter:
         Converts conditions to their negation:
         - Direct equality: field: "value" → field: "!=value"
         - Operators: {">": 5} → {"<=": 5}, {"==": true} → {"==": false}
+        - Lists (in): field: ["a", "b"] → field: "not in:['a', 'b']"
         
         Args:
             conditions: Conditions to invert
@@ -268,29 +269,39 @@ class GuardPolicyEngineAdapter:
         inverted = {}
         
         for field, condition in conditions.items():
-            if isinstance(condition, dict):
+            if isinstance(condition, list):
+                # IN operator with list - invert to NOT IN
+                # PolicyEngine supports "not in:['item1', 'item2']" format
+                list_str = str(condition)
+                inverted[field] = f"not in:{list_str}"
+            elif isinstance(condition, dict):
                 # Handle operator conditions
                 for op, value in condition.items():
-                    # Invert the operator
-                    inverse_op = self._invert_operator(op)
-                    if inverse_op is None:
-                        return None  # Cannot invert
-                    
-                    if isinstance(value, bool):
-                        # For booleans, invert the value instead of operator
-                        if op == "==":
-                            inverted[field] = not value
-                        else:
-                            return None  # Cannot invert non-equality boolean ops
-                    elif inverse_op == "!=":
-                        # Use != operator directly
-                        inverted[field] = f"{inverse_op}{value}"
-                    elif inverse_op == "regex":
-                        # Cannot invert regex
-                        return None
+                    if op == "in":
+                        # IN operator - invert to NOT IN
+                        list_str = str(value)
+                        inverted[field] = f"not in:{list_str}"
                     else:
-                        # Inverted numeric operator
-                        inverted[field] = f"{inverse_op}{value}"
+                        # Invert the operator
+                        inverse_op = self._invert_operator(op)
+                        if inverse_op is None:
+                            return None  # Cannot invert
+                        
+                        if isinstance(value, bool):
+                            # For booleans, invert the value instead of operator
+                            if op == "==":
+                                inverted[field] = not value
+                            else:
+                                return None  # Cannot invert non-equality boolean ops
+                        elif inverse_op == "!=":
+                            # Use != operator directly
+                            inverted[field] = f"{inverse_op}{value}"
+                        elif inverse_op == "regex":
+                            # Cannot invert regex
+                            return None
+                        else:
+                            # Inverted numeric operator
+                            inverted[field] = f"{inverse_op}{value}"
             else:
                 # Direct equality - use != operator
                 if isinstance(condition, bool):
@@ -332,11 +343,15 @@ class GuardPolicyEngineAdapter:
         
         for field, condition in conditions.items():
             if isinstance(condition, dict):
-                # Handle operator conditions like {">": 3} or {"==": true}
+                # Handle operator conditions like {">": 3} or {"==": true} or {"in": [...]}
                 for op, value in condition.items():
-                    # Special handling for boolean comparisons
-                    if isinstance(value, bool):
-                        # For booleans, pass the value directly (not as string)
+                    if op == "in":
+                        # IN operator: Pass list directly to PolicyEngine
+                        # Example: model: {"in": ["gpt-4o", "claude-3"]}
+                        # PolicyEngine: model: ["gpt-4o", "claude-3"]
+                        match_conditions[field] = value
+                    elif isinstance(value, bool):
+                        # Special handling for boolean comparisons
                         if op == "==":
                             match_conditions[field] = value
                         else:
@@ -348,6 +363,11 @@ class GuardPolicyEngineAdapter:
                     else:
                         # Standard operators (>, <, >=, etc.)
                         match_conditions[field] = f"{op}{value}"
+            elif isinstance(condition, list):
+                # Direct list (shorthand for 'in' operator)
+                # Example: model: ["gpt-4o", "claude-3"]
+                # This is equivalent to model: {"in": ["gpt-4o", "claude-3"]}
+                match_conditions[field] = condition
             else:
                 # Direct equality
                 match_conditions[field] = condition
