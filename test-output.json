@@ -1,0 +1,74 @@
+{
+  "summary": {
+    "total_rules": 5,
+    "violations": 2,
+    "skipped_lines": 0,
+    "total_cost": null,
+    "cost_cap": null,
+    "cost_cap_exceeded": false
+  },
+  "rules": {
+    "TEST001": {
+      "count": 1,
+      "severity": "error",
+      "description": "Test simple model condition",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4o",
+          "tokens": 2500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "input.model=gpt-4o (rule: gpt-4o)"
+        }
+      ]
+    },
+    "TEST002": {
+      "count": 2,
+      "severity": "warn",
+      "description": "Test numeric condition (tokens > 1000)",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4o",
+          "tokens": 2500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "usage.prompt_tokens=2500 (rule: >1000)"
+        },
+        {
+          "timestamp": null,
+          "model": "claude-3",
+          "tokens": 1500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "usage.prompt_tokens=1500 (rule: >1000)"
+        }
+      ]
+    },
+    "TEST003": {
+      "count": 0,
+      "severity": "error",
+      "description": "Test boolean AND (model=gpt-4o AND tokens>2000)",
+      "examples": []
+    },
+    "TEST004": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Test OR logic (model in [gpt-4o, claude-3])",
+      "examples": []
+    },
+    "TEST005": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Test NOT logic (NOT gpt-3.5-turbo)",
+      "examples": []
+    }
+  }
+}

@@ -1,0 +1,60 @@
+﻿{
+  "summary": {
+    "total_rules": 8,
+    "violations": 0,
+    "skipped_lines": 0,
+    "total_cost": null,
+    "cost_cap": null,
+    "cost_cap_exceeded": false
+  },
+  "rules": {
+    "RL001": {
+      "count": 0,
+      "severity": "fatal",
+      "description": "High token usage on expensive models (gpt-4o)",
+      "examples": []
+    },
+    "RL002": {
+      "count": 0,
+      "severity": "error",
+      "description": "Excessive retry attempts",
+      "examples": []
+    },
+    "RL003": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Fallback mechanism triggered",
+      "examples": []
+    },
+    "RL004": {
+      "count": 0,
+      "severity": "error",
+      "description": "PII detected in prompts",
+      "examples": []
+    },
+    "RL005": {
+      "count": 0,
+      "severity": "fatal",
+      "description": "High cost per request",
+      "examples": []
+    },
+    "RL006": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Medium retry count on expensive models",
+      "examples": []
+    },
+    "RL007": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Slow response time (performance degradation)",
+      "examples": []
+    },
+    "RL008": {
+      "count": 0,
+      "severity": "error",
+      "description": "High error rate (reliability issue)",
+      "examples": []
+    }
+  }
+}

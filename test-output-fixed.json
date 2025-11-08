@@ -1,0 +1,120 @@
+??????  Warning: Rule TEST005 uses 'not' logic which is not supported. Skipping.
+{
+  "summary": {
+    "total_rules": 7,
+    "violations": 5,
+    "skipped_lines": 0,
+    "total_cost": null,
+    "cost_cap": null,
+    "cost_cap_exceeded": false
+  },
+  "rules": {
+    "TEST001": {
+      "count": 1,
+      "severity": "error",
+      "description": "Test simple model condition",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4o",
+          "tokens": 2500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "input.model=gpt-4o (rule: gpt-4o)"
+        }
+      ]
+    },
+    "TEST002": {
+      "count": 2,
+      "severity": "warn",
+      "description": "Test numeric condition (tokens > 1000)",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4o",
+          "tokens": 2500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "usage.prompt_tokens=2500 (rule: >1000)"
+        },
+        {
+          "timestamp": null,
+          "model": "claude-3",
+          "tokens": 1500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "usage.prompt_tokens=1500 (rule: >1000)"
+        }
+      ]
+    },
+    "TEST003": {
+      "count": 1,
+      "severity": "error",
+      "description": "Test boolean AND (model=gpt-4o AND tokens>2000)",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4o",
+          "tokens": 2500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "input.model=gpt-4o (rule: gpt-4o) AND usage.prompt_tokens=2500 (rule: >2000)"
+        }
+      ]
+    },
+    "TEST004_or0": {
+      "count": 1,
+      "severity": "warn",
+      "description": "input.model=gpt-4o (rule: gpt-4o)",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4o",
+          "tokens": 2500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "input.model=gpt-4o (rule: gpt-4o)"
+        }
+      ]
+    },
+    "TEST004_or1": {
+      "count": 1,
+      "severity": "warn",
+      "description": "input.model=claude-3 (rule: claude-3)",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "claude-3",
+          "tokens": 1500,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "",
+          "reason": "input.model=claude-3 (rule: claude-3)"
+        }
+      ]
+    },
+    "TEST004": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Test OR logic (model in [gpt-4o, claude-3])",
+      "examples": []
+    },
+    "TEST005": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Test NOT logic (NOT gpt-3.5-turbo)",
+      "examples": []
+    }
+  }
+}

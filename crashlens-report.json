@@ -1,29 +1,18 @@
 {
   "summary": {
     "total_rules": 1,
-    "violations": 1,
+    "violations": 0,
     "skipped_lines": 0,
     "total_cost": null,
     "cost_cap": null,
     "cost_cap_exceeded": false
   },
   "rules": {
-    "TOKEN_CHECK": {
-      "count": 1,
+    "TEST_RULE": {
+      "count": 0,
       "severity": "warn",
-      "description": "High token usage",
-      "examples": [
-        {
-          "timestamp": null,
-          "model": null,
-          "tokens": "500",
-          "retry_count": null,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": "",
-          "reason": "usage.prompt_tokens=500 (rule: >300)"
-        }
-      ]
+      "description": "Test rule for smoke testing",
+      "examples": []
     }
   }
 }
