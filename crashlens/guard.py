@@ -993,6 +993,16 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     if dry_run:
         should_fail = False
     
+    # Fail-safe toggle: GUARD_ENFORCE environment variable
+    # Default: true (enforcement enabled)
+    # Set GUARD_ENFORCE=false to disable enforcement (emergency rollback)
+    guard_enforce = os.getenv("GUARD_ENFORCE", "true").lower() in ("true", "1", "yes")
+    if not guard_enforce:
+        should_fail = False
+        if report['summary']['violations'] > 0 or (cost_cap and total_cost > cost_cap):
+            click.echo("", err=True)
+            click.echo("🔓 Guard enforcement disabled (GUARD_ENFORCE=false)", err=True)
+    
     # Always output status to stderr to keep stdout clean for JSON/structured output
     if dry_run and (report['summary']['violations'] > 0 or (cost_cap and total_cost > cost_cap)):
         click.echo("", err=True)
