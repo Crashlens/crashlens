@@ -230,6 +230,73 @@ class PerformanceBaseline:
         
         return len(violations) > 0, violations
     
+    def generate_synthetic_violations(
+        self,
+        current_logs: List[Dict[str, Any]],
+        deviation_threshold: float = 0.50
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate synthetic violation records for baseline deviations.
+        
+        Creates violation objects compatible with guard report format that can be
+        injected into the violations list for reporting.
+        
+        Args:
+            current_logs: List of log entries from current period
+            deviation_threshold: Percentage deviation to trigger alert (0.0-1.0)
+        
+        Returns:
+            List of synthetic violation dictionaries in guard report format:
+            {
+                'id': str,           # e.g., 'baseline_latency_p95'
+                'name': str,         # Human-readable name
+                'severity': str,     # 'fatal' for baseline violations
+                'description': str,  # Detailed description with metrics
+                'count': int,        # Always 1 per violation type
+                'examples': list,    # Empty (baseline violations don't have log examples)
+                'baseline_value': float,      # Historical baseline
+                'current_value': float,       # Current measured value
+                'percent_increase': float,    # % over baseline
+                'deviation_threshold': float  # Threshold that was exceeded
+            }
+        
+        Example:
+            >>> baseline = PerformanceBaseline(historical_logs)
+            >>> violations = baseline.generate_synthetic_violations(current_logs, 0.30)
+            >>> for v in violations:
+            ...     print(f"{v['name']}: {v['description']}")
+        """
+        has_violations, raw_violations = self.compare_to_baseline(
+            current_logs, deviation_threshold
+        )
+        
+        if not has_violations:
+            return []
+        
+        synthetic_violations = []
+        
+        for violation in raw_violations:
+            metric = violation['metric']
+            
+            # Create guard-compatible violation record
+            synthetic_violation = {
+                'id': f"baseline_{metric}",
+                'name': f"Baseline: {metric.upper().replace('_', ' ')}",
+                'severity': 'fatal',
+                'description': violation['description'],
+                'count': 1,
+                'examples': [],
+                # Additional baseline-specific fields
+                'baseline_value': violation['baseline'],
+                'current_value': violation['current'],
+                'percent_increase': violation['percent_increase'],
+                'deviation_threshold': violation['deviation_threshold']
+            }
+            
+            synthetic_violations.append(synthetic_violation)
+        
+        return synthetic_violations
+    
     def get_summary(self) -> str:
         """
         Get human-readable summary of baselines.
