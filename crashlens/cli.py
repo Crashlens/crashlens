@@ -4063,189 +4063,13 @@ def show_metrics_config(config_file: Optional[Path]):
         click.echo("\n   Create a config file with:")
         click.echo("   crashlens validate-metrics-config --help")
         sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Error loading config: {e}", err=True)
-        sys.exit(1)
 
 
 # =============================================================================
-# Policy-Check Command (Unified Engine - Primary Command)
+# Guard Command (Primary Command - Unified Engine)
 # =============================================================================
-
-@click.command("policy-check")
-@click.argument("logfile", type=click.Path(), required=False, default=None)
-@click.option("--rules", type=click.Path(exists=True), required=False,
-              help="Path to rules.yaml file (auto-discovers if not specified)")
-@click.option("--suppress", "-s", multiple=True,
-              help="Rule IDs to suppress (repeatable or comma-separated)")
-@click.option("--severity", type=click.Choice(["warn", "error", "fatal"]), default="error",
-              help="Minimum severity threshold for failing (default: error)")
-@click.option("--output", type=click.Choice(["json", "md", "text", "html"]), default="text",
-              help="Output format (default: text)")
-@click.option("--no-content", is_flag=True,
-              help="Redact content examples from report")
-@click.option("--strip-pii", is_flag=True,
-              help="Strip emails/phones from prompts in examples")
-@click.option("--fail-on-violations", is_flag=True,
-              help="Exit with code 1 when violations meet severity threshold")
-@click.option("--dry-run", is_flag=True,
-              help="Validate rules without failing CI (exit code always 0)")
-@click.option("--summary-only", is_flag=True,
-              help="Output condensed one-line-per-rule summary")
-@click.option("--baseline-logs", type=click.Path(exists=True),
-              help="Historical logs for dynamic P95/P99 baseline comparison")
-@click.option("--baseline-deviation", type=float, default=0.50,
-              help="Deviation threshold for baseline alerts (default: 0.50 = 50%)")
-@click.option("--cost-cap", type=float,
-              help="Maximum allowed total cost in USD (fails CI if exceeded)")
-@click.option("--report-path", type=click.Path(), default="crashlens-report.json",
-              help="Path to write structured JSON report")
-@click.option("--annotation-hook", type=str,
-              help="Command to run after report is written")
-def policy_check(logfile, rules, suppress, severity, output, no_content, strip_pii, 
-                 fail_on_violations, dry_run, summary_only, baseline_logs, 
-                 baseline_deviation, cost_cap, report_path, annotation_hook):
-    """Policy-check: Unified engine for advanced log analysis
-    
-    This is the primary command that uses the unified PolicyEngine 
-    for consistent rule evaluation across crashlens.
-    
-    Key features:
-    - Streaming log processing with LogIterator
-    - Inline waste detection (retry loops, fallback storms, etc.)
-    - Unified rule evaluation with PolicyEngine
-    - Backwards compatible with legacy guard command
-    
-    Examples:
-        # Basic policy check
-        crashlens policy-check logs.jsonl --rules rules.yaml
-        
-        # With baseline monitoring
-        crashlens policy-check logs.jsonl \\
-          --baseline-logs historical.jsonl \\
-          --baseline-deviation 0.30
-        
-        # CI integration
-        crashlens policy-check logs.jsonl \\
-          --fail-on-violations \\
-          --output json \\
-          --report-path violations.json
-    """
-    # Show info message about unified engine
-    if not os.environ.get('CRASHLENS_QUIET'):
-        click.echo("🔧 Using unified PolicyEngine (next-generation analysis)", err=True)
-    
-    # Import the guard function here (will be replaced in Phase 4)
-    from .guard import guard as guard_impl
-    
-    # Call guard implementation with unified engine forced
-    # Note: This will be replaced with native PolicyEngine call in Phase 4
-    from click import Context
-    ctx = Context(guard_impl)
-    
-    # Force unified engine for policy-check
-    old_env = os.environ.get('CRASHLENS_USE_UNIFIED_ENGINE')
-    os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-    
-    try:
-        ctx.invoke(
-            guard_impl,
-            logfile=logfile,
-            rules=rules,
-            suppress=suppress,
-            severity=severity,
-            output=output,
-            no_content=no_content,
-            strip_pii=strip_pii,
-            fail_on_violations=fail_on_violations,
-            dry_run=dry_run,
-            summary_only=summary_only,
-            baseline_logs=baseline_logs,
-            baseline_deviation=baseline_deviation,
-            cost_cap=cost_cap,
-            report_path=report_path,
-            annotation_hook=annotation_hook,
-        )
-    finally:
-        # Restore original env var
-        if old_env is None:
-            os.environ.pop('CRASHLENS_USE_UNIFIED_ENGINE', None)
-        else:
-            os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = old_env
-
-
-# =============================================================================
-# Guard Command (Deprecated Alias for policy-check)
-# =============================================================================
-
-@click.command("guard", help="Deprecated alias for policy-check (uses unified PolicyEngine)")
-@click.argument("logfile", type=click.Path(), required=False, default=None)
-@click.option("--rules", type=click.Path(exists=True), required=False,
-              help="Path to rules.yaml file (auto-discovers if not specified)")
-@click.option("--suppress", "-s", multiple=True,
-              help="Rule IDs to suppress (repeatable or comma-separated)")
-@click.option("--severity", type=click.Choice(["warn", "error", "fatal"]), default="error",
-              help="Minimum severity threshold for failing (default: error)")
-@click.option("--output", type=click.Choice(["json", "md", "text", "html"]), default="text",
-              help="Output format (default: text)")
-@click.option("--no-content", is_flag=True,
-              help="Redact content examples from report")
-@click.option("--strip-pii", is_flag=True,
-              help="Strip emails/phones from prompts in examples")
-@click.option("--fail-on-violations", is_flag=True,
-              help="Exit with code 1 when violations meet severity threshold")
-@click.option("--dry-run", is_flag=True,
-              help="Validate rules without failing CI (exit code always 0)")
-@click.option("--summary-only", is_flag=True,
-              help="Output condensed one-line-per-rule summary")
-@click.option("--baseline-logs", type=click.Path(exists=True),
-              help="Historical logs for dynamic P95/P99 baseline comparison")
-@click.option("--baseline-deviation", type=float, default=0.50,
-              help="Deviation threshold for baseline alerts (default: 0.50 = 50%)")
-@click.option("--cost-cap", type=float,
-              help="Maximum allowed total cost in USD (fails CI if exceeded)")
-@click.option("--report-path", type=click.Path(), default="crashlens-report.json",
-              help="Path to write structured JSON report")
-@click.option("--annotation-hook", type=str,
-              help="Command to run after report is written")
-@click.pass_context
-def guard(ctx, logfile, rules, suppress, severity, output, no_content, strip_pii, 
-          fail_on_violations, dry_run, summary_only, baseline_logs, 
-          baseline_deviation, cost_cap, report_path, annotation_hook):
-    """Guard: Deprecated alias for policy-check
-    
-    This command is maintained for backwards compatibility.
-    Please migrate to 'crashlens policy-check' for the same functionality.
-    
-    Migration:
-        crashlens guard logs.jsonl --rules rules.yaml
-        →
-        crashlens policy-check logs.jsonl --rules rules.yaml
-    """
-    # Show deprecation notice
-    if not os.environ.get('CRASHLENS_QUIET'):
-        click.echo("🔧 Using unified PolicyEngine (guard alias)", err=True)
-        click.echo("⚠️  Note: 'guard' is an alias for 'policy-check'. Consider migrating.", err=True)
-    
-    # Invoke policy-check with all parameters
-    ctx.invoke(
-        policy_check,
-        logfile=logfile,
-        rules=rules,
-        suppress=suppress,
-        severity=severity,
-        output=output,
-        no_content=no_content,
-        strip_pii=strip_pii,
-        fail_on_violations=fail_on_violations,
-        dry_run=dry_run,
-        summary_only=summary_only,
-        baseline_logs=baseline_logs,
-        baseline_deviation=baseline_deviation,
-        cost_cap=cost_cap,
-        report_path=report_path,
-        annotation_hook=annotation_hook,
-    )
+# Import the actual guard command from crashlens/guard.py
+from .guard import guard
 
 
 @click.command("report")
@@ -4733,7 +4557,6 @@ def smtp_example(output: Path):
 
 
 # Add commands to CLI
-cli.add_command(policy_check)
 cli.add_command(list_policy_templates)
 cli.add_command(init)
 cli.add_command(simulate)
@@ -4744,7 +4567,6 @@ cli.add_command(pii_clean_command)
 cli.add_command(validate_metrics_config)
 cli.add_command(show_metrics_config)
 cli.add_command(guard)
-cli.add_command(policy_check)  # Step 7: Unified engine alias
 cli.add_command(run_report)
 
 

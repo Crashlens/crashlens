@@ -108,17 +108,11 @@ class ParityTester:
             "--output", "json"
         ]
         
-        # Set environment variable
-        import os
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            cwd=self.project_root,
-            env=env
+            cwd=self.project_root
         )
         
         # Parse JSON output (same as policy-check)
