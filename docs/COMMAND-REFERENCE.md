@@ -2,6 +2,8 @@
 
 Complete reference for all CrashLens CLI commands with descriptions, options, and examples.
 
+> **⚠️ Deprecation Notice**: The `guard` command is deprecated as of v3.0.0 and will be removed in v3.1.0. It currently works as an alias for `policy-check` with a deprecation warning. See [MIGRATION.md](../MIGRATION.md) for migration details.
+
 ## 🎯 Core Commands
 
 ### `crashlens scan` - Token Waste Analysis
@@ -102,6 +104,32 @@ crashlens policy-check logs.jsonl --policy-file custom.yaml --severity-threshold
 **Exit Codes:**
 - `0`: No violations or violations below threshold
 - `1`: Violations found (when using `--fail-on-violations`)
+
+---
+
+### `crashlens guard` - ⚠️ DEPRECATED
+**Status**: Deprecated as of v3.0.0, will be removed in v3.1.0
+
+```bash
+crashlens guard [OPTIONS] LOGFILE  # Shows deprecation warning
+```
+
+**Deprecation Notice:**
+- The `guard` command is now an alias for `policy-check`
+- All functionality is identical to `policy-check`
+- A deprecation warning is displayed on every invocation
+- Use `policy-check` instead for new workflows
+
+**Migration:**
+```bash
+# Old (deprecated)
+crashlens guard logs.jsonl --policy-template all
+
+# New (recommended)
+crashlens policy-check logs.jsonl --policy-template all
+```
+
+**See Also:** [MIGRATION.md](../MIGRATION.md) for complete migration guide
 
 ---
 
