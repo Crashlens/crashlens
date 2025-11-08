@@ -1,0 +1,231 @@
+name: Canary Rollout
+
+on:
+  push:
+    branches:
+      - internal/canary
+  workflow_dispatch:
+
+jobs:
+  parity-tests:
+    name: End-to-End Parity Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.5
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}-canary
+      
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry install --no-interaction --no-root
+      
+      - name: Install project
+        run: poetry install --no-interaction
+      
+      - name: Run End-to-End Parity Tests
+        id: parity
+        run: |
+          poetry run pytest tests/integration/test_parity_end_to_end.py -v --tb=short
+        continue-on-error: true
+      
+      - name: Run Standalone Parity Test
+        if: steps.parity.outcome == 'failure'
+        run: |
+          poetry run python tests/integration/test_parity_end_to_end.py
+      
+      - name: Upload parity test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: parity-test-results-${{ github.sha }}
+          path: |
+            tests/integration/
+            *.json
+          retention-days: 90
+      
+      - name: Fail if parity tests failed
+        if: steps.parity.outcome == 'failure'
+        run: |
+          echo "❌ Parity tests failed - canary rollout aborted"
+          echo ""
+          echo "Action Required:"
+          echo "1. Review parity test results in artifacts"
+          echo "2. Investigate diff diagnostics for failures"
+          echo "3. Fix parity issues OR"
+          echo "4. Revert merge commit: git revert HEAD"
+          echo "5. Disable feature flags if necessary"
+          exit 1
+  
+  integration-tests:
+    name: Full Integration Tests
+    runs-on: ubuntu-latest
+    needs: parity-tests
+    timeout-minutes: 45
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.5
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      
+      - name: Load cached venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}-integration
+      
+      - name: Install dependencies
+        run: poetry install --no-interaction
+      
+      - name: Run all integration tests
+        run: |
+          poetry run pytest tests/integration/ -v --tb=short
+      
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-${{ github.sha }}
+          path: |
+            tests/integration/
+            .pytest_cache/
+          retention-days: 90
+  
+  sign-off-required:
+    name: Manual Sign-Off Required
+    runs-on: ubuntu-latest
+    needs: [parity-tests, integration-tests]
+    if: success()
+    
+    steps:
+      - name: Wait for manual approval
+        run: |
+          echo "✅ All automated tests passed"
+          echo ""
+          echo "Canary rollout is ready for manual sign-off."
+          echo "Please review:"
+          echo "  - Parity test results"
+          echo "  - Integration test results"
+          echo "  - Performance benchmarks"
+          echo ""
+          echo "If approved, merge to main branch."
+          echo "If rejected, revert and investigate issues."
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ✅ Canary Rollout - Ready for Sign-Off
+              
+              All automated tests have passed:
+              - ✅ End-to-End Parity Tests
+              - ✅ Integration Tests
+              
+              **Manual sign-off required before merging to \`main\`**
+              
+              Review artifacts and approve to proceed with rollout.
+              `
+            });
+  
+  rollback-on-failure:
+    name: Automatic Rollback
+    runs-on: ubuntu-latest
+    needs: [parity-tests, integration-tests]
+    if: failure()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Execute rollback
+        run: |
+          echo "❌ Canary rollout failed - initiating automatic rollback"
+          
+          # Get the merge commit (if this is a merge)
+          MERGE_COMMIT=$(git log --merges -n 1 --pretty=format:"%H")
+          
+          if [ -n "$MERGE_COMMIT" ]; then
+            echo "Found merge commit: $MERGE_COMMIT"
+            echo "To rollback manually, run:"
+            echo "  git revert -m 1 $MERGE_COMMIT"
+            echo "  git push origin internal/canary"
+          fi
+          
+          echo ""
+          echo "Rollback Instructions:"
+          echo "1. Review failure logs in job artifacts"
+          echo "2. Revert problematic commits"
+          echo "3. Disable feature flags if necessary:"
+          echo "   - CRASHLENS_USE_UNIFIED_ENGINE=0"
+          echo "4. Re-run canary workflow after fixes"
+      
+      - name: Create rollback issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Canary Rollout Failed - Rollback Required`,
+              body: `## Canary Rollout Failure
+              
+              The canary rollout on branch \`internal/canary\` has failed.
+              
+              **Action Required:**
+              1. Review failure logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              2. Download test artifacts for diagnostics
+              3. Revert problematic commits
+              4. Disable feature flags if necessary
+              5. Re-run canary workflow after fixes
+              
+              **Rollback Command:**
+              \`\`\`bash
+              git revert -m 1 <merge-commit-sha>
+              git push origin internal/canary
+              \`\`\`
+              
+              **Feature Flags:**
+              - Set \`CRASHLENS_USE_UNIFIED_ENGINE=0\` to disable unified engine
+              
+              cc: @maintainers
+              `,
+              labels: ['bug', 'critical', 'rollback']
+            });
