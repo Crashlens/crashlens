@@ -47,6 +47,11 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Benchmark results
+bench/results/
+*.dat
+*.png
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
