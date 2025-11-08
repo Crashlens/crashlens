@@ -190,18 +190,21 @@ rules:
 
     def test_guard_suppression(self, tmp_path):
         """Test guard with rule suppression"""
-        logs = tmp_path / "logs.jsonl"
-        logs.write_text(json.dumps({
-            "traceId": "trace-1",
-            "startTime": "2025-01-01T10:00:00Z",
-            "input": {"model": "gpt-4o", "prompt": "test"},
-            "usage": {"prompt_tokens": 3000, "completion_tokens": 150, "total_tokens": 3150},
-            "cost": 0.30,
-            "metadata": {"retry_count": 5, "fallback_triggered": False, "endpoint": "/api"}
-        }), encoding="utf-8")
-        
-        rules = tmp_path / "rules.yaml"
-        rules.write_text("""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            # Create files inside isolated filesystem
+            with open('logs.jsonl', 'w', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "traceId": "trace-1",
+                    "startTime": "2025-01-01T10:00:00Z",
+                    "input": {"model": "gpt-4o", "prompt": "test"},
+                    "usage": {"prompt_tokens": 3000, "completion_tokens": 150, "total_tokens": 3150},
+                    "cost": 0.30,
+                    "metadata": {"retry_count": 5, "fallback_triggered": False, "endpoint": "/api"}
+                }))
+            
+            with open('rules.yaml', 'w', encoding='utf-8') as f:
+                f.write("""
 rules:
   - id: RL001
     description: "High token usage"
@@ -217,21 +220,21 @@ rules:
         ">": 2
     action: error
     severity: error
-""", encoding="utf-8")
-        
-        # Suppress RL001
-        result = self.runner.invoke(cli, [
-            "guard",
-            str(logs),
-            "--rules", str(rules),
-            "--suppress", "RL001",
-            "--output", "json"
-        ], env={"CRASHLENS_QUIET": "1"})
-        
-        assert result.exit_code == 0
-        output = extract_json_from_output(result.output)
-        assert 'RL001' not in output['rules']
-        assert output['rules']['RL002']['count'] == 1
+""")
+            
+            # Suppress RL001 - use filenames not Path objects
+            result = runner.invoke(cli, [
+                "guard",
+                "logs.jsonl",
+                "--rules", "rules.yaml",
+                "--suppress", "RL001",
+                "--output", "json"
+            ], env={"CRASHLENS_QUIET": "1"})
+            
+            assert result.exit_code == 0
+            output = extract_json_from_output(result.output)
+            assert 'RL001' not in output['rules']
+            assert output['rules']['RL002']['count'] == 1
 
     def test_guard_severity_threshold(self, tmp_path):
         """Test guard with severity threshold"""
@@ -281,18 +284,21 @@ rules:
 
     def test_guard_pii_stripping(self, tmp_path):
         """Test guard with PII stripping"""
-        logs = tmp_path / "logs.jsonl"
-        logs.write_text(json.dumps({
-            "traceId": "trace-1",
-            "startTime": "2025-01-01T10:00:00Z",
-            "input": {"model": "gpt-3.5-turbo", "prompt": "Contact joe@example.com or call +1-555-1234"},
-            "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-            "cost": 0.01,
-            "metadata": {"retry_count": 0, "fallback_triggered": False, "endpoint": "/api"}
-        }), encoding="utf-8")
-        
-        rules = tmp_path / "rules.yaml"
-        rules.write_text("""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            # Create files inside isolated filesystem
+            with open('logs.jsonl', 'w', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    "traceId": "trace-1",
+                    "startTime": "2025-01-01T10:00:00Z",
+                    "input": {"model": "gpt-3.5-turbo", "prompt": "Contact joe@example.com or call +1-555-1234"},
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+                    "cost": 0.01,
+                    "metadata": {"retry_count": 0, "fallback_triggered": False, "endpoint": "/api"}
+                }))
+            
+            with open('rules.yaml', 'w', encoding='utf-8') as f:
+                f.write("""
 rules:
   - id: RL001
     description: "PII in prompt"
@@ -301,23 +307,23 @@ rules:
         regex: "@"
     action: error
     severity: error
-""", encoding="utf-8")
-        
-        # Run with PII stripping
-        result = self.runner.invoke(cli, [
-            "guard",
-            str(logs),
-            "--rules", str(rules),
-            "--strip-pii",
-            "--output", "json"
-        ], env={"CRASHLENS_QUIET": "1"})
-        
-        assert result.exit_code == 0
-        output = extract_json_from_output(result.output)
-        assert output['rules']['RL001']['count'] == 1
-        example_prompt = output['rules']['RL001']['examples'][0]['prompt']
-        assert "[REDACTED_EMAIL]" in example_prompt
-        assert "[REDACTED_PHONE]" in example_prompt
+""")
+            
+            # Run with PII stripping - use filenames not Path objects
+            result = runner.invoke(cli, [
+                "guard",
+                "logs.jsonl",
+                "--rules", "rules.yaml",
+                "--strip-pii",
+                "--output", "json"
+            ], env={"CRASHLENS_QUIET": "1"})
+            
+            assert result.exit_code == 0
+            output = extract_json_from_output(result.output)
+            assert output['rules']['RL001']['count'] == 1
+            example_prompt = output['rules']['RL001']['examples'][0]['prompt']
+            assert "[REDACTED_EMAIL]" in example_prompt
+            assert "[REDACTED_PHONE]" in example_prompt
 
     def test_guard_no_content(self, tmp_path):
         """Test guard with --no-content flag"""

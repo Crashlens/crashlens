@@ -111,6 +111,15 @@ class GuardPolicyEngineAdapter:
                 "severity": "error"
             }
         
+        Supports boolean logic:
+            {
+                "if": {
+                    "and": [{"field1": value1}, {"field2": value2}]  # All must match
+                    "or": [{"field1": value1}, {"field2": value2}]   # At least one must match
+                    "not": {"field": value}                          # Inverts condition
+                }
+            }
+        
         PolicyEngine format:
             {
                 "id": "TEST001",
@@ -138,44 +147,263 @@ class GuardPolicyEngineAdapter:
         }
         
         for guard_rule in guard_rules:
-            # Convert "if" conditions to "match" format
-            match_conditions = {}
             if_block = guard_rule.get("if", {})
             
-            for field, condition in if_block.items():
-                if isinstance(condition, dict):
-                    # Handle operator conditions like {">": 3} or {"==": true}
-                    for op, value in condition.items():
-                        # Special handling for boolean comparisons
-                        if isinstance(value, bool):
-                            # For booleans, pass the value directly (not as string)
-                            if op == "==":
-                                match_conditions[field] = value
-                            else:
-                                # Other operators with booleans - convert to string
-                                match_conditions[field] = f"{op}{value}"
-                        elif op == "regex":
-                            # Regex operator needs space after colon
-                            match_conditions[field] = f"{op}: {value}"
-                        else:
-                            # Standard operators (>, <, >=, etc.)
-                            match_conditions[field] = f"{op}{value}"
-                else:
-                    # Direct equality
-                    match_conditions[field] = condition
+            # Handle boolean logic by expanding into multiple rules
+            expanded_rules = self._expand_boolean_logic(
+                rule_id=guard_rule["id"],
+                description=guard_rule.get("description", ""),
+                if_block=if_block,
+                action=action_map.get(guard_rule.get("action", "error"), "fail"),
+                severity=severity_map.get(guard_rule.get("severity", "error"), "medium"),
+                suggestion=guard_rule.get("suggestion", "Review this violation")
+            )
             
-            policy_rule = {
-                "id": guard_rule["id"],
-                "description": guard_rule.get("description", ""),
-                "match": match_conditions,
-                "action": action_map.get(guard_rule.get("action", "error"), "fail"),
-                "severity": severity_map.get(guard_rule.get("severity", "error"), "medium"),
-                "suggestion": guard_rule.get("suggestion", "Review this violation"),
-            }
-            
-            policy_rules.append(policy_rule)
+            policy_rules.extend(expanded_rules)
         
         return policy_rules
+    
+    def _expand_boolean_logic(
+        self,
+        rule_id: str,
+        description: str,
+        if_block: Dict[str, Any],
+        action: str,
+        severity: str,
+        suggestion: str
+    ) -> List[Dict[str, Any]]:
+        """Expand boolean logic (AND/OR/NOT) into multiple PolicyEngine rules.
+        
+        Since PolicyEngine only supports flat AND logic in match blocks,
+        we need to expand OR and NOT into separate rules.
+        
+        Args:
+            rule_id: Base rule ID
+            description: Rule description
+            if_block: The "if" conditions (may contain and/or/not)
+            action: Policy action
+            severity: Policy severity
+            suggestion: Suggestion text
+            
+        Returns:
+            List of policy rules (may be multiple for OR logic)
+        """
+        # Check for boolean operators
+        if "and" in if_block:
+            # AND: Flatten all conditions into single match block
+            return [self._create_policy_rule(
+                rule_id=rule_id,
+                description=description,
+                conditions=self._flatten_and_conditions(if_block["and"]),
+                action=action,
+                severity=severity,
+                suggestion=suggestion
+            )]
+        
+        elif "or" in if_block:
+            # OR: Create separate rule for each condition
+            # We'll use the same rule ID but add suffix for tracking
+            or_conditions = if_block["or"]
+            rules = []
+            for idx, condition in enumerate(or_conditions):
+                rules.append(self._create_policy_rule(
+                    rule_id=f"{rule_id}_or{idx}" if len(or_conditions) > 1 else rule_id,
+                    description=f"{description} (variant {idx+1})" if len(or_conditions) > 1 else description,
+                    conditions=self._convert_conditions(condition),
+                    action=action,
+                    severity=severity,
+                    suggestion=suggestion
+                ))
+            return rules
+        
+        elif "not" in if_block:
+            # NOT: Invert the conditions using != operator or negative logic
+            not_condition = if_block["not"]
+            inverted = self._invert_conditions(not_condition)
+            
+            if inverted:
+                return [self._create_policy_rule(
+                    rule_id=rule_id,
+                    description=description,
+                    conditions=inverted,
+                    action=action,
+                    severity=severity,
+                    suggestion=suggestion
+                )]
+            else:
+                print(f"⚠️  Warning: Rule {rule_id} uses 'not' logic that cannot be inverted. Skipping.")
+                return []
+        
+        else:
+            # Simple conditions (no boolean logic)
+            return [self._create_policy_rule(
+                rule_id=rule_id,
+                description=description,
+                conditions=self._convert_conditions(if_block),
+                action=action,
+                severity=severity,
+                suggestion=suggestion
+            )]
+    
+    def _flatten_and_conditions(self, and_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Flatten a list of AND conditions into a single match block."""
+        flattened = {}
+        for condition in and_list:
+            flattened.update(self._convert_conditions(condition))
+        return flattened
+    
+    def _invert_conditions(self, conditions: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Invert conditions for NOT logic.
+        
+        Converts conditions to their negation:
+        - Direct equality: field: "value" → field: "!=value"
+        - Operators: {">": 5} → {"<=": 5}, {"==": true} → {"==": false}
+        - Lists (in): field: ["a", "b"] → field: "not in:['a', 'b']"
+        
+        Args:
+            conditions: Conditions to invert
+            
+        Returns:
+            Inverted conditions dict, or None if inversion is not possible
+        """
+        inverted = {}
+        
+        for field, condition in conditions.items():
+            if isinstance(condition, list):
+                # IN operator with list - invert to NOT IN
+                # PolicyEngine supports "not in:['item1', 'item2']" format
+                list_str = str(condition)
+                inverted[field] = f"not in:{list_str}"
+            elif isinstance(condition, dict):
+                # Handle operator conditions
+                for op, value in condition.items():
+                    if op == "in":
+                        # IN operator - invert to NOT IN
+                        list_str = str(value)
+                        inverted[field] = f"not in:{list_str}"
+                    else:
+                        # Invert the operator
+                        inverse_op = self._invert_operator(op)
+                        if inverse_op is None:
+                            return None  # Cannot invert
+                        
+                        if isinstance(value, bool):
+                            # For booleans, invert the value instead of operator
+                            if op == "==":
+                                inverted[field] = not value
+                            else:
+                                return None  # Cannot invert non-equality boolean ops
+                        elif inverse_op == "!=":
+                            # Use != operator directly
+                            inverted[field] = f"{inverse_op}{value}"
+                        elif inverse_op == "regex":
+                            # Cannot invert regex
+                            return None
+                        else:
+                            # Inverted numeric operator
+                            inverted[field] = f"{inverse_op}{value}"
+            else:
+                # Direct equality - use != operator
+                if isinstance(condition, bool):
+                    inverted[field] = not condition
+                else:
+                    inverted[field] = f"!={condition}"
+        
+        return inverted
+    
+    def _invert_operator(self, op: str) -> Optional[str]:
+        """Invert a comparison operator.
+        
+        Args:
+            op: Operator to invert (e.g., ">", "==")
+            
+        Returns:
+            Inverted operator, or None if cannot be inverted
+        """
+        operator_inversions = {
+            ">": "<=",
+            ">=": "<",
+            "<": ">=",
+            "<=": ">",
+            "==": "!=",
+            "!=": "==",
+        }
+        return operator_inversions.get(op)
+    
+    def _convert_conditions(self, conditions: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert guard condition format to PolicyEngine match format.
+        
+        Args:
+            conditions: Guard conditions (may be nested)
+            
+        Returns:
+            Flat dictionary for PolicyEngine match block
+        """
+        match_conditions = {}
+        
+        for field, condition in conditions.items():
+            if isinstance(condition, dict):
+                # Handle operator conditions like {">": 3} or {"==": true} or {"in": [...]}
+                for op, value in condition.items():
+                    if op == "in":
+                        # IN operator: Pass list directly to PolicyEngine
+                        # Example: model: {"in": ["gpt-4o", "claude-3"]}
+                        # PolicyEngine: model: ["gpt-4o", "claude-3"]
+                        match_conditions[field] = value
+                    elif isinstance(value, bool):
+                        # Special handling for boolean comparisons
+                        if op == "==":
+                            match_conditions[field] = value
+                        else:
+                            # Other operators with booleans - convert to string
+                            match_conditions[field] = f"{op}{value}"
+                    elif op == "regex":
+                        # Regex operator needs space after colon
+                        match_conditions[field] = f"{op}: {value}"
+                    else:
+                        # Standard operators (>, <, >=, etc.)
+                        match_conditions[field] = f"{op}{value}"
+            elif isinstance(condition, list):
+                # Direct list (shorthand for 'in' operator)
+                # Example: model: ["gpt-4o", "claude-3"]
+                # This is equivalent to model: {"in": ["gpt-4o", "claude-3"]}
+                match_conditions[field] = condition
+            else:
+                # Direct equality
+                match_conditions[field] = condition
+        
+        return match_conditions
+    
+    def _create_policy_rule(
+        self,
+        rule_id: str,
+        description: str,
+        conditions: Dict[str, Any],
+        action: str,
+        severity: str,
+        suggestion: str
+    ) -> Dict[str, Any]:
+        """Create a PolicyEngine rule dictionary.
+        
+        Args:
+            rule_id: Unique rule identifier
+            description: Human-readable description
+            conditions: Match conditions (already converted to PolicyEngine format)
+            action: Policy action (fail/warn/block)
+            severity: Severity level (low/medium/high/critical)
+            suggestion: Suggestion text
+            
+        Returns:
+            PolicyEngine rule dictionary
+        """
+        return {
+            "id": rule_id,
+            "description": description,
+            "match": conditions,
+            "action": action,
+            "severity": severity,
+            "suggestion": suggestion,
+        }
     
     def is_enabled(self) -> bool:
         """Check if unified engine is enabled."""

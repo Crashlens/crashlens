@@ -1,0 +1,42 @@
+rules:
+  - id: TEST001
+    description: "Test simple model condition"
+    if:
+      input.model: "gpt-4o"
+    action: error
+    severity: error
+  
+  - id: TEST002
+    description: "Test numeric condition (tokens > 1000)"
+    if:
+      usage.prompt_tokens:
+        ">": 1000
+    action: warn
+    severity: warn
+  
+  - id: TEST003
+    description: "Test boolean AND (model=gpt-4o AND tokens>2000)"
+    if:
+      and:
+        - input.model: "gpt-4o"
+        - usage.prompt_tokens:
+            ">": 2000
+    action: error
+    severity: error
+  
+  - id: TEST004
+    description: "Test OR logic (model in [gpt-4o, claude-3])"
+    if:
+      or:
+        - input.model: "gpt-4o"
+        - input.model: "claude-3"
+    action: warn
+    severity: warn
+  
+  - id: TEST005
+    description: "Test NOT logic (NOT gpt-3.5-turbo)"
+    if:
+      not:
+        input.model: "gpt-3.5-turbo"
+    action: warn
+    severity: warn
