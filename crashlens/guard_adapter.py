@@ -62,45 +62,42 @@ class GuardPolicyEngineAdapter:
         # Load guard's rules.yaml and convert to PolicyEngine format
         # Guard rules.yaml format is simpler than policy-check format
         # We need to convert it directly
-            with open(self.rules_yaml_path, 'r') as f:
-                import yaml
-                guard_rules = yaml.safe_load(f)
-            
-            policy_rules = self._convert_guard_rules_to_policy_format(guard_rules.get('rules', []))
-            
-            # Create temporary policy file for PolicyEngine
-            policy_dict = {
-                "version": 1,
-                "rules": policy_rules
-            }
-            
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-                yaml.dump(policy_dict, f)
-                temp_policy_path = Path(f.name)
-            
-            try:
-                self.policy_engine = PolicyEngine(policy_file=temp_policy_path)
-            finally:
-                # Clean up temp file
-                temp_policy_path.unlink(missing_ok=True)
-            
-            # Initialize detector driver if needed
-            if detector_mode != "none":
-                self.detector_driver = DetectorDriver(
-                    mode=detector_mode,
-                    detector_config=detector_config,
-                    verbose=verbose,
-                )
-            else:
-                self.detector_driver = None
-            
-            if self.verbose:
-                print(f"   Loaded {len(policy_rules)} rules")
-                print(f"   Detector mode: {detector_mode}")
+        with open(self.rules_yaml_path, 'r') as f:
+            import yaml
+            guard_rules = yaml.safe_load(f)
+        
+        policy_rules = self._convert_guard_rules_to_policy_format(guard_rules.get('rules', []))
+        
+        # Create temporary policy file for PolicyEngine
+        policy_dict = {
+            "version": 1,
+            "rules": policy_rules
+        }
+        
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(policy_dict, f)
+            temp_policy_path = Path(f.name)
+        
+        try:
+            self.policy_engine = PolicyEngine(policy_file=temp_policy_path)
+        finally:
+            # Clean up temp file
+            temp_policy_path.unlink(missing_ok=True)
+        
+        # Initialize detector driver if needed
+        if detector_mode != "none":
+            self.detector_driver = DetectorDriver(
+                mode=detector_mode,
+                detector_config=detector_config,
+                verbose=verbose,
+            )
         else:
-            self.policy_engine = None
             self.detector_driver = None
+        
+        if self.verbose:
+            print(f"   Loaded {len(policy_rules)} rules")
+            print(f"   Detector mode: {detector_mode}")
     
     def _convert_guard_rules_to_policy_format(self, guard_rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Convert guard rules.yaml format to PolicyEngine format.
