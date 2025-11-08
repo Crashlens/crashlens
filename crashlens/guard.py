@@ -1134,21 +1134,16 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             from pathlib import Path
             
             baseline_calc = load_baseline_from_file(Path(baseline_logs))
-            has_violations, violations = baseline_calc.compare_to_baseline(
-                all_logs, 
+            
+            # Use new generate_synthetic_violations method (Step 6)
+            synthetic_violations = baseline_calc.generate_synthetic_violations(
+                all_logs,
                 deviation_threshold=baseline_deviation
             )
             
-            if has_violations:
-                for violation in violations:
-                    baseline_violations.append({
-                        "id": f"baseline_{violation['metric']}",
-                        "name": f"Baseline: {violation['metric'].upper().replace('_', ' ')}",
-                        "severity": "fatal",
-                        "description": violation['description'],
-                        "count": 1,
-                        "examples": []
-                    })
+            # Add synthetic violations to baseline_violations list
+            baseline_violations.extend(synthetic_violations)
+            
         except Exception as e:
             click.echo(f"⚠️  Warning: Could not load baseline: {e}", err=True)
     
