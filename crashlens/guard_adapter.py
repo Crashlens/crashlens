@@ -2,9 +2,9 @@
 Guard-PolicyEngine Integration Adapter
 
 This module provides the integration layer between crashlens guard's legacy
-rule evaluation and the unified PolicyEngine from policy-check.
+rule evaluation and the unified PolicyEngine.
 
-Feature-flagged via CRASHLENS_USE_UNIFIED_ENGINE environment variable.
+The unified engine is always enabled in v1.0+.
 """
 
 import os
@@ -21,18 +21,13 @@ from crashlens.detectors.driver import DetectorDriver, DetectorMode
 class GuardPolicyEngineAdapter:
     """
     Adapter that integrates PolicyEngine into guard while maintaining
-    backwards compatibility with legacy behavior.
+    backwards compatibility with legacy rule format.
     
-    When CRASHLENS_USE_UNIFIED_ENGINE=1:
+    Unified Engine Behavior:
     - Uses LogIterator for streaming
     - Translates rules.yaml to PolicyEngine format
     - Optionally runs DetectorDriver for inline detection
     - Uses PolicyEngine for rule evaluation
-    
-    When CRASHLENS_USE_UNIFIED_ENGINE=0 (default):
-    - Bypasses all unified infrastructure
-    - Returns empty results immediately
-    - Guard uses legacy evaluation path
     """
     
     def __init__(
@@ -58,16 +53,15 @@ class GuardPolicyEngineAdapter:
         self.suppress_ids = suppress_ids or set()
         self.verbose = verbose
         
-        # Only initialize unified components if feature flag is enabled
-        self.use_unified = is_unified_enabled()
+        # Unified engine is always enabled
+        self.use_unified = True
         
-        if self.use_unified:
-            if self.verbose:
-                print("🔧 Unified engine enabled (CRASHLENS_USE_UNIFIED_ENGINE=1)")
-            
-            # Load guard's rules.yaml and convert to PolicyEngine format
-            # Guard rules.yaml format is simpler than policy-check format
-            # We need to convert it directly
+        if self.verbose:
+            print("🔧 Unified engine enabled")
+        
+        # Load guard's rules.yaml and convert to PolicyEngine format
+        # Guard rules.yaml format is simpler than policy-check format
+        # We need to convert it directly
             with open(self.rules_yaml_path, 'r') as f:
                 import yaml
                 guard_rules = yaml.safe_load(f)
@@ -325,6 +319,6 @@ def should_use_unified_engine() -> bool:
     """Check if unified engine should be used.
     
     Returns:
-        True if CRASHLENS_USE_UNIFIED_ENGINE=1, False otherwise
+        Always True (unified engine is always enabled in v1.0+)
     """
-    return is_unified_enabled()
+    return True

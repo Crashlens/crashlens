@@ -93,7 +93,7 @@ rules:
             str(logs),
             "--rules", str(rules),
             "--output", "json"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ])
         
         assert result.exit_code == 0
         output = extract_json_from_output(result.output)
@@ -150,7 +150,7 @@ rules:
             str(logs),
             "--rules", str(rules),
             "--output", "json"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ])
         
         assert result.exit_code == 0
         output = extract_json_from_output(result.output)
