@@ -1,6 +1,6 @@
 # CrashLens Architecture & Execution Flow
 
-This document shows end-to-end flows for the Scan and Policy-Check commands, including parsing, detector pipeline, retry/fallback handling, policy evaluation, reporting, Slack integration, and CI behavior.
+This document shows end-to-end flows for the Scan and guard commands, including parsing, detector pipeline, retry/fallback handling, policy evaluation, reporting, Slack integration, and CI behavior.
 
 - Normalization: Convert raw logs → canonical fields (traceId, model, tokens, cost, timestamps, metadata)
 - Detectors: Identify waste patterns (retry loops, fallback storms, overkill models, fallback failures) with suppression and priorities
@@ -51,13 +51,13 @@ Key notes
 
 ---
 
-## 2) Policy-check command (end-to-end)
+## 2) guard command (end-to-end)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as User/CI
-    participant CLI as CrashLens CLI (policy-check)
+    participant CLI as CrashLens CLI (guard)
     participant SRC as Log Source
     participant PARSER as LangfuseParser
     participant ENG as Policy Engine
@@ -65,7 +65,7 @@ sequenceDiagram
     participant FS as File System
     participant CI as CI System
 
-    U->>CLI: crashlens policy-check <logs.jsonl> --policy-template <name>
+    U->>CLI: crashlens guard <logs.jsonl> --policy-template <name>
     CLI->>SRC: Read JSONL / fetch
     loop For each line
         CLI->>PARSER: parse(line, line_num)
@@ -99,7 +99,7 @@ Key notes
 - scan
   - report.md (Slack/MD/JSON)
   - detailed_output/trace-*.json (optional)
-- policy-check
+- guard
   - policy-violations/report.md (+ JSON)
   - Exit codes for CI gating
 

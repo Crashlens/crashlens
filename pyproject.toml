@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "crashlens"
-version = "3.0.0"
+version = "2.10.4"
 description = "CLI to detect GPT token waste from Langfuse logs with automated CI/CD setup and Prometheus observability"
 authors = ["Aditya Singh <coding103856@gmail.com>"]
 license = "MIT"
@@ -32,6 +32,7 @@ ruff = "^0.4.0"
 black = "^24.0.0"
 memory-profiler = "^0.61.0"
 grafanalib = "^0.7.1"
+pytest-cov = "^7.0.0"
 
 [tool.poetry.scripts]
 crashlens = "crashlens.cli:cli"

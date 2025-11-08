@@ -48,22 +48,22 @@ crashlens scan --from-langfuse --hours-back 24 --limit 1000
 ### Quick Policy Check
 
 ```bash
-# Check logs against all built-in policies
-crashlens policy-check logs/your-logs.jsonl --policy-template all
+# Check logs against policy file
+crashlens guard logs/your-logs.jsonl --rules policies/rules.yaml
 
-# Check specific policy templates
-crashlens policy-check logs/your-logs.jsonl --policy-template retry-loop-prevention
+# Check specific policy detector
+crashlens guard logs/your-logs.jsonl --rules policies/retry-loop-detector.yaml
 
 # Use custom policy file
-crashlens policy-check logs/your-logs.jsonl --policy-file my-policy.yaml
+crashlens guard logs/your-logs.jsonl --rules my-policy.yaml
 ```
 
 ### CI/CD Integration
 
 ```bash
 # Fail build on policy violations
-crashlens policy-check logs/your-logs.jsonl \
-  --policy-template all \
+crashlens guard logs/your-logs.jsonl \
+  --rules policies/rules.yaml \
   --fail-on-violations \
   --severity-threshold high
 ```
@@ -72,7 +72,7 @@ crashlens policy-check logs/your-logs.jsonl \
 - `0`: No violations or violations below threshold
 - `1`: Violations found (when using `--fail-on-violations`)
 
-> **Note:** The legacy `guard` command is deprecated as of v3.0.0. Use `policy-check` instead. See [MIGRATION.md](MIGRATION.md) for migration details.
+> **Note:** The `guard` command is maintained as a backwards-compatible alias for `guard`.
 
 ---
 
@@ -125,7 +125,7 @@ crashlens scan logs/daily.jsonl --summary --detailed
 crashlens pii-remove logs/staging.jsonl --output logs/clean.jsonl
 
 # 2. Validate against policies
-crashlens policy-check logs/clean.jsonl --policy-template all --fail-on-violations
+crashlens guard logs/clean.jsonl --rules policies/rules.yaml --fail-on-violations
 
 # 3. Generate report
 crashlens scan logs/clean.jsonl --format markdown
@@ -140,7 +140,7 @@ name: CrashLens Policy Check
 on: [push, pull_request]
 
 jobs:
-  policy-check:
+  guard-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -148,10 +148,10 @@ jobs:
       - name: Install CrashLens
         run: pip install crashlens
       
-      - name: Run Policy Check
+      - name: Run Guard Check
         run: |
-          crashlens policy-check logs/*.jsonl \
-            --policy-template all \
+          crashlens guard logs/*.jsonl \
+            --rules policies/rules.yaml \
             --fail-on-violations \
             --severity-threshold high
 ```
@@ -187,7 +187,7 @@ head -n 1 logs/your-logs.jsonl | python -m json.tool
 crashlens scan --contract-check logs/your-logs.jsonl --log-format langfuse-v1
 
 # Use verbose mode
-crashlens policy-check logs/your-logs.jsonl --policy-template all -v
+crashlens guard logs/your-logs.jsonl --rules policies/rules.yaml -v
 ```
 
 ### Issue: "Module not found" errors

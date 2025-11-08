@@ -1093,7 +1093,7 @@ reports/
 
 **Policy-specific reporting:**
 ```bash
-crashlens policy-check logs.jsonl \
+crashlens guard logs.jsonl \
   --policy-file my-policy.yaml \
   --output policy-report.md
 ```
@@ -1198,7 +1198,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  policy-check:
+  guard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -1213,7 +1213,7 @@ jobs:
       
       - name: Run Policy Check
         run: |
-          crashlens policy-check logs/**/*.jsonl \
+          crashlens guard logs/**/*.jsonl \
             --policy-template all \
             --fail-on-violations \
             --severity-threshold medium
@@ -1374,7 +1374,7 @@ crashlens scan logs.jsonl --summary-only --format slack
 crashlens init
 
 # Configure strict policies
-crashlens policy-check logs.jsonl \
+crashlens guard logs.jsonl \
   --policy-template all \
   --fail-on-violations \
   --severity-threshold medium
@@ -1426,7 +1426,7 @@ crashlens scan --from-langfuse \
   --output incident-report.md
 
 # Check for specific patterns
-crashlens policy-check logs.jsonl \
+crashlens guard logs.jsonl \
   --policy-template retry-loop-prevention \
   --severity-threshold critical
 ```

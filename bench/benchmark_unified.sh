@@ -97,27 +97,24 @@ if [ ! -f "$RULES_FILE" ]; then
     RULES_FILE="$PROJECT_ROOT/policies/retry-loop-detector.yaml"
 fi
 
-echo -e "${GREEN}=== Benchmark 1: Legacy Guard (Baseline) ===${NC}"
-run_benchmark "legacy_guard" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
+echo -e "${GREEN}=== Benchmark 1: Guard Command (JSON Output) ===${NC}"
+run_benchmark "guard_json" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
 
-echo -e "${GREEN}=== Benchmark 2: Unified Guard (No Detectors) ===${NC}"
-export CRASHLENS_USE_UNIFIED_ENGINE=1
-run_benchmark "unified_guard_basic" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
+echo -e "${GREEN}=== Benchmark 2: Guard Command (Markdown Output) ===${NC}"
+run_benchmark "guard_markdown" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output md --dry-run"
 
-echo -e "${GREEN}=== Benchmark 3: Policy-Check (Auto Unified) ===${NC}"
-run_benchmark "policy_check" "poetry run crashlens policy-check $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
+echo -e "${GREEN}=== Benchmark 3: guard Alias (Compatibility) ===${NC}"
+run_benchmark "guard_alias" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
 
-echo -e "${GREEN}=== Benchmark 4: Unified Guard with Detectors ===${NC}"
-# Note: Detector support may not be fully implemented yet
-# This is a placeholder for future detector integration
-run_benchmark "unified_guard_detectors" "poetry run crashlens policy-check $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
+echo -e "${GREEN}=== Benchmark 4: Guard with PII Stripping ===${NC}"
+run_benchmark "guard_pii_strip" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --strip-pii --dry-run"
 
 # Memory profiling (optional, slower)
 if [ "${RUN_MEMORY_PROFILE:-0}" = "1" ]; then
     echo ""
     echo -e "${GREEN}=== Memory Profiling ===${NC}"
     run_memory_profile "legacy_guard" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
-    run_memory_profile "unified_guard" "poetry run crashlens policy-check $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
+    run_memory_profile "unified_guard" "poetry run crashlens guard $LOGS_DIR/demo-logs.jsonl --rules $RULES_FILE --output json --dry-run"
 fi
 
 # Compare results

@@ -887,9 +887,9 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     if not os.getenv('CRASHLENS_USE_UNIFIED_ENGINE') and not os.getenv('CRASHLENS_QUIET'):
         click.echo("", err=True)
         click.echo("⚠️  DEPRECATION NOTICE: The 'guard' command is being phased out.", err=True)
-        click.echo("   Please migrate to 'policy-check' for the unified engine experience.", err=True)
+        click.echo("   Please migrate to 'guard' for the unified engine experience.", err=True)
         click.echo("", err=True)
-        click.echo("   Migration: crashlens policy-check <your-args>", err=True)
+        click.echo("   Migration: crashlens guard <your-args>", err=True)
         click.echo("", err=True)
         click.echo("   To enable unified engine with 'guard':", err=True)
         click.echo("     export CRASHLENS_USE_UNIFIED_ENGINE=1", err=True)

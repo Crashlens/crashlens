@@ -796,26 +796,26 @@ A: Yes, as long as your logs are JSONL and contain fields matching your rule con
 
 **Q: How do I create custom conditions?**
 
-A: Currently, conditions are fixed. For custom logic, use the existing `crashlens policy-check` command which supports more complex YAML conditions.
+A: Currently, conditions are fixed. For custom logic, use the existing `crashlens guard` command which supports more complex YAML conditions.
 
 **Q: Can guard analyze live API traffic?**
 
 A: Not directly. Guard analyzes static JSONL files. Use logging middleware to capture traffic to JSONL first.
 
-**Q: What's the difference between guard and policy-check?**
+**Q: What's the difference between guard and guard?**
 
 A: 
 - `guard`: Lightweight, CI-focused, simple YAML conditions
-- `policy-check`: Full-featured, complex nested conditions, more verbose
+- `guard`: Full-featured, complex nested conditions, more verbose
 
-Choose `guard` for CI pipelines and quick checks. Choose `policy-check` for comprehensive policy enforcement.
+Choose `guard` for CI pipelines and quick checks. Choose `guard` for comprehensive policy enforcement.
 
-**Q: How do I migrate from policy-check to guard?**
+**Q: How do I migrate from guard to guard?**
 
-A: Translate your policy-check rules to guard's simpler condition format:
+A: Translate your guard rules to guard's simpler condition format:
 
 ```yaml
-# policy-check (complex)
+# guard (complex)
 match:
   usage.prompt_tokens: ">= 2000"
   model: "gpt-4o"
@@ -828,7 +828,7 @@ if:
 
 ## See Also
 
-- [CrashLens Policy Check](../COMMAND-REFERENCE.md#policy-check) - Advanced policy evaluation
+- [CrashLens Policy Check](../COMMAND-REFERENCE.md#guard) - Advanced policy evaluation
 - [CrashLens Scan](../COMMAND-REFERENCE.md#scan) - Waste pattern detection
 - [GitHub Actions Integration](../examples/ci-workflows/) - CI/CD examples
 - [Sample Rules](../.crashlens/rules.yaml) - Reference rule templates

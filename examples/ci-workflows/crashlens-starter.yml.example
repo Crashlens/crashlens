@@ -32,7 +32,7 @@ jobs:
           fi
       - name: Run Policy Check
         run: |
-          crashlens policy-check logs/*.jsonl \
+          crashlens guard logs/*.jsonl \
             --policy-template retry-loop-prevention,model-overkill-detection \
             --severity-threshold medium \
             --format markdown > crashlens-report.md || true

@@ -15,7 +15,7 @@ metrics:
       rare_event: 1.0       # 100% for rare events
   pushgateway:
     url: http://localhost:9091
-    job: crashlens-policy-check
+    job: crashlens-guard
 ```
 """
 
@@ -119,7 +119,7 @@ class PushgatewayConfig(BaseModel):
         description="Pushgateway URL"
     )
     job: str = Field(
-        default="crashlens-policy-check",
+        default="crashlens-guard",
         description="Job name for metrics grouping"
     )
     timeout: int = Field(

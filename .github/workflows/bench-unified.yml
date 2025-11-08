@@ -121,7 +121,7 @@ jobs:
             
             // Find baseline and unified results
             const baseline = results.results.find(r => r.name === 'legacy_guard');
-            const unified = results.results.find(r => r.name === 'unified_guard_basic' || r.name === 'policy_check');
+            const unified = results.results.find(r => r.name === 'unified_guard_basic' || r.name === 'guard');
             
             if (!baseline || !unified) {
               console.log('Missing baseline or unified results');

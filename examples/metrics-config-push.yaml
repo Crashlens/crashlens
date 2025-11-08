@@ -36,7 +36,7 @@ metrics:
     # Change this to your Pushgateway instance
     url: "http://localhost:9091"
     
-    # Job name for metrics grouping (default: crashlens-policy-check)
+    # Job name for metrics grouping (default: crashlens-guard)
     # Use different job names for different environments
     job: "crashlens-production"
     

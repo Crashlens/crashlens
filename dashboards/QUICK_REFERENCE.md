@@ -49,7 +49,7 @@ poetry run crashlens scan logs.jsonl --push-metrics
 | `$job` | Filter by job name | Focus on specific CI/CD pipeline |
 | `$severity` | Filter by severity | Show only critical/high violations |
 | `$rule` | Filter by rule | Debug specific policy rule |
-| `$mode` | Filter by mode | Compare scan vs policy-check |
+| `$mode` | Filter by mode | Compare scan vs guard |
 | `$interval` | Auto-adjust rate window | Optimizes query performance |
 
 **Pro Tip**: Select "All" in dropdowns to see complete picture, or select specific values to drill down.

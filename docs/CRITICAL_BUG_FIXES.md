@@ -91,7 +91,7 @@ return violations, skipped_rules
 ```
 
 **Why This Happened:**  
-The "early exit" behavior was designed for `policy-check` command (fail-fast on first violation), but was incorrectly applied to `guard` command (needs all violations).
+The "early exit" behavior was designed for `guard` command (fail-fast on first violation), but was incorrectly applied to `guard` command (needs all violations).
 
 ---
 
@@ -391,7 +391,7 @@ poetry run crashlens guard test.jsonl --rules pii-rules.yaml --strip-pii --outpu
 - Document "early exit vs report all" design patterns
 
 ### Future Improvements
-- Make early exit configurable (policy-check vs guard)
+- Make early exit configurable (guard vs guard)
 - Add validation for regex patterns
 - Improve error messages for field extraction failures
 

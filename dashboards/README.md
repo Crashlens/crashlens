@@ -36,7 +36,7 @@ Comprehensive monitoring dashboard with 12 panels organized in 3 functional rows
 - `$job` - Filter by CrashLens job name
 - `$severity` - Filter by violation severity (critical, high, medium, low)
 - `$rule` - Filter by specific policy rule
-- `$mode` - Filter by execution mode (scan, policy-check)
+- `$mode` - Filter by execution mode (scan, guard)
 - `$interval` - Auto-adjusting time range for rate calculations
 
 ✅ **Alert Thresholds** on critical metrics:

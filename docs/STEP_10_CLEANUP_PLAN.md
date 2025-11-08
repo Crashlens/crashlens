@@ -13,7 +13,7 @@
 
 ### 2. Major Surgery
 - `crashlens/guard.py` - Remove legacy evaluator, keep CLI shell  
-- `crashlens/cli.py` - Remove feature flag setting in policy-check  
+- `crashlens/cli.py` - Remove feature flag setting in guard  
 - `crashlens/guard_adapter.py` - Remove feature flag checks, make unconditional
 
 ### 3. Test Updates
@@ -231,7 +231,7 @@ Justification:
 
 Migration:
 - guard command now always uses unified engine
-- policy-check command unchanged (still works)
+- guard command unchanged (still works)
 - No user-facing behavior changes (already using unified)
 
 Rollback:

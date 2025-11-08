@@ -8,30 +8,20 @@
     "cost_cap_exceeded": false
   },
   "rules": {
-    "HIGH_TOKENS": {
-      "count": 10,
+    "TOKEN_CHECK": {
+      "count": 1,
       "severity": "warn",
-      "description": "",
+      "description": "High token usage",
       "examples": [
         {
           "timestamp": null,
-          "model": "gpt-4",
-          "tokens": 5000,
+          "model": null,
+          "tokens": "500",
           "retry_count": null,
           "fallback_triggered": null,
           "endpoint": null,
           "prompt": "",
-          "reason": "tokens=5000 (rule: >1000)"
-        },
-        {
-          "timestamp": null,
-          "model": "gpt-4",
-          "tokens": 5000,
-          "retry_count": null,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": "",
-          "reason": "tokens=5000 (rule: >1000)"
+          "reason": "usage.prompt_tokens=500 (rule: >300)"
         }
       ]
     }

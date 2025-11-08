@@ -8,7 +8,7 @@
 
 ## Overview
 
-Step 3 implements a **Detector Driver** that orchestrates running waste detectors on log batches in constant-memory mode. This is critical infrastructure for the guard/policy-check merge, enabling inline detection with controlled CPU impact.
+Step 3 implements a **Detector Driver** that orchestrates running waste detectors on log batches in constant-memory mode. This is critical infrastructure for the guard/guard merge, enabling inline detection with controlled CPU impact.
 
 ## Files Created
 
@@ -42,7 +42,7 @@ Step 3 implements a **Detector Driver** that orchestrates running waste detector
 ## Detector Modes
 
 ### 1. Mode: `none`
-**Use Case**: Guard without inline detection, or policy-check on raw logs
+**Use Case**: Guard without inline detection, or guard on raw logs
 
 ```python
 driver = DetectorDriver(mode='none')

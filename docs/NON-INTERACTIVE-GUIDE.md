@@ -135,7 +135,7 @@ jobs:
       run: crashlens init --non-interactive
     
     - name: Run Policy Check
-      run: crashlens policy-check logs.jsonl --fail-on-violations
+      run: crashlens guard logs.jsonl --fail-on-violations
 ```
 
 ### GitLab CI
@@ -301,7 +301,7 @@ crashlens init --non-interactive --dry-run-workflow > workflow.yml
 👉 Next steps:
    1. Add your log files (.jsonl format)
    2. Run: crashlens scan logs.jsonl
-   3. Or use policy-check: crashlens policy-check logs.jsonl
+   3. Or use guard: crashlens guard logs.jsonl
    4. View config: cat .crashlens\config.yaml
 ```
 
@@ -469,7 +469,7 @@ After setting up with non-interactive mode, use these commands:
 crashlens scan logs.jsonl
 
 # Policy check with specific templates
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
+crashlens guard logs.jsonl --policy-template retry-loop-prevention
 
 # List available templates
 crashlens list-policy-templates

@@ -159,21 +159,21 @@ Test-Step -StepNumber "4" -StepName "CLI Help & Documentation" -TestCode {
 Test-Step -StepNumber "5" -StepName "Policy Enforcement" -TestCode {
     Write-Host "Testing policy check..." -ForegroundColor White
     
-    crashlens policy-check sample-logs/demo-logs.jsonl `
+    crashlens guard sample-logs/demo-logs.jsonl `
         --policy-template retry-loop-prevention `
-        --report-file validation-policy-check.md `
+        --report-file validation-guard.md `
         --force 2>&1 | Out-Null
     
     Write-Host "Exit code: $LASTEXITCODE" -ForegroundColor $(if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 1) { "Green" } else { "Red" })
     
-    if (Test-Path validation-policy-check.md) {
-        $reportSize = (Get-Item validation-policy-check.md).Length
+    if (Test-Path validation-guard.md) {
+        $reportSize = (Get-Item validation-guard.md).Length
         Write-Host "Policy report generated: $reportSize bytes" -ForegroundColor Green
     }
     
 } -ValidationCode {
     # Exit code 0 (no violations) or 1 (violations found) are both success
-    if (($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 1) -and (Test-Path validation-policy-check.md)) {
+    if (($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 1) -and (Test-Path validation-guard.md)) {
         return "PASS"
     }
     return "FAIL"

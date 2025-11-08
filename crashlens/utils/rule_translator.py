@@ -1,7 +1,7 @@
 """
-Rule translator for CrashLens guard/policy-check unification.
+Rule translator for CrashLens guard/guard unification.
 
-This module translates policy-check YAML rules into guard-compatible
+This module translates guard YAML rules into guard-compatible
 rule structures, enabling seamless migration between the two formats.
 """
 
@@ -14,7 +14,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
 
-# Severity mapping: policy-check -> guard
+# Severity mapping: guard -> guard
 SEVERITY_MAP = {
     'critical': 'fatal',
     'high': 'error',
@@ -22,7 +22,7 @@ SEVERITY_MAP = {
     'low': 'warn',
 }
 
-# Action mapping: policy-check -> guard
+# Action mapping: guard -> guard
 ACTION_MAP = {
     'block': 'fail_ci',
     'fail': 'error',
@@ -59,7 +59,7 @@ class TranslationResult:
 
 
 class RuleTranslator:
-    """Translates policy-check rules to guard rules."""
+    """Translates guard rules to guard rules."""
     
     def __init__(self, strict: bool = False):
         """Initialize translator.
@@ -72,7 +72,7 @@ class RuleTranslator:
         self.errors: List[TranslationWarning] = []
     
     def translate_policy_file(self, policy_path: Path) -> TranslationResult:
-        """Translate a policy-check YAML file to guard rules.
+        """Translate a guard YAML file to guard rules.
         
         Args:
             policy_path: Path to policy YAML file.
@@ -360,7 +360,7 @@ def main():
     """CLI entry point for rule translator."""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Translate policy-check rules to guard format')
+    parser = argparse.ArgumentParser(description='Translate guard rules to guard format')
     parser.add_argument('--input', required=True, help='Input policy YAML file')
     parser.add_argument('--output', help='Output guard rules JSON file')
     parser.add_argument('--strict-translate', action='store_true', 

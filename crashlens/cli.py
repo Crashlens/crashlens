@@ -2153,190 +2153,6 @@ def _resolve_output_paths(out_report: Path, out_detailed: Path, out_dir: Optiona
 
 
 @click.command()
-@click.argument('logfile', type=click.Path(path_type=Path))
-@click.option('--policy-template', help='Use built-in policy template(s) (comma-separated or "all")')
-@click.option('--policy-file', type=click.Path(path_type=Path), help='Use custom policy file')
-@click.option('--fail-on-violations', is_flag=True, help='Exit with error code if violations found')
-@click.option('--severity-threshold', 
-              type=click.Choice(['low', 'medium', 'high', 'critical'], case_sensitive=False),
-              default='medium', help='Minimum severity level to report')
-@click.option('--out-report', type=click.Path(path_type=Path), default='policy-violations/reports/violations-summary.md',
-              help='Output path for markdown report')
-@click.option('--detailed', is_flag=True, help='Generate detailed JSON report in addition to markdown')
-@click.option('--out-detailed', type=click.Path(path_type=Path), default='policy-violations/traces/violations-detailed.json',
-              help='Output path for detailed JSON report')
-@click.option('--out-dir', type=click.Path(path_type=Path), 
-              help='Output directory for both reports (overrides individual paths)')
-@click.option('--force', is_flag=True, help='Overwrite existing files without timestamp suffix')
-@click.option('--quiet', is_flag=True, help='Print only summary line to stdout')
-@click.option('--no-content', is_flag=True, help='Exclude prompt/response content from reports')
-@click.option('--strip-pii', is_flag=True, help='Remove personally identifiable information from reports')
-def policy_check(logfile: Path, policy_template: Optional[str] = None, policy_file: Optional[Path] = None, 
-                 fail_on_violations: bool = False, severity_threshold: str = 'medium',
-                 out_report: Path = Path('policy-violations/reports/violations-summary.md'), detailed: bool = False, 
-                 out_detailed: Path = Path('policy-violations/traces/violations-detailed.json'),
-                 out_dir: Optional[Path] = None, force: bool = False,
-                 quiet: bool = False, no_content: bool = False, strip_pii: bool = False):
-    """🔍 Check logs against policy rules and generate reports
-    
-    📦 Examples:
-    
-    crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
-    crashlens policy-check logs.jsonl --policy-template all --fail-on-violations --detailed
-    crashlens policy-check logs.jsonl --policy-file my-policy.yaml --severity-threshold high
-    crashlens policy-check logs.jsonl --policy-file my-policy.yaml --detailed --out-report policy-violations/reports/custom-summary.md
-    
-    📁 Output Structure:
-    - policy-violations/reports/violations-summary.md (default summary)
-    - policy-violations/traces/violations-detailed.json (detailed analysis with --detailed)
-    
-    🗂️ New Directory Options:
-    - --out-dir crashlens-reports/  (places both files in custom directory)
-    - --force (overwrite existing files instead of adding timestamp)
-    """
-    
-    # Validate inputs
-    if not policy_template and not policy_file:
-        click.echo("❌ Error: Must specify either --policy-template or --policy-file")
-        sys.exit(1)
-    
-    if not logfile.exists():
-        click.echo(f"❌ Error: File not found: {logfile}")
-        sys.exit(1)
-    
-    try:
-        # Load policy engine
-        policy_engine = None
-        
-        if policy_file:
-            if not quiet:
-                click.echo(f"📋 Loading custom policy from {policy_file}...")
-            policy_engine = PolicyEngine(policy_file)
-            
-        elif policy_template:
-            template_manager = get_template_manager()
-            
-            if policy_template.lower() == "all":
-                if not quiet:
-                    click.echo("📋 Loading all policy templates...")
-                policy_engine = template_manager.load_all_templates()
-            else:
-                template_names = [name.strip() for name in policy_template.split(",")]
-                if not quiet:
-                    click.echo(f"📋 Loading policy templates: {', '.join(template_names)}...")
-                
-                if len(template_names) == 1:
-                    policy_engine = template_manager.load_template(template_names[0])
-                else:
-                    policy_engine = template_manager.load_multiple_templates(template_names)
-        
-        if not policy_engine:
-            click.echo("❌ Could not load policy configuration")
-            sys.exit(1)
-        
-        # Parse logs
-        parser = LangfuseParser()
-        traces = parser.parse_file(logfile) or {}
-        
-        if not traces:
-            click.echo("⚠️  No traces found in log file")
-            return
-        
-        # Convert traces to log entries
-        log_entries = []
-        for trace_id, trace_data in traces.items():
-            if isinstance(trace_data, list):
-                log_entries.extend(trace_data)
-            else:
-                log_entries.append(trace_data)
-        
-        if not quiet:
-            click.echo(f"🔍 Checking {len(log_entries)} log entries against policy rules...")
-        
-        # Evaluate policies
-        violations, skipped_rules = policy_engine.evaluate_logs(log_entries)
-        
-        # Filter by severity threshold
-        severity_order = ['low', 'medium', 'high', 'critical']
-        min_severity_index = severity_order.index(severity_threshold.lower())
-        
-        filtered_violations = [
-            v for v in violations 
-            if severity_order.index(v.severity.value) >= min_severity_index
-        ]
-        
-        # Handle output directory and file collision detection
-        final_out_report, final_out_detailed = _resolve_output_paths(
-            out_report, out_detailed, out_dir, detailed, force
-        )
-        
-        # Generate markdown report
-        # Ensure output directory exists
-        final_out_report.parent.mkdir(parents=True, exist_ok=True)
-        
-        markdown_writer = PolicyReportMarkdown(
-            violations=filtered_violations,
-            log_entries=log_entries,
-            strip_pii=strip_pii,
-            no_content=no_content
-        )
-        markdown_writer.generate_report(final_out_report)
-        
-        # Generate detailed JSON report if requested
-        if detailed:
-            # Ensure output directory exists
-            final_out_detailed.parent.mkdir(parents=True, exist_ok=True)
-            
-            json_writer = PolicyReportJSON(
-                violations=filtered_violations,
-                log_entries=log_entries,
-                strip_pii=strip_pii,
-                no_content=no_content
-            )
-            json_writer.generate_report(final_out_detailed)
-        
-        # Output results to stdout
-        if not quiet:
-            if not filtered_violations:
-                click.echo("✅ No policy violations found! Your usage patterns look compliant.")
-                if skipped_rules:
-                    click.echo(f"ℹ️  Note: Skipped {len(skipped_rules)} premium rules")
-            else:
-                # Show brief summary
-                by_severity = {}
-                for violation in filtered_violations:
-                    severity = violation.severity.value
-                    by_severity[severity] = by_severity.get(severity, 0) + 1
-                
-                severity_summary = []
-                for severity in ['critical', 'high', 'medium', 'low']:
-                    if severity in by_severity:
-                        severity_summary.append(f"{severity}: {by_severity[severity]}")
-                
-                click.echo(f"⚠️  Found {len(filtered_violations)} policy violations ({', '.join(severity_summary)})")
-                if skipped_rules:
-                    click.echo(f"ℹ️  Skipped {len(skipped_rules)} premium rules")
-        
-        # Print output file locations
-        if quiet:
-            click.echo(f"Saved report to {final_out_report}")
-            if detailed:
-                click.echo(f"Saved detailed JSON to {final_out_detailed}")
-        else:
-            click.echo(f"📄 Saved markdown report to {final_out_report}")
-            if detailed:
-                click.echo(f"📊 Saved detailed JSON to {final_out_detailed}")
-        
-        # Exit with appropriate code
-        if fail_on_violations and filtered_violations:
-            sys.exit(1)
-        
-    except Exception as e:
-        click.echo(f"❌ Error during policy check: {e}", err=True)
-        sys.exit(1)
-
-
-@click.command()
 def list_policy_templates():
     """📜 List all available built-in policy templates"""
     template_manager = get_template_manager()
@@ -2494,7 +2310,7 @@ def _print_workflow_yaml(policy_templates: str, severity: str, fail_on_violation
         python_version: Python version for workflow
     """
     # Build command flags
-    cmd_parts = ["crashlens policy-check logs.jsonl"]
+    cmd_parts = ["crashlens guard logs.jsonl"]
     cmd_parts.append(f"--policy-template {policy_templates}")
     cmd_parts.append(f"--severity-threshold {severity}")
     
@@ -2538,7 +2354,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  crashlens-policy-check:
+  crashlens-guard:
     name: Run Crashlens Policy Analysis
     runs-on: ubuntu-latest
     
@@ -2593,7 +2409,7 @@ jobs:
             FLAGS="--fail-on-violations"
           fi
           
-          find . -name "*.jsonl" -type f -exec crashlens policy-check {{}} --policy-template "$POLICY_TEMPLATE" --severity-threshold "$SEVERITY" $FLAGS \\;
+          find . -name "*.jsonl" -type f -exec crashlens guard {{}} --policy-template "$POLICY_TEMPLATE" --severity-threshold "$SEVERITY" $FLAGS \\;
         else
           echo "❌ No .jsonl log files or .crashlens/config.yaml found."
           echo "💡 Add your log files (.jsonl) or run 'crashlens init' to create configuration."
@@ -2857,7 +2673,7 @@ def init(non_interactive: bool, dry_run_workflow: bool):
         click.echo("👉 Next steps:")
         click.echo("   1. Add your log files (.jsonl format)")
         click.echo("   2. Run: crashlens scan logs.jsonl")
-        click.echo("   3. Or use policy-check: crashlens policy-check logs.jsonl")
+        click.echo("   3. Or use guard: crashlens guard logs.jsonl")
         
         if config_file.exists():
             click.echo(f"   4. View config: cat {config_file}")
@@ -2886,7 +2702,7 @@ def _create_github_workflow(policy_templates: str, severity: str, fail_on_violat
     workflow_dir.mkdir(parents=True, exist_ok=True)
     
     # Build command flags
-    cmd_parts = ["crashlens policy-check logs.jsonl"]
+    cmd_parts = ["crashlens guard logs.jsonl"]
     cmd_parts.append(f"--policy-template {policy_templates}")
     cmd_parts.append(f"--severity-threshold {severity}")
     
@@ -2909,7 +2725,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  crashlens-policy-check:
+  crashlens-guard:
     name: Run Crashlens Policy Analysis
     runs-on: ubuntu-latest
     
@@ -2984,10 +2800,10 @@ jobs:
               help='Random seed for deterministic output')
 @click.option('--force', is_flag=True,
               help='Overwrite existing output file without prompting')
-@click.option('--open', 'run_policy_check', is_flag=True,
-              help='After generation, run crashlens policy-check on the generated file')
+@click.option('--open', 'run_guard', is_flag=True,
+              help='After generation, run crashlens guard on the generated file')
 def simulate(output: Path, count: int, scenario: str, models: str, 
-           error_rate: float, seed: Optional[int], force: bool, run_policy_check: bool):
+           error_rate: float, seed: Optional[int], force: bool, run_guard: bool):
     """
     Generate realistic Langfuse-style .jsonl traces for testing Crashlens policies.
     
@@ -3051,9 +2867,9 @@ def simulate(output: Path, count: int, scenario: str, models: str,
         click.echo(f"✅ Generated {len(traces)} traces to {output}")
         
         # Run policy check if requested
-        if run_policy_check:
+        if run_guard:
             click.echo("🔍 Running policy check on generated traces...")
-            _run_policy_check_on_file(output)
+            _run_guard_on_file(output)
             
     except Exception as e:
         click.echo(f"❌ Error generating traces: {str(e)}", err=True)
@@ -3490,7 +3306,7 @@ def _write_jsonl_traces(output_path: Path, traces: List[Dict[str, Any]]):
         raise Exception(f"Failed to write traces to {output_path}: {str(e)}")
 
 
-def _run_policy_check_on_file(output_path: Path):
+def _run_guard_on_file(output_path: Path):
     """Run policy check on the generated file."""
     import subprocess
     import os
@@ -3500,9 +3316,9 @@ def _run_policy_check_on_file(output_path: Path):
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'utf-8'
         
-        # Run crashlens policy-check command
+        # Run crashlens guard command
         cmd = [
-            sys.executable, '-m', 'crashlens.cli', 'policy-check',
+            sys.executable, '-m', 'crashlens.cli', 'guard',
             str(output_path),
             '--policy-template', 'all',
             '--fail-on-violations',

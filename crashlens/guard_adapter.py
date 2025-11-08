@@ -60,7 +60,7 @@ class GuardPolicyEngineAdapter:
             print("🔧 Unified engine enabled")
         
         # Load guard's rules.yaml and convert to PolicyEngine format
-        # Guard rules.yaml format is simpler than policy-check format
+        # Guard rules.yaml format is simpler than guard format
         # We need to convert it directly
         with open(self.rules_yaml_path, 'r') as f:
             import yaml
@@ -123,14 +123,14 @@ class GuardPolicyEngineAdapter:
         """
         policy_rules = []
         
-        # Action mapping: guard -> policy-check
+        # Action mapping: guard -> guard
         action_map = {
             "error": "fail",
             "warn": "warn",
             "fail_ci": "fail",
         }
         
-        # Severity mapping: guard -> policy-check
+        # Severity mapping: guard -> guard
         severity_map = {
             "warn": "low",
             "error": "medium",

@@ -57,7 +57,7 @@ jobs:
           wc -l logs/*.jsonl || true
       - name: Policy Check (All)
         run: |
-          crashlens policy-check logs/*.jsonl \
+          crashlens guard logs/*.jsonl \
             --policy-template all \
             --severity-threshold medium > comprehensive-analysis-report.md 2>&1 || true
       - name: Upload Artifacts

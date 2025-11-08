@@ -90,7 +90,7 @@ jobs:
               echo "📋 Analyzing $log_file..."
               
               # Run analysis and save results
-              crashlens policy-check "$log_file" \
+              crashlens guard "$log_file" \
                 --policy-template "$POLICY_TEMPLATE" \
                 --severity-threshold "$SEVERITY" > "analysis-${filename}.md" 2>&1 || true
                 

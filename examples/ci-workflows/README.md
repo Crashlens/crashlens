@@ -223,11 +223,11 @@ on:
 - name: Analyze Different Sources
   run: |
     # Analyze production logs separately
-    crashlens policy-check logs/production/*.jsonl \
+    crashlens guard logs/production/*.jsonl \
       --policy-template all --severity-threshold critical > prod-analysis.md
     
     # Analyze development logs with different thresholds  
-    crashlens policy-check logs/development/*.jsonl \
+    crashlens guard logs/development/*.jsonl \
       --policy-template all --severity-threshold medium > dev-analysis.md
 ```
 
@@ -235,7 +235,7 @@ on:
 ```yaml
 - name: Use Custom Policy
   run: |
-    crashlens policy-check logs/*.jsonl \
+    crashlens guard logs/*.jsonl \
       --policy-file .crashlens/custom-policy.yaml \
       --severity-threshold high
 ```
@@ -255,7 +255,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install crashlens
-      - run: crashlens policy-check logs/*.jsonl --policy-template all
+      - run: crashlens guard logs/*.jsonl --policy-template all
 ```
 
 ---

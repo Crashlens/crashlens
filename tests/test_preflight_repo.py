@@ -1,5 +1,5 @@
 """
-Preflight checks for CrashLens guard/policy-check merge.
+Preflight checks for CrashLens guard/guard merge.
 
 This test suite verifies that all required files and directories
 exist before beginning the migration.

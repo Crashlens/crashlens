@@ -8,7 +8,7 @@
 
 ## Overview
 
-Step 2 implements a unified log ingestion layer that both `guard` and `policy-check` can use, eliminating duplicate JSON parsing logic while adding streaming support for large files.
+Step 2 implements a unified log ingestion layer that both `guard` and `guard` can use, eliminating duplicate JSON parsing logic while adding streaming support for large files.
 
 ## Files Created
 
@@ -183,7 +183,7 @@ for batch in iterator:
 
 If issues are discovered with the ingestion layer:
 
-1. **Disable usage**: Don't import `crashlens.io.ingest` in guard/policy-check yet (Step 3+)
+1. **Disable usage**: Don't import `crashlens.io.ingest` in guard/guard yet (Step 3+)
 2. **Revert files**:
    ```bash
    git rm crashlens/io/ingest.py

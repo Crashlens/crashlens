@@ -156,7 +156,7 @@ crashlens pii-remove prod-logs.jsonl --output dev/test-data.jsonl
 crashlens pii-remove logs/raw.jsonl --output logs/clean.jsonl
 
 # Step 2: Run policy checks on clean logs
-crashlens policy-check logs/clean.jsonl --policy-file my-policy.yaml
+crashlens guard logs/clean.jsonl --policy-file my-policy.yaml
 ```
 
 ### 2. Chain with scan command

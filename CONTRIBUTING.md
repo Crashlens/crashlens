@@ -68,7 +68,7 @@ poetry run crashlens scan --demo
 poetry run crashlens scan sample-logs/demo-logs.jsonl --format markdown
 
 # Policy check
-poetry run crashlens policy-check logs.jsonl --policy-file policies/retry-loop-detector.yaml
+poetry run crashlens guard logs.jsonl --policy-file policies/retry-loop-detector.yaml
 
 # With metrics (requires Prometheus)
 poetry run crashlens scan logs.jsonl --push-metrics --pushgateway-url http://localhost:9091
@@ -252,7 +252,7 @@ poetry run crashlens scan sample-logs/demo-logs.jsonl
 poetry run crashlens scan your-logs.jsonl --format json
 
 # Test policy enforcement
-poetry run crashlens policy-check logs.jsonl --policy-file policies/retry-loop-detector.yaml
+poetry run crashlens guard logs.jsonl --policy-file policies/retry-loop-detector.yaml
 ```
 
 ## 📚 Documentation

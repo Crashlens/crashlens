@@ -210,13 +210,13 @@ crashlens --simulate --source local --count 100 > .llm_logs/test-data.jsonl
 **Validate Log Format:**
 ```bash
 # Check if your logs are properly formatted
-crashlens policy-check .llm_logs/*.jsonl --policy-template retry-loop-prevention --dry-run
+crashlens guard .llm_logs/*.jsonl --policy-template retry-loop-prevention --dry-run
 ```
 
 **Quick Analysis:**
 ```bash
 # Run a quick analysis to verify everything works
-crashlens policy-check .llm_logs/*.jsonl --policy-template all --severity-threshold medium
+crashlens guard .llm_logs/*.jsonl --policy-template all --severity-threshold medium
 ```
 
 ## 🔍 Common Log Locations
@@ -272,7 +272,7 @@ jq '.model, .usage.total_tokens' .llm_logs/*.jsonl | head -10
 
 See the `examples/` directory for complete integration examples:
 - `examples/langfuse-ci-contracts/` - LangFuse integration
-- `examples/cost-policy-check/` - Cost monitoring setup
+- `examples/cost-guard/` - Cost monitoring setup
 - `examples/ci-workflows/` - GitHub Actions integration
 
 ---

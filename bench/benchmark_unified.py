@@ -180,35 +180,24 @@ class PerformanceBenchmark:
             ["poetry", "run", "crashlens", "guard"] + common_args
         )
         
-        # Benchmark 2: Unified Guard (via env var)
-        env = os.environ.copy()
-        env['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
-        # Note: We need to modify run_command to accept env
-        # For now, set it globally
-        os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
-        
+        # Benchmark 2: Guard (basic)
         self.run_command(
-            "unified_guard_basic",
+            "guard_basic",
             ["poetry", "run", "crashlens", "guard"] + common_args
         )
         
-        # Benchmark 3: Policy-Check (auto unified)
+        # Benchmark 3: Guard (standard)
         self.run_command(
-            "policy_check",
-            ["poetry", "run", "crashlens", "policy-check"] + common_args
+            "guard",
+            ["poetry", "run", "crashlens", "guard"] + common_args
         )
         
-        # Benchmark 4: Unified with detectors (future)
+        # Benchmark 4: Guard with detectors (future)
         # This is a placeholder for when detector flags are implemented
         self.run_command(
-            "unified_guard_detectors",
-            ["poetry", "run", "crashlens", "policy-check"] + common_args
+            "guard_detectors",
+            ["poetry", "run", "crashlens", "guard"] + common_args
         )
-        
-        # Clean up env
-        if 'CRASHLENS_USE_UNIFIED_ENGINE' in os.environ:
-            del os.environ['CRASHLENS_USE_UNIFIED_ENGINE']
     
     def analyze_results(self):
         """Analyze benchmark results and check thresholds"""
@@ -229,7 +218,7 @@ class PerformanceBenchmark:
         # Find unified basic
         unified = next((r for r in self.results if r.name == "unified_guard_basic"), None)
         if not unified:
-            unified = next((r for r in self.results if r.name == "policy_check"), None)
+            unified = next((r for r in self.results if r.name == "guard"), None)
         
         if not unified:
             print("Error: No unified engine result found")

@@ -1,2 +1,0 @@
-{"traceId": "trace_violation_001", "model": "gpt-4", "retry_count": 4, "usage": {"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300}, "cost": 0.06}
-{"traceId": "trace_violation_002", "model": "claude-3-opus", "retry_count": 1, "usage": {"prompt_tokens": 7000, "completion_tokens": 300, "total_tokens": 7300}, "cost": 0.365}

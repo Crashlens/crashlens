@@ -150,7 +150,7 @@ if PROMETHEUS_INSTALLED:
     try:
         # Record various metrics
         metrics.record_rule_hit('test-rule-1', 'high', 'scan')
-        metrics.record_rule_hit('test-rule-2', 'critical', 'policy-check')
+        metrics.record_rule_hit('test-rule-2', 'critical', 'guard')
         metrics.record_violation('high')
         metrics.record_trace_processed()
         metrics.record_trace_failed('parse_error')

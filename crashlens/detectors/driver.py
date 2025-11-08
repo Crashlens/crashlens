@@ -4,7 +4,7 @@ Detector Driver for CrashLens
 Orchestrates running waste detectors on log batches in constant-memory mode.
 Supports three modes: none, precomputed, and inline.
 
-This module is critical for Step 3 of the guard/policy-check merge.
+This module is critical for Step 3 of the guard/guard merge.
 """
 
 import time

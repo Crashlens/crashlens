@@ -1,7 +1,7 @@
 """
 Tests for rule translator module.
 
-These tests verify that policy-check YAML rules can be correctly
+These tests verify that guard YAML rules can be correctly
 translated to guard-compatible rule structures.
 """
 

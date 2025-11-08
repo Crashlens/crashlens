@@ -341,7 +341,7 @@ class PolicyEngine:
                     metrics.record_rule_hit(
                         rule_name=rule.id,
                         severity=severity,
-                        mode='policy-check'
+                        mode='guard'
                     )
                     metrics.record_violation(severity=severity)
             

@@ -27,7 +27,7 @@ A comprehensive Python-based benchmark runner that:
 - **4 Benchmark Scenarios:**
   1. Legacy Guard (baseline)
   2. Unified Guard (basic, no detectors)
-  3. Policy-Check (auto unified)
+  3. guard (auto unified)
   4. Unified with Detectors (future)
 
 - **Performance Metrics:**

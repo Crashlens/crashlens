@@ -264,12 +264,12 @@ crashlens scan logs.jsonl --policy-template all --push-metrics
 
 ---
 
-#### 2. `crashlens policy-check` - Policy Validation
+#### 2. `crashlens guard` - Policy Validation
 Check logs against policy rules without running full waste detection.
 
 **Usage:**
 ```bash
-crashlens policy-check LOGFILE [OPTIONS]
+crashlens guard LOGFILE [OPTIONS]
 ```
 
 **Key Options:**
@@ -281,13 +281,13 @@ crashlens policy-check LOGFILE [OPTIONS]
 **Examples:**
 ```bash
 # Check specific policy
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
+crashlens guard logs.jsonl --policy-template retry-loop-prevention
 
 # Strict enforcement for CI/CD
-crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+crashlens guard logs.jsonl --policy-template all --fail-on-violations
 
 # Custom severity filtering
-crashlens policy-check logs.jsonl --policy-file custom.yaml --severity-threshold high
+crashlens guard logs.jsonl --policy-file custom.yaml --severity-threshold high
 ```
 
 ---

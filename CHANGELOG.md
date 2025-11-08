@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to CrashLens will be documented in this file.
 
@@ -9,30 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.0] - 2025-01-15
 
-### 🚨 BREAKING CHANGES
+### ?? BREAKING CHANGES
 
 #### Deprecated
 - **`guard` command** is now deprecated and will be removed in v3.1.0
-  - Currently works as an alias for `policy-check` with deprecation warning
+  - Currently works as an alias for `guard` with deprecation warning
   - See [MIGRATION.md](MIGRATION.md) for migration guide
-  - Use `policy-check` for all new workflows
+  - Use `guard` for all new workflows
 
 #### Changed
-- **Artifact naming**: Changed prefix from `guard-*.json` → `policy-*.json`
-  - Example: `guard-20250115-103045.json` → `policy-20250115-103045.json`
+- **Artifact naming**: Changed prefix from `guard-*.json` ? `policy-*.json`
+  - Example: `guard-20250115-103045.json` ? `policy-20250115-103045.json`
   - Affects CI/CD scripts that parse artifact filenames
-- **PII redaction format**: Changed from `[REDACTED-EMAIL]` (hyphen) → `[REDACTED_EMAIL]` (underscore)
+- **PII redaction format**: Changed from `[REDACTED-EMAIL]` (hyphen) ? `[REDACTED_EMAIL]` (underscore)
   - Consistent with Python naming conventions
-  - Update regex patterns: `r'\[REDACTED-EMAIL\]'` → `r'\[REDACTED_EMAIL\]'`
+  - Update regex patterns: `r'\[REDACTED-EMAIL\]'` ? `r'\[REDACTED_EMAIL\]'`
 - **JSON schema normalization**: Renamed fields for consistency
-  - `guard_severity` → `severity`
-  - `guard_action` → `action`
+  - `guard_severity` ? `severity`
+  - `guard_action` ? `action`
   - Added: `policy_engine` field (value: "unified")
   - Added: `detection_timestamp` field
 
 ### Added
 - **Unified PolicyEngine**: All policy evaluation now uses single engine
-  - Consistent behavior across `scan` and `policy-check` commands
+  - Consistent behavior across `scan` and `guard` commands
   - Better performance and maintainability
 - **Migration guide**: Comprehensive `MIGRATION.md` with examples
   - CLI command mapping
@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Testing guidance
 
 ### Documentation
-- **README.md**: Updated all examples to use `policy-check`
+- **README.md**: Updated all examples to use `guard`
 - **QUICK_START.md**: Rewritten 5-minute quick start guide
 - **COMMAND-REFERENCE.md**: Added deprecation notice for `guard`
 - Version badge updated to 3.0.0
@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | Version | Status | Notes |
 |---------|--------|-------|
 | v3.0.0 (current) | `guard` shows warning | Fully functional alias |
-| v3.1.0 (Q2 2025) | `guard` removed | Use `policy-check` only |
+| v3.1.0 (Q2 2025) | `guard` removed | Use `guard` only |
 
 ---
 
@@ -94,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic example limits**: `CRASHLENS_MAX_EXAMPLES` environment variable (default: 5) to prevent OOM on large logs
 - **Provenance tracking**: GitHub Actions workflow generates RUN_ID (timestamp + git hash) for audit trail
 - **CI artifact upload**: Guard reports automatically uploaded with 90-day retention for compliance
-- **Rule promotion helper**: New `scripts/promote-rule.py` for safe severity escalation (warn → error → fatal)
+- **Rule promotion helper**: New `scripts/promote-rule.py` for safe severity escalation (warn ? error ? fatal)
 
 ### Changed
 - **Default severity now "warn"**: New rules default to warn severity for safer CI adoption (prevents immediate breakage)
@@ -204,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### CLI Commands
 - `crashlens scan`: Analyze logs for waste patterns
-- `crashlens policy-check`: Validate against custom policies
+- `crashlens guard`: Validate against custom policies
 - `crashlens pii-remove`: Scrub sensitive data
 - `crashlens slack notify`: Send reports to Slack
 

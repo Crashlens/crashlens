@@ -479,14 +479,14 @@ Total: 493 lines added, 9 lines removed
 **Goal**: CLI alias and deprecation notices
 
 **Tasks**:
-1. Make `policy-check` an alias to `guard --use-unified-engine`
+1. Make `guard` an alias to `guard --use-unified-engine`
 2. Add deprecation warnings for `guard` command
 3. Update CLI help text
 4. Create `tests/test_cli_alias.py`
 5. Document deprecation plan
 
 **Pass Criteria**:
-- `crashlens policy-check` works identically to `crashlens guard` with unified engine
+- `crashlens guard` works identically to `crashlens guard` with unified engine
 - Deprecation message printed when `guard` is used
 - Tests validate alias behavior and warnings
 - Zero breaking changes to existing commands

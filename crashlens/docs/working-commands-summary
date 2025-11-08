@@ -24,7 +24,7 @@ crashlens --version
 | `crashlens init`                                                           | Launches an interactive setup wizard          |
 | `crashlens init --non-interactive`                                         | Automated setup using environment variables   |
 | `crashlens scan logs.jsonl`                                                | Analyzes your logs and saves report locally   |
-| `crashlens policy-check logs.jsonl --policy-template all`                  | Checks logs against all policies              |
+| `crashlens guard logs.jsonl --policy-template all`                  | Checks logs against all policies              |
 | `crashlens list-policy-templates`                                          | Lists all available built-in policy templates |
 | `crashlens simulate --output test.jsonl --count 500 --scenario retry-loop` | Simulates logs for testing                    |
 
@@ -106,11 +106,11 @@ crashlens init --non-interactive
 
 | Command                                                                                              | Description                      |
 | ---------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `crashlens policy-check logs.jsonl --policy-template all`                                            | Run all policies                 |
-| `crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention` | Use specific policies            |
-| `crashlens policy-check cold-dev-test.jsonl --policy-file my-policy.yaml --severity-threshold high`  | Use custom policy file           |
-| `crashlens policy-check logs.jsonl --fail-on-violations`                                             | Fail CI/CD on violations         |
-| `crashlens policy-check logs.jsonl --strip-pii --no-content`                                         | Remove PII & content from report |
+| `crashlens guard logs.jsonl --policy-template all`                                            | Run all policies                 |
+| `crashlens guard logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention` | Use specific policies            |
+| `crashlens guard cold-dev-test.jsonl --policy-file my-policy.yaml --severity-threshold high`  | Use custom policy file           |
+| `crashlens guard logs.jsonl --fail-on-violations`                                             | Fail CI/CD on violations         |
+| `crashlens guard logs.jsonl --strip-pii --no-content`                                         | Remove PII & content from report |
 
 🗂️ Reports are saved to:
 
@@ -142,7 +142,7 @@ RUN pip install crashlens
 WORKDIR /app
 COPY logs/ ./logs/
 
-CMD ["crashlens", "policy-check", "logs/*.jsonl", "--policy-template", "all"]
+CMD ["crashlens", "guard", "logs/*.jsonl", "--policy-template", "all"]
 ```
 
 ---

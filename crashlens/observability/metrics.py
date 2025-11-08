@@ -274,7 +274,7 @@ class CrashLensMetrics:
         Args:
             rule_name: Name of the rule that was triggered
             severity: Severity level (critical, high, medium, low, info)
-            mode: Execution mode (scan, policy-check, etc.)
+            mode: Execution mode (scan, guard, etc.)
         
         Note:
             Sampling is applied per-rule. Use per_rule_rates to configure

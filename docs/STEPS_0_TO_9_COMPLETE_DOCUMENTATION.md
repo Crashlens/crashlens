@@ -1,4 +1,4 @@
-# CrashLens Guard/Policy-Check Merge - Complete Implementation Documentation
+# CrashLens Guard/guard Merge - Complete Implementation Documentation
 
 > **⚠️ HISTORICAL DOCUMENTATION**: This document describes the implementation of Steps 0-9 that built the unified PolicyEngine with a feature flag (`CRASHLENS_USE_UNIFIED_ENGINE`). As of 2025-11-08, Step 10 has been completed and the feature flag has been removed. This document is preserved for historical reference.
 >
@@ -21,12 +21,12 @@
 
 ## Executive Summary
 
-This document provides comprehensive technical documentation for the 10-step guard/policy-check merge implementation in CrashLens. **Steps 0-9 were completed and the feature flag architecture was fully implemented**. **Step 10 (deprecation removal) was subsequently completed**, removing the feature flag and legacy code.
+This document provides comprehensive technical documentation for the 10-step guard/guard merge implementation in CrashLens. **Steps 0-9 were completed and the feature flag architecture was fully implemented**. **Step 10 (deprecation removal) was subsequently completed**, removing the feature flag and legacy code.
 
 ### Architecture Overview (Historical - Steps 0-9)
 
 **State During Steps 0-9:**
-- ✅ **Two CLI commands existed**: `guard` (in `crashlens/guard.py`) and `policy-check` (alias in `crashlens/cli.py`)
+- ✅ **Two CLI commands existed**: `guard` (in `crashlens/guard.py`) and `guard` (alias in `crashlens/cli.py`)
 - ✅ **Unified engine implemented**: `GuardPolicyEngineAdapter` bridged legacy and new systems
 - ✅ **Feature flag control**: `CRASHLENS_USE_UNIFIED_ENGINE=1` enabled unified engine
 - ✅ **Backwards compatible**: Default was legacy mode (`CRASHLENS_USE_UNIFIED_ENGINE=0`)
@@ -91,7 +91,7 @@ This document provides comprehensive technical documentation for the 10-step gua
 ---
 
 ### Step 2: Shared Ingestion Layer (Commit 002)
-**Purpose:** Unified JSONL parsing for both guard and policy-check
+**Purpose:** Unified JSONL parsing for both guard and guard
 
 **Files Created:**
 - `crashlens/parsers/shared_ingestion.py` (245 lines)
@@ -212,16 +212,16 @@ This document provides comprehensive technical documentation for the 10-step gua
 ---
 
 ### Step 7: CLI Alias (Commit 008)
-**Purpose:** Create `policy-check` command as alias to `guard` with unified engine enabled
+**Purpose:** Create `guard` command as alias to `guard` with unified engine enabled
 
 **Files Modified:**
-- `crashlens/cli.py` (added 78 lines for `policy-check` command)
+- `crashlens/cli.py` (added 78 lines for `guard` command)
   - **Location:** Lines 4079-4170
   - **Key Logic:**
     ```python
-    @click.command("policy-check")
+    @click.command("guard")
     # ... all same options as guard ...
-    def policy_check(...):
+    def guard(...):
         # Force unified engine
         os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
         
@@ -230,7 +230,7 @@ This document provides comprehensive technical documentation for the 10-step gua
         ctx.invoke(guard, ...)
     ```
   - **Behavior:**
-    - `crashlens policy-check` → Calls `guard()` with `CRASHLENS_USE_UNIFIED_ENGINE=1`
+    - `crashlens guard` → Calls `guard()` with `CRASHLENS_USE_UNIFIED_ENGINE=1`
     - Identical parameters to `guard` command
     - Shows message: "🔧 Using unified PolicyEngine (next-generation analysis)"
 
@@ -240,7 +240,7 @@ This document provides comprehensive technical documentation for the 10-step gua
     ```python
     if not os.getenv('CRASHLENS_USE_UNIFIED_ENGINE') and not os.getenv('CRASHLENS_QUIET'):
         click.echo("⚠️  DEPRECATION NOTICE: Legacy guard engine", err=True)
-        click.echo("   Next-generation: crashlens policy-check", err=True)
+        click.echo("   Next-generation: crashlens guard", err=True)
         click.echo("   Or: export CRASHLENS_USE_UNIFIED_ENGINE=1", err=True)
     ```
   - **Behavior:**
@@ -311,7 +311,7 @@ This document provides comprehensive technical documentation for the 10-step gua
   - **Purpose:** Comprehensive parity testing framework
   - **Key Classes:**
     * `ParityTester` - Parity test orchestrator
-      - `run_policy_check(log_path: Path, policy_path: Path) -> ParityResult` - Run policy-check command
+      - `run_guard(log_path: Path, policy_path: Path) -> ParityResult` - Run guard command
       - `run_guard_unified(log_path: Path, policy_path: Path) -> ParityResult` - Run guard with unified engine
       - `compare_results(pc_result: ParityResult, guard_result: ParityResult) -> Tuple[bool, List[str]]` - Compare outputs
       - `generate_diff_diagnostics(pc_result: ParityResult, guard_result: ParityResult) -> str` - Detailed diff report
@@ -509,9 +509,9 @@ This document provides comprehensive technical documentation for the 10-step gua
 **Module:** `tests/integration/test_parity_end_to_end.py`
 
 #### `ParityTester.compare_results(pc_result: ParityResult, guard_result: ParityResult, policy_name: str) -> Tuple[bool, List[str]]`
-- **Purpose:** Compare policy-check and guard outputs for equivalence
+- **Purpose:** Compare guard and guard outputs for equivalence
 - **Parameters:**
-  - `pc_result`: Result from `crashlens policy-check`
+  - `pc_result`: Result from `crashlens guard`
   - `guard_result`: Result from `crashlens guard` with `CRASHLENS_USE_UNIFIED_ENGINE=1`
   - `policy_name`: Policy template name (for diagnostics)
 - **Returns:**
@@ -558,16 +558,16 @@ This document provides comprehensive technical documentation for the 10-step gua
 **Lines Modified:** 4079-4170, 4670-4677
 
 **Changes:**
-1. **Added `policy-check` command** (Lines 4079-4170)
+1. **Added `guard` command** (Lines 4079-4170)
    - Duplicate of `guard` command signature
    - Sets `CRASHLENS_USE_UNIFIED_ENGINE=1` before calling `guard()`
    - Displays unified engine message
 
 2. **Registered commands** (Lines 4670-4677)
-   - Added: `cli.add_command(policy_check)` (appears twice, second is Step 7 alias)
+   - Added: `cli.add_command(guard)` (appears twice, second is Step 7 alias)
    - Added: `cli.add_command(guard)`
 
-**Rationale:** Provide `policy-check` as next-gen interface while keeping `guard` for backwards compatibility
+**Rationale:** Provide `guard` as next-gen interface while keeping `guard` for backwards compatibility
 
 ---
 
@@ -638,7 +638,7 @@ When Step 10 conditions are met (2+ production releases, <5% legacy usage teleme
                 │                          │
                 ▼                          ▼
 ┌───────────────────────────┐   ┌──────────────────────────┐
-│  crashlens guard          │   │  crashlens policy-check  │
+│  crashlens guard          │   │  crashlens guard  │
 │  (guard.py)               │   │  (cli.py alias)          │
 │                           │   │                          │
 │  DEFAULT:                 │   │  FORCES:                 │
@@ -685,12 +685,12 @@ When Step 10 conditions are met (2+ production releases, <5% legacy usage teleme
                     └────────────────────────┘
 ```
 
-### Data Flow: policy-check Command (Unified Engine)
+### Data Flow: guard Command (Unified Engine)
 
 ```
-crashlens policy-check logs.jsonl --rules policy.yaml
+crashlens guard logs.jsonl --rules policy.yaml
     │
-    ├─> cli.py: policy_check() function (Line 4109)
+    ├─> cli.py: guard() function (Line 4109)
     │   └─> Set CRASHLENS_USE_UNIFIED_ENGINE=1
     │   └─> ctx.invoke(guard, ...)
     │
@@ -851,19 +851,19 @@ crashlens guard logs.jsonl --rules policy.yaml
 #### 6. Architectural Confusion in Original Spec
 
 **Original Step 10 Spec Stated:**
-> "Remove `policy-check` implementation, keep CLI alias that errors and instructs usage of `guard --fast-template`"
+> "Remove `guard` implementation, keep CLI alias that errors and instructs usage of `guard --fast-template`"
 
 **This is Backwards:**
-- **Current Architecture:** `guard` is legacy, `policy-check` uses unified engine
-- **Spec Implies:** `policy-check` is old, `guard` is new
-- **Contradiction:** Steps 0-9 built unified engine FOR `policy-check`, not `guard`
+- **Current Architecture:** `guard` is legacy, `guard` uses unified engine
+- **Spec Implies:** `guard` is old, `guard` is new
+- **Contradiction:** Steps 0-9 built unified engine FOR `guard`, not `guard`
 
 **Actual Current State:**
 - `guard` = Legacy OR unified (via feature flag)
-- `policy-check` = Unified ONLY (alias that forces flag)
+- `guard` = Unified ONLY (alias that forces flag)
 
 **If Step 10 Executed As Spec:**
-- Would remove the new unified engine code (policy-check)
+- Would remove the new unified engine code (guard)
 - Would keep the legacy code (guard)
 - **Result:** Backwards migration, deletes all Steps 0-9 work
 
@@ -1115,27 +1115,27 @@ poetry run python tests/integration/test_parity_end_to_end.py
 Running parity tests for all policy templates...
 
 Testing: block-gpt4-on-summary
-  policy-check: 3 violations (critical:1, high:1, medium:1)
+  guard: 3 violations (critical:1, high:1, medium:1)
   guard+unified: 3 violations (critical:1, high:1, medium:1)
   ✅ PASS - Exact match
 
 Testing: ci-sample
-  policy-check: 5 violations (high:2, medium:3)
+  guard: 5 violations (high:2, medium:3)
   guard+unified: 5 violations (high:2, medium:3)
   ✅ PASS - Exact match
 
 Testing: fallback-chain-detector
-  policy-check: 8 violations (high:3, medium:5)
+  guard: 8 violations (high:3, medium:5)
   guard+unified: 8 violations (high:3, medium:5)
   ✅ PASS - Exact match
 
 Testing: max-cost-per-trace
-  policy-check: 2 violations (critical:2)
+  guard: 2 violations (critical:2)
   guard+unified: 2 violations (critical:2)
   ✅ PASS - Exact match
 
 Testing: retry-loop-detector
-  policy-check: 12 violations (high:4, medium:8)
+  guard: 12 violations (high:4, medium:8)
   guard+unified: 12 violations (high:4, medium:8)
   ✅ PASS - Exact match
 
@@ -1219,7 +1219,7 @@ export CRASHLENS_QUIET=1
 **CLI Commands:**
 ```bash
 # Use unified engine explicitly
-crashlens policy-check logs.jsonl --rules policy.yaml
+crashlens guard logs.jsonl --rules policy.yaml
 
 # Use legacy engine (with deprecation warning)
 crashlens guard logs.jsonl --rules policy.yaml

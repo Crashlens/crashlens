@@ -2,7 +2,7 @@
 
 Complete reference for all CrashLens CLI commands with descriptions, options, and examples.
 
-> **⚠️ Deprecation Notice**: The `guard` command is deprecated as of v3.0.0 and will be removed in v3.1.0. It currently works as an alias for `policy-check` with a deprecation warning. See [MIGRATION.md](../MIGRATION.md) for migration details.
+> **⚠️ Deprecation Notice**: The `guard` command is deprecated as of v3.0.0 and will be removed in v3.1.0. It currently works as an alias for `guard` with a deprecation warning. See [MIGRATION.md](../MIGRATION.md) for migration details.
 
 ## 🎯 Core Commands
 
@@ -68,11 +68,11 @@ crashlens scan logs.jsonl --policy-template all --format json
 
 ---
 
-### `crashlens policy-check` - Policy Validation
+### `crashlens guard` - Policy Validation
 **Purpose**: Check logs against policy rules without running full waste detection
 
 ```bash
-crashlens policy-check [OPTIONS] LOGFILE
+crashlens guard [OPTIONS] LOGFILE
 ```
 
 **Key Features:**
@@ -92,13 +92,13 @@ crashlens policy-check [OPTIONS] LOGFILE
 **Examples:**
 ```bash
 # Check against specific policy
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
+crashlens guard logs.jsonl --policy-template retry-loop-prevention
 
 # Check all policies with strict enforcement
-crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+crashlens guard logs.jsonl --policy-template all --fail-on-violations
 
 # Custom severity filtering
-crashlens policy-check logs.jsonl --policy-file custom.yaml --severity-threshold high
+crashlens guard logs.jsonl --policy-file custom.yaml --severity-threshold high
 ```
 
 **Exit Codes:**
@@ -115,10 +115,10 @@ crashlens guard [OPTIONS] LOGFILE  # Shows deprecation warning
 ```
 
 **Deprecation Notice:**
-- The `guard` command is now an alias for `policy-check`
-- All functionality is identical to `policy-check`
+- The `guard` command is now an alias for `guard`
+- All functionality is identical to `guard`
 - A deprecation warning is displayed on every invocation
-- Use `policy-check` instead for new workflows
+- Use `guard` instead for new workflows
 
 **Migration:**
 ```bash
@@ -126,7 +126,7 @@ crashlens guard [OPTIONS] LOGFILE  # Shows deprecation warning
 crashlens guard logs.jsonl --policy-template all
 
 # New (recommended)
-crashlens policy-check logs.jsonl --policy-template all
+crashlens guard logs.jsonl --policy-template all
 ```
 
 **See Also:** [MIGRATION.md](../MIGRATION.md) for complete migration guide
@@ -301,7 +301,7 @@ crashlens simulate [OPTIONS]
 | `--error-rate` | Probability of generating error traces | 0.2 | `--error-rate 0.3` |
 | `--seed` | Random seed for deterministic output | Random | `--seed 42` |
 | `--force` | Overwrite existing output file | False | `--force` |
-| `--open` | Run policy-check on generated file | False | `--open` |
+| `--open` | Run guard on generated file | False | `--open` |
 
 **Scenario Types:**
 - `normal`: Typical API usage patterns
@@ -374,7 +374,7 @@ export CRASHLENS_FAIL_ON_VIOLATIONS="true"
 crashlens init --non-interactive
 
 # 2. Policy checking in CI
-crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+crashlens guard logs.jsonl --policy-template all --fail-on-violations
 ```
 
 ### Development Workflow
@@ -383,7 +383,7 @@ crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
 crashlens simulate --output test-data.jsonl --count 1000 --scenario mixed-errors
 
 # 2. Test policies
-crashlens policy-check test-data.jsonl --policy-template all
+crashlens guard test-data.jsonl --policy-template all
 
 # 3. Full analysis
 crashlens scan test-data.jsonl --detailed --summary
@@ -408,7 +408,7 @@ crashlens scan daily-traces.jsonl --summary-only --format json > daily-report.js
 | Exit Code | Description | Commands |
 |-----------|-------------|----------|
 | `0` | Success, no issues found | All commands |
-| `1` | Policy violations found | `policy-check` with `--fail-on-violations` |
+| `1` | Policy violations found | `guard` with `--fail-on-violations` |
 | `2` | Command line argument error | All commands |
 | `3` | File not found or read error | Commands requiring input files |
 | `4` | Configuration error | `init`, commands with config files |

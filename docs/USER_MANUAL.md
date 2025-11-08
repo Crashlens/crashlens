@@ -49,7 +49,7 @@ crashlens init --non-interactive
 crashlens simulate --output test-logs.jsonl --count 50 --scenario retry-loop
 
 # Run policy check
-crashlens policy-check test-logs.jsonl --policy-template retry-loop-prevention
+crashlens guard test-logs.jsonl --policy-template retry-loop-prevention
 ```
 
 ---
@@ -307,9 +307,9 @@ jobs:
         for log_file in $LOG_FILES; do
           echo "🔍 Checking $log_file"
           if [ "${{ inputs.fail_on_violations }}" == "true" ]; then
-            poetry run crashlens policy-check "$log_file" --policy-template all --fail-on-violations --severity-threshold high
+            poetry run crashlens guard "$log_file" --policy-template all --fail-on-violations --severity-threshold high
           else
-            poetry run crashlens policy-check "$log_file" --policy-template all --severity-threshold high || true
+            poetry run crashlens guard "$log_file" --policy-template all --severity-threshold high || true
           fi
         done
         
@@ -322,7 +322,7 @@ jobs:
         LOG_FILES=$(find . -name "*.jsonl" -type f | head -5 | tr '\n' ' ')
         for log_file in $LOG_FILES; do
           echo "📊 Generating report for $log_file"
-          poetry run crashlens policy-check "$log_file" --policy-template all --format markdown > "crashlens-reports/$(basename $log_file .jsonl)-report.md" || true
+          poetry run crashlens guard "$log_file" --policy-template all --format markdown > "crashlens-reports/$(basename $log_file .jsonl)-report.md" || true
         done
         
     - name: Upload Crashlens Reports
@@ -456,7 +456,7 @@ Add Crashlens to your existing CI/CD workflow:
     - name: Run Token Waste Detection
       run: |
         # Check your log files
-        crashlens policy-check logs/*.jsonl --policy-template all --fail-on-violations
+        crashlens guard logs/*.jsonl --policy-template all --fail-on-violations
 ```
 
 ---
@@ -599,13 +599,13 @@ Before pushing to GitHub Actions, test locally:
 crashlens simulate --output test-data.jsonl --count 100 --scenario retry-loop
 
 # Test policy detection
-crashlens policy-check test-data.jsonl --policy-template retry-loop-prevention --fail-on-violations
+crashlens guard test-data.jsonl --policy-template retry-loop-prevention --fail-on-violations
 
 # Test with different severity levels
-crashlens policy-check test-data.jsonl --policy-template all --severity-threshold medium
+crashlens guard test-data.jsonl --policy-template all --severity-threshold medium
 
 # Generate markdown report
-crashlens policy-check test-data.jsonl --policy-template all --format markdown > policy-report.md
+crashlens guard test-data.jsonl --policy-template all --format markdown > policy-report.md
 ```
 
 ---
@@ -622,7 +622,7 @@ repos:
     hooks:
       - id: crashlens-check
         name: Crashlens Token Waste Check
-        entry: crashlens policy-check
+        entry: crashlens guard
         language: system
         files: '\.jsonl$'
         args: ['--policy-template', 'retry-loop-prevention', '--fail-on-violations']
@@ -647,7 +647,7 @@ fi
 # Run checks
 for file in $LOG_FILES; do
     echo "Checking $file..."
-    crashlens policy-check "$file" --policy-template all --severity-threshold high
+    crashlens guard "$file" --policy-template all --severity-threshold high
 done
 
 echo "✅ Token waste check complete!"
@@ -668,7 +668,7 @@ COPY .crashlens/ /app/.crashlens/
 WORKDIR /app
 
 # Run policy check
-CMD ["crashlens", "policy-check", "logs/", "--policy-template", "all", "--fail-on-violations"]
+CMD ["crashlens", "guard", "logs/", "--policy-template", "all", "--fail-on-violations"]
 ```
 
 ### **Production Monitoring Setup**
@@ -702,7 +702,7 @@ jobs:
         
     - name: Generate Cost Report
       run: |
-        crashlens policy-check yesterday-logs.jsonl \
+        crashlens guard yesterday-logs.jsonl \
           --policy-template budget-protection \
           --format markdown > daily-cost-report.md
           
@@ -721,18 +721,18 @@ jobs:
 
 ### **Core Commands**
 
-#### **`crashlens policy-check`**
+#### **`crashlens guard`**
 Check log files against policy rules.
 
 ```bash
 # Basic usage
-crashlens policy-check logs.jsonl
+crashlens guard logs.jsonl
 
 # With specific template
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
+crashlens guard logs.jsonl --policy-template retry-loop-prevention
 
 # Multiple options
-crashlens policy-check logs.jsonl \
+crashlens guard logs.jsonl \
   --policy-template all \
   --severity-threshold high \
   --fail-on-violations \
@@ -770,7 +770,7 @@ crashlens simulate \
 - `--error-rate`: Error probability 0-1 (default: 0.2)
 - `--seed`: Random seed for deterministic output
 - `--force`: Overwrite existing files
-- `--open`: Run policy-check after generation
+- `--open`: Run guard after generation
 
 #### **`crashlens init`**
 Initialize Crashlens configuration.
@@ -874,7 +874,7 @@ find . -name "*.jsonl" -type f
 crashlens list-policy-templates
 
 # Use correct template name
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
+crashlens guard logs.jsonl --policy-template retry-loop-prevention
 ```
 
 #### **4. "Invalid JSON in log file"**
@@ -901,7 +901,7 @@ yamllint .github/workflows/crashlens.yml
 # Go to Settings > Secrets and variables > Actions
 
 # Test locally first
-crashlens policy-check test-logs.jsonl --policy-template all
+crashlens guard test-logs.jsonl --policy-template all
 ```
 
 #### **6. "Permission denied" errors**
@@ -920,7 +920,7 @@ Enable detailed logging for troubleshooting:
 
 ```bash
 # Enable verbose output (if available)
-CRASHLENS_DEBUG=1 crashlens policy-check logs.jsonl
+CRASHLENS_DEBUG=1 crashlens guard logs.jsonl
 
 # Check Python environment
 python -c "
@@ -945,10 +945,10 @@ For large log files:
 split -l 1000 large-logs.jsonl small-logs-
 
 # Process in parallel (if supported)
-ls small-logs-* | xargs -P 4 -I {} crashlens policy-check {}
+ls small-logs-* | xargs -P 4 -I {} crashlens guard {}
 
 # Use specific templates only
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention
+crashlens guard logs.jsonl --policy-template retry-loop-prevention
 ```
 
 ---
@@ -1022,7 +1022,7 @@ jobs:
         fi
         
     - name: Run Environment-Specific Check
-      run: crashlens policy-check logs/*.jsonl --policy-template all
+      run: crashlens guard logs/*.jsonl --policy-template all
 ```
 
 ### **Custom Reporting and Notifications**
@@ -1080,7 +1080,7 @@ jobs:
 - name: Send Metrics to Datadog
   run: |
     # Extract metrics from report
-    VIOLATIONS=$(crashlens policy-check logs.jsonl --format json | jq '.violations | length')
+    VIOLATIONS=$(crashlens guard logs.jsonl --format json | jq '.violations | length')
     
     # Send to Datadog
     curl -X POST "https://api.datadoghq.com/api/v1/series" \
@@ -1098,7 +1098,7 @@ jobs:
 #### **Grafana Dashboard Data**
 ```bash
 # Export metrics for Grafana
-crashlens policy-check logs.jsonl --format json > metrics.json
+crashlens guard logs.jsonl --format json > metrics.json
 
 # Process for Grafana
 python scripts/process-for-grafana.py metrics.json > grafana-metrics.json
@@ -1175,7 +1175,7 @@ jobs:
         crashlens fetch-langfuse --days 7 --output weekly-logs.jsonl
         
         # Generate comprehensive report
-        crashlens policy-check weekly-logs.jsonl --policy-template all --format markdown > weekly-report.md
+        crashlens guard weekly-logs.jsonl --policy-template all --format markdown > weekly-report.md
         
     - name: Create Issue if Problems Found
       if: failure()
@@ -1367,7 +1367,7 @@ crashlens list-policy-templates | wc -l               # Should show 10+ template
 ls .crashlens/config.yaml                             # Config file exists
 ls .github/workflows/crashlens.yml                    # Workflow file exists
 crashlens simulate --output test.jsonl --count 10     # Generates test data
-crashlens policy-check test.jsonl --policy-template all  # Runs successfully
+crashlens guard test.jsonl --policy-template all  # Runs successfully
 ```
 
 **🎊 Congratulations! You now have a complete Crashlens setup that will help you optimize your GPT API usage and prevent token waste!**

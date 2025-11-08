@@ -17,7 +17,7 @@
 **File:** `tests/integration/test_parity_end_to_end.py` (560 lines)
 
 Comprehensive parity testing framework that:
-- Compares `policy-check` vs `guard --use-unified-engine` outputs
+- Compares `guard` vs `guard --use-unified-engine` outputs
 - Tests all policy templates automatically
 - Validates violation counts within ±1%
 - Ensures identical severity buckets
@@ -26,7 +26,7 @@ Comprehensive parity testing framework that:
 **Key Components:**
 
 **ParityTester Class:**
-- `run_policy_check()` - Execute policy-check and parse JSON results
+- `run_guard()` - Execute guard and parse JSON results
 - `run_guard_unified()` - Execute guard with unified engine
 - `compare_results()` - Validate parity within thresholds
 - `generate_diff_diagnostics()` - Detailed failure analysis
@@ -198,7 +198,7 @@ git push origin internal/canary
 
 **For each policy template:**
 1. **Violation Counts:**
-   - policy-check violations
+   - guard violations
    - guard (unified) violations
    - Difference must be ≤1%
 
@@ -224,8 +224,8 @@ When parity fails, detailed diagnostics are generated:
 PARITY FAILURE DIAGNOSTICS: retry-loop-detector
 ================================================================================
 
-Policy-Check Results:
-  Command:        poetry run crashlens policy-check ...
+guard Results:
+  Command:        poetry run crashlens guard ...
   Exit Code:      0
   Violations:     5
   Rules Checked:  3
@@ -239,8 +239,8 @@ Guard (Unified) Results:
   Severity Buckets: {'high': 4, 'critical': 2}
 
 Rule-by-Rule Comparison:
-  excessive_retry_pattern: policy-check=2, guard=3 (diff=+1)
-  expensive_model_retries: policy-check=3, guard=3 (diff=0)
+  excessive_retry_pattern: guard=2, guard=3 (diff=+1)
+  expensive_model_retries: guard=3, guard=3 (diff=0)
 
 Raw Outputs:
 [First 500 characters of each output...]
@@ -477,7 +477,7 @@ Before approving canary merge:
 ### Production Readiness
 - **Feature flag strategy** - Document enablement plan
 - **Monitoring setup** - Configure alerts and dashboards
-- **User communication** - Announce new policy-check command
+- **User communication** - Announce new guard command
 - **Deprecation timeline** - Plan guard command sunset
 
 ### Future Enhancements

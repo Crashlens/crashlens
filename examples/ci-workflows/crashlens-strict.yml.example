@@ -153,7 +153,7 @@ jobs:
           echo "🔍 Running strict CrashLens policy checks..."
           
           # Run policy check with fail-on-violations flag
-          crashlens policy-check logs/*.jsonl \
+          crashlens guard logs/*.jsonl \
             --policy-template all \
             --severity-threshold high \
             --fail-on-violations

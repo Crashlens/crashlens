@@ -22,7 +22,7 @@ The legacy code cleanup (Step 10) is **more complex than initially assessed**:
 ### ✅ Completed
 - Archive created: `legacy/guard_legacy_snapshot.py`
 - Git tag created: `v3.0.0-legacy`
-- cli.py cleaned: Removed `CRASHLENS_USE_UNIFIED_ENGINE=1` setting from policy-check
+- cli.py cleaned: Removed `CRASHLENS_USE_UNIFIED_ENGINE=1` setting from guard
 
 ### ⏳ In Progress
 - guard.py: Attempted cleanup, but file structure too complex for surgical edits
@@ -248,7 +248,7 @@ Rollback: Set CRASHLENS_USE_UNIFIED_ENGINE=0"
 ## Files Already Modified (This Session)
 
 1. ✅ `legacy/guard_legacy_snapshot.py` - Archive created
-2. ✅ `crashlens/cli.py` - Removed `CRASHLENS_USE_UNIFIED_ENGINE=1` from policy-check
+2. ✅ `crashlens/cli.py` - Removed `CRASHLENS_USE_UNIFIED_ENGINE=1` from guard
 3. ✅ `docs/STEP_10_CLEANUP_PLAN.md` - Implementation plan documented
 4. ✅ `docs/STEP_10_COMPLEXITY_ANALYSIS.md` - This file
 

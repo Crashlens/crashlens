@@ -246,7 +246,7 @@ poetry run crashlens scan --demo
 poetry run crashlens scan sample-logs/demo-logs.jsonl --format markdown
 
 # Policy check
-poetry run crashlens policy-check logs.jsonl --policy-file policies/retry-loop-detector.yaml
+poetry run crashlens guard logs.jsonl --policy-file policies/retry-loop-detector.yaml
 
 # Fetch from Langfuse API
 poetry run crashlens scan --from-langfuse --hours-back 24 --limit 1000
@@ -501,7 +501,7 @@ else:
 1. `crashlens/cli.py` (2687 lines) - Main CLI entry point
 2. `crashlens/policy/engine.py` (320 lines) - Policy evaluation hot loop
 3. `crashlens/parsers/langfuse.py` (564 lines) - JSONL parsing with schema validation
-4. `docs/architecture-flow.md` - Sequence diagrams for scan/policy-check flows
+4. `docs/architecture-flow.md` - Sequence diagrams for scan/guard flows
 5. `docs/COMMAND-REFERENCE.md` - Complete CLI command documentation
 
 ### External Dependencies
@@ -590,7 +590,7 @@ else:
 - Streaming response inefficiency detection
 
 ### Phase 3: CI/CD Enhancements
-- GitHub Actions integration (policy-check in CI)
+- GitHub Actions integration (guard in CI)
 - Cost budget enforcement (fail builds on overspend)
 - Slack notifications for policy violations
 

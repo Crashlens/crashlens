@@ -43,7 +43,7 @@ crashlens scan --from-langfuse --hours-back 24 --limit 1000
 
 ```bash
 # Check against custom policy
-crashlens policy-check logs.jsonl --policy-file policies/my-rules.yaml
+crashlens guard logs.jsonl --policy-file policies/my-rules.yaml
 
 # Use built-in policy templates
 crashlens scan logs.jsonl --policy-template retry-loop-prevention
@@ -232,7 +232,7 @@ export CRASHLENS_PUSHGATEWAY_URL="http://prometheus:9091"
 ```bash
 # Command-specific help
 crashlens scan --help
-crashlens policy-check --help
+crashlens guard --help
 crashlens pii-remove --help
 
 # Show version

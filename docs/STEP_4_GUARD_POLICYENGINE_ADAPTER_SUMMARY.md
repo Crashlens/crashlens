@@ -8,7 +8,7 @@
 
 ## Overview
 
-Step 4 (Phase 1) implements the **GuardPolicyEngineAdapter** - a feature-flagged integration layer that bridges guard's legacy rule evaluation with PolicyEngine from policy-check.
+Step 4 (Phase 1) implements the **GuardPolicyEngineAdapter** - a feature-flagged integration layer that bridges guard's legacy rule evaluation with PolicyEngine from guard.
 
 **Critical**: This commit contains ONLY the adapter layer. The actual guard.py integration will be in Phase 2 (commit 004b) to maintain atomic, testable commits.
 
@@ -104,7 +104,7 @@ rules:
 
 ### Mapping Tables
 
-**Action Mapping** (guard → policy-check):
+**Action Mapping** (guard → guard):
 ```python
 {
     "error": "fail",
@@ -113,7 +113,7 @@ rules:
 }
 ```
 
-**Severity Mapping** (guard → policy-check):
+**Severity Mapping** (guard → guard):
 ```python
 {
     "warn": "low",
@@ -122,7 +122,7 @@ rules:
 }
 ```
 
-**Reverse Severity Mapping** (policy-check → guard legacy output):
+**Reverse Severity Mapping** (guard → guard legacy output):
 ```python
 {
     "LOW": "warn",
@@ -219,7 +219,7 @@ legacy_results = adapter.convert_violations_to_legacy_format(
 - Configurable detector thresholds
 - Metrics collection for observability
 
-### With PolicyEngine (policy-check)
+### With PolicyEngine (guard)
 - Uses `PolicyEngine.evaluate_log_entry()` for evaluation
 - Respects `max_violations_per_rule` circuit breaker
 - Full support for dot notation field access

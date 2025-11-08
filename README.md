@@ -235,28 +235,28 @@ crashlens scan logs/clean.jsonl --format markdown
 ### 🛡️ **Policy Enforcement**
 ```bash
 # Check logs against all policies (generates report.md)
-crashlens policy-check logs.jsonl --policy-template all
+crashlens guard logs.jsonl --rules policies/rules.yaml
 
 # Generate detailed JSON report for CI/CD integration
-crashlens policy-check logs.jsonl --policy-template all --detailed
+crashlens guard logs.jsonl --rules policies/rules.yaml --output json
 
 # Custom output paths and quiet mode
-crashlens policy-check cold-dev-test.jsonl --policy-file my-policy.yaml --severity-threshold high
+crashlens guard cold-dev-test.jsonl --rules my-policy.yaml --severity-threshold high
 
 # Use specific policy templates
-crashlens policy-check logs.jsonl --policy-template model-overkill-detection,retry-loop-prevention
+crashlens guard logs.jsonl --rules policies/retry-loop-detector.yaml
 
 # Custom policy file
-crashlens policy-check logs.jsonl --policy-file my-policy.yaml
+crashlens guard logs.jsonl --rules my-policy.yaml
 
 # Fail on violations (CI/CD mode)
-crashlens policy-check logs.jsonl --policy-template all --fail-on-violations
+crashlens guard logs.jsonl --rules policies/rules.yaml --fail-on-violations
 
 # Privacy-safe reports (strip PII, exclude content)
-crashlens policy-check logs.jsonl --policy-template all --strip-pii --no-content
+crashlens guard logs.jsonl --rules policies/rules.yaml --strip-pii --no-content
 ```
 
-> **Note:** The legacy `guard` command is deprecated as of v3.0.0 and will be removed in v3.1.0. Use `policy-check` instead. See [MIGRATION.md](MIGRATION.md) for details.
+> **Note:** The `guard` command is maintained as a backwards-compatible alias for `guard`.
 
 **📁 Output Organization:**
 Policy violation reports are automatically organized in the `policy-violations/` folder:
@@ -334,7 +334,7 @@ crashlens scan logs.jsonl --metrics-http --metrics-port 9090
 crashlens scan logs.jsonl \
   --push-metrics \
   --pushgateway-url http://prometheus:9091 \
-  --metrics-job my-app-policy-check
+  --metrics-job my-app-guard
 ```
 
 **HTTP Server Mode (via CLI flags):**
@@ -538,8 +538,8 @@ jobs:
       
       - name: Policy Check
         run: |
-          crashlens policy-check logs/*.jsonl \
-            --policy-template all \
+          crashlens guard logs/*.jsonl \
+            --rules policies/rules.yaml \
             --fail-on-violations
 ```
 
@@ -552,7 +552,7 @@ RUN pip install crashlens
 WORKDIR /app
 COPY logs/ ./logs/
 
-CMD ["crashlens", "policy-check", "logs/*.jsonl", "--policy-template", "all"]
+CMD ["crashlens", "guard", "logs/*.jsonl", "--rules", "policies/rules.yaml"]
 ```
 
 ### Programmatic Usage
@@ -1149,7 +1149,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install crashlens
-      - run: crashlens policy-check logs.jsonl --policy-template all --severity-threshold medium --fail-on-violations
+      - run: crashlens guard logs.jsonl --rules policies/rules.yaml --severity-threshold medium --fail-on-violations
 ```
 
 ### Advanced Examples
@@ -1378,7 +1378,7 @@ crashlens scan logs.jsonl --config custom-pricing.yaml
 crashlens scan logs.jsonl --format json --detailed --summary --config custom.yaml
 
 # Policy checking with custom settings
-crashlens policy-check logs.jsonl --policy-template all --severity-threshold high --fail-on-violations
+crashlens guard logs.jsonl --rules policies/rules.yaml --severity-threshold high --fail-on-violations
 ```
 
 **macOS/Linux:**
@@ -1408,10 +1408,10 @@ crashlens list-policy-templates             # List available policy templates
 ### 12. **Policy checking**
 **Cross-platform:**
 ```bash
-crashlens policy-check logs.jsonl --policy-template all                    # Check all policies
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention  # Specific policy
-crashlens policy-check logs.jsonl --fail-on-violations                     # Exit with error code
-crashlens policy-check logs.jsonl --severity-threshold high                # Filter by severity
+crashlens guard logs.jsonl --rules policies/rules.yaml                     # Check with policy file
+crashlens guard logs.jsonl --rules policies/retry-loop-detector.yaml       # Specific policy
+crashlens guard logs.jsonl --fail-on-violations                            # Exit with error code
+crashlens guard logs.jsonl --severity-threshold high                       # Filter by severity
 ```
 - Validate logs against policy rules without running full waste detection.
 - Useful for CI/CD gate checks and compliance validation.
@@ -1422,12 +1422,9 @@ crashlens policy-check logs.jsonl --severity-threshold high                # Fil
 crashlens --help          # Main help
 crashlens scan --help     # Scan command help
 crashlens init --help     # Init command help
-crashlens policy-check --help  # Policy check help
+crashlens guard --help    # Guard command help
 ```
 - Shows all available options and usage details for each command.
-
----
-
 ## 📖 Quick Command Reference
 
 **Cross-platform commands:**
@@ -1452,9 +1449,9 @@ crashlens scan logs.jsonl --summary-only    # Summary without trace IDs
 crashlens scan logs.jsonl --detailed        # Generate detailed JSON reports
 
 # Policy Checking
-crashlens policy-check logs.jsonl --policy-template all    # Check against all policies
-crashlens policy-check logs.jsonl --policy-template retry-loop-prevention  # Specific policy
-crashlens policy-check logs.jsonl --fail-on-violations     # Exit with error on violations
+crashlens guard logs.jsonl --rules policies/rules.yaml     # Check against policy file
+crashlens guard logs.jsonl --rules policies/retry-loop-detector.yaml  # Specific policy
+crashlens guard logs.jsonl --fail-on-violations            # Exit with error on violations
 
 # Setup & Configuration
 crashlens init                               # Interactive setup wizard
@@ -1551,9 +1548,9 @@ crashlens --version                         # Show current version
 4. **Analyze your logs:**
    **Cross-platform:**
    ```bash
-   crashlens policy-check .llm_logs/*.jsonl --policy-template all
+   crashlens guard .llm_logs/*.jsonl --rules policies/rules.yaml
    # OR for a specific file
-   crashlens policy-check path/to/your-logs.jsonl
+   crashlens guard path/to/your-logs.jsonl --rules policies/rules.yaml
    # OR for waste pattern analysis
    crashlens scan .llm_logs/*.jsonl --format markdown --detailed
    ```

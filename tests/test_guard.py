@@ -226,7 +226,7 @@ rules:
             "--rules", str(rules),
             "--suppress", "RL001",
             "--output", "json"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 0
         output = extract_json_from_output(result.output)
@@ -264,7 +264,7 @@ rules:
             "--rules", str(rules),
             "--severity", "error",
             "--fail-on-violations"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 0
         
@@ -275,7 +275,7 @@ rules:
             "--rules", str(rules),
             "--severity", "warn",
             "--fail-on-violations"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 1
 
@@ -310,7 +310,7 @@ rules:
             "--rules", str(rules),
             "--strip-pii",
             "--output", "json"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 0
         output = extract_json_from_output(result.output)
@@ -352,7 +352,7 @@ rules:
             "--rules", str(rules),
             "--no-content",
             "--output", "json"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 0
         output = extract_json_from_output(result.output)
@@ -390,7 +390,7 @@ rules:
             str(logs),
             "--rules", str(rules),
             "--output", "md"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 0
         assert "# CrashLens Guard Report" in result.output
@@ -428,7 +428,7 @@ rules:
             str(logs),
             "--rules", str(rules),
             "--output", "text"
-        ], env={"CRASHLENS_USE_UNIFIED_ENGINE": "1", "CRASHLENS_QUIET": "1"})
+        ], env={"CRASHLENS_QUIET": "1"})
         
         assert result.exit_code == 0
         assert "CrashLens Guard Report" in result.output

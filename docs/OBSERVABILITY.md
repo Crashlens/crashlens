@@ -140,7 +140,7 @@ export CRASHLENS_PUSH_METRICS=true
 export CRASHLENS_PUSHGATEWAY_URL=http://prometheus:9091
 
 # Set job name (for grouping metrics)
-export CRASHLENS_METRICS_JOB=my-app-policy-check
+export CRASHLENS_METRICS_JOB=my-app-guard
 
 # Set max rules (cardinality protection)
 export CRASHLENS_METRICS_MAX_RULES=1000
@@ -383,7 +383,7 @@ sum(crashlens_rule_hits_total{severity="high"}[1h])
 ```
 crashlens_rule_hits_total{mode="scan",rule="excessive_retries",severity="high"} 42
 crashlens_rule_hits_total{mode="scan",rule="model_overkill",severity="medium"} 17
-crashlens_rule_hits_total{mode="policy-check",rule="max_cost",severity="critical"} 3
+crashlens_rule_hits_total{mode="guard",rule="max_cost",severity="critical"} 3
 ```
 
 **Use Cases:**
