@@ -223,7 +223,7 @@ rules:
             for example in examples:
                 if 'prompt' in example:
                     assert 'test@example.com' not in example['prompt']
-                    assert '[REDACTED-EMAIL]' in example['prompt']
+                    assert '[REDACTED_EMAIL]' in example['prompt']
     
     def test_guard_unified_mode_no_content(self):
         """Test that --no-content flag works in unified mode"""
