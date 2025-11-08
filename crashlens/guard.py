@@ -879,6 +879,25 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         1 - Violations found that meet or exceed severity threshold
             (only when --fail-on-violations is set and NOT in --dry-run mode)
     """
+    # ============================================================
+    # Step 7: Deprecation Notice for guard command
+    # ============================================================
+    # Show deprecation warning unless unified engine is already enabled
+    # or CRASHLENS_QUIET is set (to avoid noise in CI)
+    if not os.getenv('CRASHLENS_USE_UNIFIED_ENGINE') and not os.getenv('CRASHLENS_QUIET'):
+        click.echo("", err=True)
+        click.echo("⚠️  DEPRECATION NOTICE: The 'guard' command is being phased out.", err=True)
+        click.echo("   Please migrate to 'policy-check' for the unified engine experience.", err=True)
+        click.echo("", err=True)
+        click.echo("   Migration: crashlens policy-check <your-args>", err=True)
+        click.echo("", err=True)
+        click.echo("   To enable unified engine with 'guard':", err=True)
+        click.echo("     export CRASHLENS_USE_UNIFIED_ENGINE=1", err=True)
+        click.echo("", err=True)
+        click.echo("   To silence this warning:", err=True)
+        click.echo("     export CRASHLENS_QUIET=1", err=True)
+        click.echo("", err=True)
+    
     # Resolve log sources (file, directory, glob, or stdin)
     try:
         log_sources = resolve_log_sources(logfile)

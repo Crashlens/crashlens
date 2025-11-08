@@ -1,56 +1,60 @@
 {
   "summary": {
-    "total_rules": 2,
-    "violations": 2,
+    "total_rules": 8,
+    "violations": 0,
     "skipped_lines": 0,
     "total_cost": null,
     "cost_cap": null,
     "cost_cap_exceeded": false
   },
   "rules": {
-    "high_cost_test": {
-      "count": 2,
-      "severity": "error",
-      "description": "Test rule for high cost",
-      "examples": [
-        {
-          "timestamp": null,
-          "model": "gpt-4",
-          "tokens": 0,
-          "retry_count": 1,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": "test",
-          "reason": "cost_usd=0.05 (rule: >0.01)"
-        },
-        {
-          "timestamp": null,
-          "model": "gpt-4",
-          "tokens": 0,
-          "retry_count": 0,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": "test",
-          "reason": "cost_usd=0.02 (rule: >0.01)"
-        }
-      ]
+    "RL001": {
+      "count": 0,
+      "severity": "fatal",
+      "description": "High token usage on expensive models (gpt-4o)",
+      "examples": []
     },
-    "retry_test": {
-      "count": 1,
+    "RL002": {
+      "count": 0,
+      "severity": "error",
+      "description": "Excessive retry attempts",
+      "examples": []
+    },
+    "RL003": {
+      "count": 0,
       "severity": "warn",
-      "description": "Test rule for retries",
-      "examples": [
-        {
-          "timestamp": null,
-          "model": "gpt-3.5-turbo",
-          "tokens": 0,
-          "retry_count": 5,
-          "fallback_triggered": null,
-          "endpoint": null,
-          "prompt": "test",
-          "reason": "retry_count=5 (rule: >2)"
-        }
-      ]
+      "description": "Fallback mechanism triggered",
+      "examples": []
+    },
+    "RL004": {
+      "count": 0,
+      "severity": "error",
+      "description": "PII detected in prompts",
+      "examples": []
+    },
+    "RL005": {
+      "count": 0,
+      "severity": "fatal",
+      "description": "High cost per request",
+      "examples": []
+    },
+    "RL006": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Medium retry count on expensive models",
+      "examples": []
+    },
+    "RL007": {
+      "count": 0,
+      "severity": "warn",
+      "description": "Slow response time (performance degradation)",
+      "examples": []
+    },
+    "RL008": {
+      "count": 0,
+      "severity": "error",
+      "description": "High error rate (reliability issue)",
+      "examples": []
     }
   }
 }
