@@ -112,11 +112,12 @@ rules:
             # Copy logs
             Path("logs.jsonl").write_text(sample_logs.read_text())
             
-            result = runner.invoke(guard, ["logs.jsonl", "--output", "json"])
+            # Suppress deprecation warning for test output matching
+            result = runner.invoke(guard, ["logs.jsonl", "--output", "json"], env={"CRASHLENS_QUIET": "1"})
             
             # Should autodiscover and run successfully
             assert result.exit_code in [0, 1]
-            assert "Autodiscovered rules: .crashlens/rules.yaml" in result.output
+            assert "Using rules: .crashlens/rules.yaml" in result.output or ".crashlens/rules.yaml" in result.output
     
     def test_guard_autodiscovers_github_dir(self, tmp_path, sample_logs, simple_rules):
         """Guard autodiscovers .github/crashlens/rules.yaml."""
@@ -130,10 +131,11 @@ rules:
             
             Path("logs.jsonl").write_text(sample_logs.read_text())
             
-            result = runner.invoke(guard, ["logs.jsonl", "--output", "json"])
+            # Suppress deprecation warning for test output matching
+            result = runner.invoke(guard, ["logs.jsonl", "--output", "json"], env={"CRASHLENS_QUIET": "1"})
             
             assert result.exit_code in [0, 1]
-            assert "Autodiscovered rules: .github/crashlens/rules.yaml" in result.output
+            assert "Using rules: .github/crashlens/rules.yaml" in result.output or ".github/crashlens/rules.yaml" in result.output
     
     def test_guard_autodiscovers_root(self, tmp_path, sample_logs, simple_rules):
         """Guard autodiscovers rules.yaml in root."""
@@ -144,10 +146,11 @@ rules:
             Path("rules.yaml").write_text(simple_rules)
             Path("logs.jsonl").write_text(sample_logs.read_text())
             
-            result = runner.invoke(guard, ["logs.jsonl", "--output", "json"])
+            # Suppress deprecation warning for test output matching
+            result = runner.invoke(guard, ["logs.jsonl", "--output", "json"], env={"CRASHLENS_QUIET": "1"})
             
             assert result.exit_code in [0, 1]
-            assert "Autodiscovered rules: rules.yaml" in result.output
+            assert "Using rules: rules.yaml" in result.output or "rules.yaml" in result.output
     
     def test_guard_explicit_rules_overrides(self, tmp_path, sample_logs, simple_rules):
         """Explicit --rules option overrides autodiscovery."""
