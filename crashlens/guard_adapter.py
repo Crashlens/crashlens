@@ -217,11 +217,22 @@ class GuardPolicyEngineAdapter:
             return rules
         
         elif "not" in if_block:
-            # NOT: Currently unsupported by PolicyEngine
-            # We'd need to invert the match logic, which requires custom evaluation
-            # For now, log a warning and skip
-            print(f"⚠️  Warning: Rule {rule_id} uses 'not' logic which is not supported. Skipping.")
-            return []
+            # NOT: Invert the conditions using != operator or negative logic
+            not_condition = if_block["not"]
+            inverted = self._invert_conditions(not_condition)
+            
+            if inverted:
+                return [self._create_policy_rule(
+                    rule_id=rule_id,
+                    description=description,
+                    conditions=inverted,
+                    action=action,
+                    severity=severity,
+                    suggestion=suggestion
+                )]
+            else:
+                print(f"⚠️  Warning: Rule {rule_id} uses 'not' logic that cannot be inverted. Skipping.")
+                return []
         
         else:
             # Simple conditions (no boolean logic)
@@ -240,6 +251,73 @@ class GuardPolicyEngineAdapter:
         for condition in and_list:
             flattened.update(self._convert_conditions(condition))
         return flattened
+    
+    def _invert_conditions(self, conditions: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Invert conditions for NOT logic.
+        
+        Converts conditions to their negation:
+        - Direct equality: field: "value" → field: "!=value"
+        - Operators: {">": 5} → {"<=": 5}, {"==": true} → {"==": false}
+        
+        Args:
+            conditions: Conditions to invert
+            
+        Returns:
+            Inverted conditions dict, or None if inversion is not possible
+        """
+        inverted = {}
+        
+        for field, condition in conditions.items():
+            if isinstance(condition, dict):
+                # Handle operator conditions
+                for op, value in condition.items():
+                    # Invert the operator
+                    inverse_op = self._invert_operator(op)
+                    if inverse_op is None:
+                        return None  # Cannot invert
+                    
+                    if isinstance(value, bool):
+                        # For booleans, invert the value instead of operator
+                        if op == "==":
+                            inverted[field] = not value
+                        else:
+                            return None  # Cannot invert non-equality boolean ops
+                    elif inverse_op == "!=":
+                        # Use != operator directly
+                        inverted[field] = f"{inverse_op}{value}"
+                    elif inverse_op == "regex":
+                        # Cannot invert regex
+                        return None
+                    else:
+                        # Inverted numeric operator
+                        inverted[field] = f"{inverse_op}{value}"
+            else:
+                # Direct equality - use != operator
+                if isinstance(condition, bool):
+                    inverted[field] = not condition
+                else:
+                    inverted[field] = f"!={condition}"
+        
+        return inverted
+    
+    def _invert_operator(self, op: str) -> Optional[str]:
+        """Invert a comparison operator.
+        
+        Args:
+            op: Operator to invert (e.g., ">", "==")
+            
+        Returns:
+            Inverted operator, or None if cannot be inverted
+        """
+        operator_inversions = {
+            ">": "<=",
+            ">=": "<",
+            "<": ">=",
+            "<=": ">",
+            "==": "!=",
+            "!=": "==",
+        }
+        return operator_inversions.get(op)
     
     def _convert_conditions(self, conditions: Dict[str, Any]) -> Dict[str, Any]:
         """Convert guard condition format to PolicyEngine match format.
