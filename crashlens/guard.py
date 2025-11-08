@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -595,7 +596,13 @@ def eval_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
               help="Path to write structured JSON report (default: crashlens-report.json)")
 @click.option("--annotation-hook", type=str,
               help="Command to run after report is written (receives report path as argument)")
-def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only, baseline_logs, baseline_deviation, cost_cap, report_path, annotation_hook):
+@click.option("--push-metrics", is_flag=True,
+              help="Push metrics to Prometheus Pushgateway")
+@click.option("--pushgateway-url", default="http://localhost:9091",
+              help="Prometheus Pushgateway URL (default: http://localhost:9091)")
+@click.option("--metrics-job", default="crashlens-guard",
+              help="Metrics job name for grouping (default: crashlens-guard)")
+def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only, baseline_logs, baseline_deviation, cost_cap, report_path, annotation_hook, push_metrics, pushgateway_url, metrics_job):
     """Guard against policy violations in JSONL logs
     
     Loads rules from YAML, evaluates log entries, and generates reports.
@@ -636,6 +643,13 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         1 - Violations found that meet or exceed severity threshold
             (only when --fail-on-violations is set and NOT in --dry-run mode)
     """
+    # Start timing for metrics
+    start_time = time.time()
+    
+    # Track exit code and status for metrics
+    exit_code = 0
+    metrics_status = 'success'
+    
     # Resolve log sources (file, directory, glob, or stdin)
     try:
         log_sources = resolve_log_sources(logfile)
@@ -1000,6 +1014,32 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         if report['summary']['violations'] > 0 or (cost_cap and total_cost > cost_cap):
             click.echo("", err=True)
             click.echo("🔓 Guard enforcement disabled (GUARD_ENFORCE=false)", err=True)
+    
+    # Push metrics to Prometheus Pushgateway if enabled
+    if push_metrics:
+        try:
+            from crashlens.metrics import MetricsCollector
+            
+            duration = time.time() - start_time
+            metrics_status = 'success' if not should_fail else 'failure'
+            
+            metrics = MetricsCollector(pushgateway_url, metrics_job)
+            metrics.record_guard_run(
+                status=metrics_status,
+                violations=report.get('rules', {}),
+                duration=duration,
+                logs_processed=report.get('summary', {}).get('total_logs', 0),
+                severity=severity,
+                rules_count=len(ruleset.get('rules', []))
+            )
+            
+            metrics.push()
+        except ImportError:
+            click.echo("⚠️  Metrics push failed: prometheus-client not installed", err=True)
+            click.echo("   Install with: poetry add prometheus-client", err=True)
+        except Exception as e:
+            click.echo(f"⚠️  Metrics push failed: {e}", err=True)
+            # Don't fail the command if metrics push fails
     
     # Always output status to stderr to keep stdout clean for JSON/structured output
     if dry_run and (report['summary']['violations'] > 0 or (cost_cap and total_cost > cost_cap)):

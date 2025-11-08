@@ -7,7 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2025-01-09
+## [1.0.0] - 2025-11-09
+
+### 🎉 Major Release: Guard Command Production Launch
+
+**Status**: ✅ Production Ready (All Core Features Complete)
+
+### Added
+
+#### Guard Command - Policy Enforcement System
+- **Unified `guard` command** replaces legacy `policy-check`
+  - Advanced boolean logic (AND, OR, NOT operators)
+  - In-operator support for list matching
+  - Comprehensive error messages and validation
+  - 33/33 core tests passing (100%)
+
+#### Prometheus Metrics Integration 🆕
+- **7 production-ready metrics** for observability:
+  - `crashlens_guard_runs_total` - Execution counts by status/severity
+  - `crashlens_guard_violations_total` - Policy violations by rule/severity
+  - `crashlens_guard_logs_processed_total` - Log entries processed
+  - `crashlens_guard_rules_evaluated_total` - Rule evaluation counts
+  - `crashlens_guard_duration_seconds` - Execution time histogram
+  - `crashlens_guard_last_run_timestamp` - Last run timestamp
+  - `crashlens_guard_active_rules` - Active rules gauge
+
+- **CLI Flags**:
+  - `--push-metrics` - Enable metrics push to Pushgateway
+  - `--pushgateway-url` - Prometheus Pushgateway URL
+  - `--metrics-job` - Job name for metrics grouping
+
+- **Infrastructure**:
+  - Docker Compose stack (Pushgateway, Prometheus, Grafana)
+  - Complete setup automation (`setup-prometheus-integration.ps1`)
+  - Comprehensive documentation (`PROMETHEUS_INTEGRATION.md`)
+  - Graceful degradation if Pushgateway unavailable
+
+#### CI/CD Integration
+- `--fail-on-violations` flag for CI pipelines
+- `--dry-run` mode for testing without failing builds
+- `--report-path` for structured JSON output
+- `--annotation-hook` for GitHub Checks integration
+- `GUARD_ENFORCE` environment variable for emergency rollback
+
+#### PII Detection & Privacy
+- Automatic email, phone, SSN, credit card detection
+- `--strip-pii` flag for safe log handling
+- `--no-content` flag to redact examples from reports
+- Privacy-first design (all processing local)
+
+#### Comprehensive Documentation
+- Complete migration guide (`MIGRATION.md`)
+- User manual with examples
+- Command reference (`COMMAND-REFERENCE.md`)
+- Architecture documentation
+- 12-phase verification reports
+- Prometheus integration guide (350+ lines)
+
+### Performance
+- Zero-overhead metrics (opt-in with `--push-metrics`)
+- Graceful error handling (metrics failures don't block guard)
+- Streaming JSONL processing for large files
+- Optimized rule evaluation engine
+
+### Testing
+- **101/101 guard-related tests passing** ✅
+- 12/12 metrics integration tests passing ✅
+- 10/10 final approval checks passing ✅
+- Comprehensive E2E smoke tests
+- Windows/Linux/macOS compatibility verified
 
 ### 🚨 BREAKING CHANGES
 

@@ -1,0 +1,301 @@
+# CrashLens Prometheus Integration
+
+Complete setup guide for integrating CrashLens Guard with Prometheus metrics collection.
+
+## 📋 Overview
+
+CrashLens Guard can push metrics to Prometheus Pushgateway for observability:
+
+- **Guard runs**: Total executions, success/failure rates
+- **Violations**: Policy violations by rule and severity
+- **Performance**: Execution duration, logs processed
+- **Rules**: Active rules, evaluation counts
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
+
+```bash
+poetry add prometheus-client
+```
+
+### 2. Start Prometheus Stack
+
+```bash
+# Start all services (Pushgateway, Prometheus, Grafana)
+docker compose up -d
+
+# Verify services are running
+docker compose ps
+
+# Check logs
+docker compose logs -f
+```
+
+### 3. Run Guard with Metrics
+
+```bash
+# Basic usage
+poetry run crashlens guard fixtures/combined-logs.jsonl \
+  --rules policies/retry-loop-detector.yaml \
+  --push-metrics
+
+# Custom Pushgateway URL
+poetry run crashlens guard logs.jsonl \
+  --rules rules.yaml \
+  --push-metrics \
+  --pushgateway-url http://localhost:9091 \
+  --metrics-job my-guard-job
+```
+
+### 4. Verify Metrics
+
+**Pushgateway UI**: http://localhost:9091
+- See raw metrics pushed by CrashLens
+
+**Prometheus UI**: http://localhost:9090
+- Query metrics: `crashlens_guard_runs_total`
+- Explore all `crashlens_*` metrics
+
+**Grafana**: http://localhost:3000 (admin/admin)
+- Import CrashLens dashboard from `dashboards/`
+- Visualize metrics over time
+
+## 📊 Available Metrics
+
+### Counters
+
+- `crashlens_guard_runs_total{status, severity}` - Total guard executions
+- `crashlens_guard_violations_total{rule_id, severity}` - Policy violations
+- `crashlens_guard_logs_processed_total` - Log entries processed
+- `crashlens_guard_rules_evaluated_total{rule_id}` - Rule evaluations
+
+### Histograms
+
+- `crashlens_guard_duration_seconds` - Execution time distribution
+
+### Gauges
+
+- `crashlens_guard_last_run_timestamp` - Last run timestamp
+- `crashlens_guard_active_rules` - Number of active rules
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```bash
+# Disable metrics push temporarily
+export CRASHLENS_DISABLE_METRICS=true
+
+# Custom Pushgateway URL
+export CRASHLENS_PUSHGATEWAY_URL=http://custom:9091
+```
+
+### CLI Flags
+
+```bash
+--push-metrics              # Enable metrics push
+--pushgateway-url URL       # Pushgateway URL (default: http://localhost:9091)
+--metrics-job NAME          # Job name for grouping (default: crashlens-guard)
+```
+
+## 🐳 Docker Services
+
+### Pushgateway (Port 9091)
+
+Receives metrics from CrashLens Guard via HTTP push.
+
+**Access**: http://localhost:9091
+
+**Test**:
+```bash
+curl http://localhost:9091/metrics | grep crashlens
+```
+
+### Prometheus (Port 9090)
+
+Scrapes metrics from Pushgateway every 15 seconds.
+
+**Access**: http://localhost:9090
+
+**Query Examples**:
+```promql
+# Total guard runs by status
+crashlens_guard_runs_total
+
+# Violation rate
+rate(crashlens_guard_violations_total[5m])
+
+# Average execution time
+rate(crashlens_guard_duration_seconds_sum[5m]) / rate(crashlens_guard_duration_seconds_count[5m])
+
+# Logs processed per minute
+rate(crashlens_guard_logs_processed_total[1m]) * 60
+```
+
+### Grafana (Port 3000)
+
+Visualizes Prometheus metrics in dashboards.
+
+**Access**: http://localhost:3000
+**Login**: admin / admin
+
+**Setup Dashboard**:
+1. Add Prometheus data source: http://prometheus:9090
+2. Import dashboard from `dashboards/crashlens-policy-enforcement.json`
+
+## 🧪 Testing
+
+### Test Script
+
+Run the automated setup and verification:
+
+```bash
+# Windows PowerShell
+.\setup-prometheus-integration.ps1
+
+# Verify metrics integration
+.\test-prometheus-metrics.ps1
+```
+
+### Manual Testing
+
+```bash
+# 1. Test metrics module directly
+poetry run python -c "from crashlens.metrics import test_metrics; test_metrics()"
+
+# 2. Run guard with metrics
+poetry run crashlens guard fixtures/combined-logs.jsonl \
+  --rules policies/retry-loop-detector.yaml \
+  --push-metrics
+
+# 3. Check Pushgateway
+curl http://localhost:9091/metrics | grep crashlens_guard_runs_total
+
+# 4. Query Prometheus
+curl 'http://localhost:9090/api/v1/query?query=crashlens_guard_runs_total'
+```
+
+## 📈 Example Queries
+
+### Guard Performance
+
+```promql
+# Execution duration (95th percentile)
+histogram_quantile(0.95, crashlens_guard_duration_seconds_bucket)
+
+# Success rate (last hour)
+sum(rate(crashlens_guard_runs_total{status="success"}[1h])) / 
+sum(rate(crashlens_guard_runs_total[1h])) * 100
+```
+
+### Violation Trends
+
+```promql
+# Violations per minute by severity
+sum by (severity) (rate(crashlens_guard_violations_total[1m])) * 60
+
+# Top 5 rules with violations
+topk(5, sum by (rule_id) (crashlens_guard_violations_total))
+```
+
+### Resource Usage
+
+```promql
+# Logs processed per second
+rate(crashlens_guard_logs_processed_total[1m])
+
+# Average rules per run
+avg_over_time(crashlens_guard_active_rules[5m])
+```
+
+## 🔥 Troubleshooting
+
+### Metrics Not Appearing
+
+1. **Check Pushgateway connection**:
+   ```bash
+   curl http://localhost:9091/metrics
+   ```
+
+2. **Verify guard CLI flags**:
+   ```bash
+   poetry run crashlens guard --help | grep metrics
+   ```
+
+3. **Check Docker services**:
+   ```bash
+   docker compose ps
+   docker compose logs pushgateway
+   ```
+
+### Permission Errors
+
+```bash
+# Windows: Run PowerShell as Administrator
+# Fix volume permissions
+docker compose down -v
+docker compose up -d
+```
+
+### Prometheus Not Scraping
+
+1. **Check prometheus.yml**:
+   ```yaml
+   scrape_configs:
+     - job_name: 'pushgateway'
+       static_configs:
+         - targets: ['pushgateway:9091']  # Must use Docker network name
+   ```
+
+2. **Reload Prometheus config**:
+   ```bash
+   curl -X POST http://localhost:9090/-/reload
+   ```
+
+3. **Check targets in Prometheus UI**:
+   http://localhost:9090/targets
+
+### Grafana Data Source Issues
+
+1. **Prometheus URL must be**: `http://prometheus:9090` (Docker network name)
+2. **Not**: `http://localhost:9090` (won't work inside container)
+
+## 📚 Additional Resources
+
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Pushgateway Guide](https://prometheus.io/docs/practices/pushing/)
+- [Grafana Dashboards](https://grafana.com/docs/)
+- [CrashLens Metrics API](../docs/OBSERVABILITY.md)
+
+## 🔒 Production Deployment
+
+### Security Checklist
+
+- [ ] Change Grafana admin password
+- [ ] Enable Prometheus authentication
+- [ ] Use HTTPS for all endpoints
+- [ ] Restrict Pushgateway access (firewall rules)
+- [ ] Set up alert rules for violations
+- [ ] Configure backup for Grafana dashboards
+
+### Scaling Considerations
+
+- [ ] Use persistent volumes for data retention
+- [ ] Configure Prometheus retention (default: 15 days)
+- [ ] Set up federation for multi-cluster deployments
+- [ ] Monitor Pushgateway memory usage
+- [ ] Implement metrics aggregation for high-volume logs
+
+## 🎯 Next Steps
+
+1. **Set up alerts**: Create rules in `dashboards/crashlens-alert-rules.yml`
+2. **Customize dashboard**: Import and modify Grafana dashboard
+3. **CI/CD integration**: Add metrics push to CI pipeline
+4. **Production deployment**: Follow security checklist above
+
+---
+
+**Status**: ✅ Ready for Production
+**Version**: v1.0.0
+**Last Updated**: 2025-11-09

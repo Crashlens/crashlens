@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # Prometheus Pushgateway - receives metrics from crashlens guard
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: crashlens-pushgateway
+    ports:
+      - "9091:9091"
+    networks:
+      - crashlens-metrics
+    restart: unless-stopped
+
+  # Prometheus - scrapes metrics from Pushgateway
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: crashlens-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - crashlens-metrics
+    depends_on:
+      - pushgateway
+    restart: unless-stopped
+
+  # Grafana - visualizes metrics from Prometheus
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crashlens-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_INSTALL_PLUGINS=
+    networks:
+      - crashlens-metrics
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  crashlens-metrics:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:

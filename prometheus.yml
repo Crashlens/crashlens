@@ -1,0 +1,33 @@
+# Prometheus configuration for CrashLens Guard metrics
+# Scrapes metrics from Pushgateway for visualization in Grafana
+
+global:
+  scrape_interval: 15s      # Scrape targets every 15 seconds
+  evaluation_interval: 15s  # Evaluate rules every 15 seconds
+  scrape_timeout: 10s
+
+# Scrape configurations
+scrape_configs:
+  # Job 1: Prometheus Pushgateway (receives metrics from crashlens guard)
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']  # Docker network hostname
+        labels:
+          service: 'crashlens'
+          environment: 'development'
+
+  # Job 2: Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Alert rules (optional - uncomment if you have alert rules)
+# rule_files:
+#   - 'dashboards/crashlens-alert-rules.yml'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
