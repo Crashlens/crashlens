@@ -1,29 +1,42 @@
 # CrashLens Guard/Policy-Check Merge - Complete Implementation Documentation
 
+> **⚠️ HISTORICAL DOCUMENTATION**: This document describes the implementation of Steps 0-9 that built the unified PolicyEngine with a feature flag (`CRASHLENS_USE_UNIFIED_ENGINE`). As of 2025-11-08, Step 10 has been completed and the feature flag has been removed. This document is preserved for historical reference.
+>
+> **Current Reality (Post-Step 10):**
+> - The unified PolicyEngine is the only execution path
+> - The `CRASHLENS_USE_UNIFIED_ENGINE` feature flag has been removed
+> - Legacy code has been deleted
+> - CrashLens launched directly at v1.0 with unified engine only (no gradual rollout)
+>
+> For technical details about the feature flag era (Steps 0-9), continue reading below.
+
+---
+
 **Date:** November 8, 2025  
 **Commits:** 000 through 009 (12 commits total)  
-**Status:** Steps 0-9 COMPLETE, Step 10 BLOCKED  
+**Status:** Steps 0-9 COMPLETE, Step 10 COMPLETED (2025-11-08)  
 **Final Commit:** `4d5ff0f` (Step 9)
 
 ---
 
 ## Executive Summary
 
-This document provides comprehensive technical documentation for the 10-step guard/policy-check merge implementation in CrashLens. **Steps 0-9 are complete and production-ready**. **Step 10 (deprecation removal) is BLOCKED** pending production validation.
+This document provides comprehensive technical documentation for the 10-step guard/policy-check merge implementation in CrashLens. **Steps 0-9 were completed and the feature flag architecture was fully implemented**. **Step 10 (deprecation removal) was subsequently completed**, removing the feature flag and legacy code.
 
-### Architecture Overview
+### Architecture Overview (Historical - Steps 0-9)
 
-**Current State (Post Step 0-9):**
-- ✅ **Two CLI commands exist**: `guard` (in `crashlens/guard.py`) and `policy-check` (alias in `crashlens/cli.py`)
-- ✅ **Unified engine implemented**: `GuardPolicyEngineAdapter` bridges legacy and new systems
-- ✅ **Feature flag control**: `CRASHLENS_USE_UNIFIED_ENGINE=1` enables unified engine
-- ✅ **Backwards compatible**: Default is legacy mode (`CRASHLENS_USE_UNIFIED_ENGINE=0`)
-- ✅ **Production ready**: 177+ tests passing, benchmarks show 14.1% performance improvement, 100% parity
+**State During Steps 0-9:**
+- ✅ **Two CLI commands existed**: `guard` (in `crashlens/guard.py`) and `policy-check` (alias in `crashlens/cli.py`)
+- ✅ **Unified engine implemented**: `GuardPolicyEngineAdapter` bridged legacy and new systems
+- ✅ **Feature flag control**: `CRASHLENS_USE_UNIFIED_ENGINE=1` enabled unified engine
+- ✅ **Backwards compatible**: Default was legacy mode (`CRASHLENS_USE_UNIFIED_ENGINE=0`)
+- ✅ **Production ready**: 177+ tests passing, benchmarks showed 14.1% performance improvement, 100% parity
 
-**What Was NOT Done (Step 10 Blocked):**
-- ❌ **No code removed**: Legacy code still exists, feature flag still active
-- ❌ **No breaking changes**: Both commands functional, full backwards compatibility
-- ❌ **No production deployment**: Code ready but not released (v3.0.0 pending)
+**Step 10 Completion (2025-11-08):**
+- ✅ **Feature flag removed**: `CRASHLENS_USE_UNIFIED_ENGINE` deleted from codebase
+- ✅ **Legacy code removed**: Single execution path (unified engine only)
+- ✅ **Tests updated**: All env dict arguments and monkeypatch usage removed
+- ✅ **Docs updated**: Migration documentation archived
 
 ---
 
