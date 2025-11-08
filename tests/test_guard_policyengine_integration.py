@@ -1,7 +1,7 @@
 """
 Integration tests for GuardPolicyEngineAdapter
 
-Tests the feature-flagged integration between guard and PolicyEngine.
+Tests the integration between guard and PolicyEngine.
 """
 
 import pytest
@@ -13,7 +13,6 @@ import json
 
 from crashlens.guard_adapter import (
     GuardPolicyEngineAdapter,
-    should_use_unified_engine,
 )
 
 
@@ -89,45 +88,11 @@ def sample_logs_jsonl(tmp_path):
     return log_path
 
 
-class TestFeatureFlag:
-    """Test feature flag behavior."""
-    
-    def test_feature_flag_disabled_by_default(self, monkeypatch):
-        """Test that unified engine is disabled by default."""
-        monkeypatch.delenv("CRASHLENS_USE_UNIFIED_ENGINE", raising=False)
-        assert not should_use_unified_engine()
-    
-    def test_feature_flag_enabled_with_env_var(self, monkeypatch):
-        """Test that unified engine can be enabled via env var."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        assert should_use_unified_engine()
-    
-    def test_feature_flag_disabled_with_zero(self, monkeypatch):
-        """Test that unified engine is disabled with 0."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "0")
-        assert not should_use_unified_engine()
-
-
 class TestAdapterInitialization:
     """Test adapter initialization."""
     
-    def test_adapter_disabled_by_default(self, sample_rules_yaml, monkeypatch):
-        """Test that adapter is disabled when feature flag is off."""
-        monkeypatch.delenv("CRASHLENS_USE_UNIFIED_ENGINE", raising=False)
-        
-        adapter = GuardPolicyEngineAdapter(
-            rules_yaml_path=sample_rules_yaml,
-            detector_mode="none",
-        )
-        
-        assert not adapter.is_enabled()
-        assert adapter.policy_engine is None
-        assert adapter.detector_driver is None
-    
-    def test_adapter_enabled_with_flag(self, sample_rules_yaml, monkeypatch):
-        """Test that adapter is enabled when feature flag is on."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
+    def test_adapter_enabled(self, sample_rules_yaml):
+        """Test that adapter is always enabled with unified engine."""
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="none",
@@ -138,10 +103,8 @@ class TestAdapterInitialization:
         assert adapter.policy_engine is not None
         assert adapter.detector_driver is None  # mode=none
     
-    def test_adapter_with_detector_driver(self, sample_rules_yaml, monkeypatch):
+    def test_adapter_with_detector_driver(self, sample_rules_yaml):
         """Test that detector driver is initialized in inline mode."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="inline",
@@ -155,24 +118,8 @@ class TestAdapterInitialization:
 class TestLogProcessing:
     """Test log processing with adapter."""
     
-    def test_process_logs_disabled(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
-        """Test that processing returns empty when disabled."""
-        monkeypatch.delenv("CRASHLENS_USE_UNIFIED_ENGINE", raising=False)
-        
-        adapter = GuardPolicyEngineAdapter(
-            rules_yaml_path=sample_rules_yaml,
-            detector_mode="none",
-        )
-        
-        violations, metrics = adapter.process_logs([sample_logs_jsonl])
-        
-        assert violations == {}
-        assert metrics == {}
-    
-    def test_process_logs_enabled(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
-        """Test that processing works when enabled."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
+    def test_process_logs_enabled(self, sample_rules_yaml, sample_logs_jsonl):
+        """Test that processing works with unified engine."""
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="none",
@@ -190,10 +137,8 @@ class TestLogProcessing:
         assert metrics["total_records"] == 3
         assert metrics["used_unified_engine"] is True
     
-    def test_suppression_works(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
+    def test_suppression_works(self, sample_rules_yaml, sample_logs_jsonl):
         """Test that rule suppression works."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="none",
@@ -206,10 +151,8 @@ class TestLogProcessing:
         assert "TEST001" not in violations
         # TEST002 might still be present
     
-    def test_multiple_files(self, sample_rules_yaml, tmp_path, monkeypatch):
+    def test_multiple_files(self, sample_rules_yaml, tmp_path):
         """Test processing multiple log files."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         # Create two log files
         log1 = tmp_path / "log1.jsonl"
         log2 = tmp_path / "log2.jsonl"
@@ -233,10 +176,8 @@ class TestLogProcessing:
 class TestLegacyFormatConversion:
     """Test conversion from PolicyEngine format to legacy guard format."""
     
-    def test_convert_violations_to_legacy(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
+    def test_convert_violations_to_legacy(self, sample_rules_yaml, sample_logs_jsonl):
         """Test conversion to legacy format."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="none",
@@ -262,10 +203,8 @@ class TestLegacyFormatConversion:
             for example in result["examples"]:
                 assert "timestamp" in example or "model" in example
     
-    def test_severity_mapping(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
+    def test_severity_mapping(self, sample_rules_yaml, sample_logs_jsonl):
         """Test that PolicySeverity maps correctly to legacy severity."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="none",
@@ -278,10 +217,8 @@ class TestLegacyFormatConversion:
         for result in legacy_results.values():
             assert result["severity"] in ["warn", "error", "fatal"]
     
-    def test_no_content_flag(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
+    def test_no_content_flag(self, sample_rules_yaml, sample_logs_jsonl):
         """Test that no_content flag excludes examples."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         adapter = GuardPolicyEngineAdapter(
             rules_yaml_path=sample_rules_yaml,
             detector_mode="none",
@@ -297,10 +234,8 @@ class TestLegacyFormatConversion:
         for result in legacy_results.values():
             assert result["examples"] == []
     
-    def test_max_examples_limit(self, sample_rules_yaml, monkeypatch):
+    def test_max_examples_limit(self, sample_rules_yaml):
         """Test that max_examples limits examples."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         # Create log file with many violations
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
             for i in range(10):
@@ -333,10 +268,8 @@ class TestLegacyFormatConversion:
 class TestDetectorIntegration:
     """Test detector driver integration."""
     
-    def test_inline_detection_enriches_logs(self, sample_rules_yaml, monkeypatch):
+    def test_inline_detection_enriches_logs(self, sample_rules_yaml):
         """Test that inline detection enriches logs before evaluation."""
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
         # Create logs with retry pattern
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
             for i in range(4):
@@ -366,44 +299,3 @@ class TestDetectorIntegration:
             assert metrics["detector_time_ms"] >= 0
         finally:
             log_path.unlink()
-
-
-class TestBackwardsCompatibility:
-    """Test backwards compatibility when feature flag is off."""
-    
-    def test_disabled_has_no_side_effects(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
-        """Test that disabled adapter has no side effects."""
-        monkeypatch.delenv("CRASHLENS_USE_UNIFIED_ENGINE", raising=False)
-        
-        adapter = GuardPolicyEngineAdapter(
-            rules_yaml_path=sample_rules_yaml,
-            detector_mode="inline",  # Even with inline mode
-        )
-        
-        # Should initialize successfully
-        assert not adapter.is_enabled()
-        
-        # Should return empty results
-        violations, metrics = adapter.process_logs([sample_logs_jsonl])
-        assert violations == {}
-        assert metrics == {}
-    
-    def test_can_toggle_flag_at_runtime(self, sample_rules_yaml, sample_logs_jsonl, monkeypatch):
-        """Test that feature flag can be toggled (for testing)."""
-        # Start disabled
-        monkeypatch.delenv("CRASHLENS_USE_UNIFIED_ENGINE", raising=False)
-        
-        adapter1 = GuardPolicyEngineAdapter(
-            rules_yaml_path=sample_rules_yaml,
-            detector_mode="none",
-        )
-        assert not adapter1.is_enabled()
-        
-        # Enable flag
-        monkeypatch.setenv("CRASHLENS_USE_UNIFIED_ENGINE", "1")
-        
-        adapter2 = GuardPolicyEngineAdapter(
-            rules_yaml_path=sample_rules_yaml,
-            detector_mode="none",
-        )
-        assert adapter2.is_enabled()

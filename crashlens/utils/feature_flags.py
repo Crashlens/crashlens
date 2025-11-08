@@ -1,8 +1,8 @@
 """
-Feature flags for CrashLens unified engine migration.
+Feature flags for CrashLens (legacy module - kept for compatibility).
 
-This module provides helpers to check feature flags that control
-the gradual rollout of the unified guard/policy-check engine.
+This module originally controlled the unified engine feature flag.
+As of v1.0, the unified engine is always enabled.
 """
 
 import os
@@ -12,36 +12,37 @@ from typing import Optional
 def is_unified_enabled() -> bool:
     """Check if the unified engine is enabled.
     
+    **Note:** As of v1.0, this function always returns True.
+    The unified engine is the only execution path.
+    
     Returns:
-        True if CRASHLENS_USE_UNIFIED_ENGINE is set to '1', False otherwise.
+        True (always, in v1.0+)
     
     Examples:
-        >>> os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = '1'
         >>> is_unified_enabled()
         True
-        >>> os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = '0'
-        >>> is_unified_enabled()
-        False
     """
-    return os.getenv('CRASHLENS_USE_UNIFIED_ENGINE', '0') == '1'
+    return True
 
 
+# Legacy functions kept for backwards compatibility (deprecated)
 def get_unified_flag_value() -> str:
     """Get the raw value of the unified engine flag.
     
+    **Deprecated:** Always returns '1' in v1.0+
+    
     Returns:
-        The value of CRASHLENS_USE_UNIFIED_ENGINE env var, or '0' if not set.
+        '1' (always, unified engine is the only path)
     """
-    return os.getenv('CRASHLENS_USE_UNIFIED_ENGINE', '0')
+    return '1'
 
 
 def set_unified_enabled(enabled: bool) -> None:
     """Set the unified engine flag (for testing purposes).
     
-    Args:
-        enabled: Whether to enable the unified engine.
+    **Deprecated:** No-op in v1.0+ (unified engine always enabled)
     
-    Warning:
-        This modifies os.environ and should only be used in tests.
+    Args:
+        enabled: Ignored (unified engine always enabled)
     """
-    os.environ['CRASHLENS_USE_UNIFIED_ENGINE'] = '1' if enabled else '0'
+    pass  # No-op, unified engine always enabled

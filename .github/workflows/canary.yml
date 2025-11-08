@@ -192,10 +192,8 @@ jobs:
           echo ""
           echo "Rollback Instructions:"
           echo "1. Review failure logs in job artifacts"
-          echo "2. Revert problematic commits"
-          echo "3. Disable feature flags if necessary:"
-          echo "   - CRASHLENS_USE_UNIFIED_ENGINE=0"
-          echo "4. Re-run canary workflow after fixes"
+          echo "2. Revert to previous stable release tag"
+          echo "3. Re-run canary workflow after fixes"
       
       - name: Create rollback issue
         uses: actions/github-script@v7
@@ -212,18 +210,14 @@ jobs:
               **Action Required:**
               1. Review failure logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
               2. Download test artifacts for diagnostics
-              3. Revert problematic commits
-              4. Disable feature flags if necessary
-              5. Re-run canary workflow after fixes
+              3. Revert to previous stable release tag or revert problematic commits
+              4. Re-run canary workflow after fixes
               
               **Rollback Command:**
               \`\`\`bash
               git revert -m 1 <merge-commit-sha>
               git push origin internal/canary
               \`\`\`
-              
-              **Feature Flags:**
-              - Set \`CRASHLENS_USE_UNIFIED_ENGINE=0\` to disable unified engine
               
               cc: @maintainers
               `,

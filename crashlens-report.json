@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_rules": 1,
+    "total_rules": 2,
     "violations": 0,
     "skipped_lines": 0,
     "total_cost": null,
@@ -8,10 +8,16 @@
     "cost_cap_exceeded": false
   },
   "rules": {
-    "HIGH_TOKENS": {
+    "RL001": {
+      "count": 0,
+      "severity": "fatal",
+      "description": "High token usage",
+      "examples": []
+    },
+    "RL002": {
       "count": 0,
       "severity": "warn",
-      "description": "",
+      "description": "Many retries",
       "examples": []
     }
   }
