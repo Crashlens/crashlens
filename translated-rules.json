@@ -1,0 +1,78 @@
+{
+  "rules": [
+    {
+      "id": "test_retry_count",
+      "description": "Test excessive retry count",
+      "if": {
+        "if_retry_count_gt": ">3"
+      },
+      "action": "error",
+      "severity": "fatal"
+    },
+    {
+      "id": "test_model_match",
+      "description": "Test expensive model detection",
+      "if": {
+        "if_model": "gpt-4o",
+        "if_tokens_gt": ">2000"
+      },
+      "action": "warn",
+      "severity": "error"
+    },
+    {
+      "id": "test_fallback",
+      "description": "Test fallback detection",
+      "if": {
+        "if_fallback_triggered": true
+      },
+      "action": "warn",
+      "severity": "warn"
+    },
+    {
+      "id": "test_cost_cap",
+      "description": "Test cost threshold",
+      "if": {
+        "if_cost_usd_gt": ">0.50"
+      },
+      "action": "fail_ci",
+      "severity": "fatal"
+    },
+    {
+      "id": "test_boolean_and",
+      "description": "Test AND composition",
+      "if": {
+        "and": [
+          {
+            "if_model": "gpt-4o"
+          },
+          {
+            "if_retry_count_gt": ">1"
+          }
+        ]
+      },
+      "action": "error",
+      "severity": "error"
+    },
+    {
+      "id": "test_boolean_or",
+      "description": "Test OR composition",
+      "if": {
+        "or": [
+          {
+            "if_model": "gpt-4o"
+          },
+          {
+            "if_model": "claude-3-opus"
+          }
+        ]
+      },
+      "action": "warn",
+      "severity": "warn"
+    }
+  ],
+  "metadata": {
+    "source": "tests\\fixtures\\sample-policy.yaml",
+    "translator_version": "1.0.0",
+    "warnings_count": 0
+  }
+}

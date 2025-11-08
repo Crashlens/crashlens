@@ -1,0 +1,54 @@
+version: 1
+rules:
+  - id: test_retry_count
+    description: "Test excessive retry count"
+    match:
+      retry_count: ">3"
+    action: fail
+    severity: critical
+    suggestion: "Implement exponential backoff"
+  
+  - id: test_model_match
+    description: "Test expensive model detection"
+    match:
+      model: "gpt-4o"
+      tokens: ">2000"
+    action: warn
+    severity: high
+    suggestion: "Consider using cheaper model"
+  
+  - id: test_fallback
+    description: "Test fallback detection"
+    match:
+      fallback_triggered: true
+    action: warn
+    severity: medium
+    suggestion: "Review fallback configuration"
+  
+  - id: test_cost_cap
+    description: "Test cost threshold"
+    match:
+      cost_usd: ">0.50"
+    action: block
+    severity: critical
+    suggestion: "Reduce API usage"
+  
+  - id: test_boolean_and
+    description: "Test AND composition"
+    match:
+      and:
+        - model: "gpt-4o"
+        - retry_count: ">1"
+    action: fail
+    severity: high
+    suggestion: "Optimize retry logic"
+  
+  - id: test_boolean_or
+    description: "Test OR composition"
+    match:
+      or:
+        - model: "gpt-4o"
+        - model: "claude-3-opus"
+    action: warn
+    severity: medium
+    suggestion: "Review model selection"
