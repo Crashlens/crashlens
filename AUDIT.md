@@ -104,7 +104,14 @@ The `crashlens guard` and `crashlens policy-check` commands are redundant. They 
 - **Summary**: Unified log iterator with streaming support, optional Langfuse validation
 - **Documentation**: `docs/STEP_2_INGESTION_SUMMARY.md`
 
-### ⏳ Step 3: Integrate PolicyEngine into Guard
+### ✅ Step 3: Detector Driver (Commit 003)
+- **Status**: Complete
+- **Files**: `crashlens/detectors/driver.py`, `tests/test_detectors_driver.py`
+- **Tests**: 21/21 passing
+- **Summary**: Batch-mode detector orchestration with three modes (none/precomputed/inline), constant-memory operation, metrics collection
+- **Documentation**: `docs/STEP_3_DETECTOR_DRIVER_SUMMARY.md`
+
+### ⏳ Step 4: Integrate PolicyEngine into Guard
 - **Status**: Pending
 - **Planned Changes**:
   - Replace guard's direct JSON loading with LogIterator
