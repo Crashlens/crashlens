@@ -26,9 +26,14 @@ from crashlens.config import resolve_variables_in_obj
 # Import streaming reader for large file support
 from crashlens.io.stream_reader import stream_jsonl
 
-# Import unified engine adapter (Step 4 Phase 2)
-# Only used when CRASHLENS_USE_UNIFIED_ENGINE=1
+# Import unified engine adapter
 from crashlens.guard_adapter import GuardPolicyEngineAdapter
+
+# Import unified writers (Step 10 Phase 1)
+from crashlens.writers.json_writer import JSONWriter
+from crashlens.writers.markdown_writer import MarkdownWriter
+from crashlens.writers.html_writer import HTMLWriter
+from crashlens.writers.text_writer import TextWriter
 
 # PII detection patterns
 EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
@@ -46,10 +51,6 @@ SEVERITY_RANK = {"warn": 1, "error": 2, "fatal": 3}
 # Use environment variable CRASHLENS_STREAM_THRESHOLD to customize
 STREAM_THRESHOLD_BYTES = int(os.getenv("CRASHLENS_STREAM_THRESHOLD", str(10 * 1024 * 1024)))
 STREAM_BATCH_SIZE = int(os.getenv("CRASHLENS_STREAM_BATCH_SIZE", "5000"))
-
-# Feature flag for unified engine (Step 4 Phase 2)
-# Set CRASHLENS_USE_UNIFIED_ENGINE=1 to enable GuardPolicyEngineAdapter
-# Note: Check at runtime in guard() function, not at module load time
 
 
 def generate_run_id() -> str:
@@ -566,248 +567,6 @@ def eval_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
     return evaluate_condition(cond, entry)
 
 
-def format_json_report(report: Dict[str, Any]) -> str:
-    """Format report as JSON
-    
-    Args:
-        report: Report data structure
-        
-    Returns:
-        Pretty-printed JSON string
-    """
-    return json.dumps(report, indent=2)
-
-
-def format_markdown_report(report: Dict[str, Any], logfile: str) -> str:
-    """Format report as Markdown
-    
-    Args:
-        report: Report data structure
-        logfile: Path to log file that was scanned
-        
-    Returns:
-        Markdown-formatted report string
-    """
-    lines = ["# CrashLens Guard Report", ""]
-    lines.append(f"- **Scanned**: `{logfile}`")
-    lines.append(f"- **Rules Checked**: {len(report['rules'])}")
-    lines.append(f"- **Violations Found**: {report['summary']['violations']}")
-    lines.append("")
-    
-    if report['summary']['violations'] == 0:
-        lines.append("✅ **No violations detected**")
-        lines.append("")
-        return "\n".join(lines)
-    
-    lines.append("## Violations by Rule")
-    lines.append("")
-    
-    for rid, meta in report["rules"].items():
-        if meta["count"] == 0:
-            continue
-            
-        lines.append(f"### {rid} — `{meta['severity']}` severity")
-        lines.append("")
-        lines.append(f"**Description**: {meta['description']}")
-        lines.append("")
-        lines.append(f"**Violation Count**: {meta['count']}")
-        lines.append("")
-        
-        if meta['examples']:
-            lines.append("**Example Violations**:")
-            lines.append("")
-            for i, ex in enumerate(meta['examples'][:3], 1):
-                lines.append(f"{i}. **Timestamp**: {ex.get('timestamp', 'N/A')}")
-                lines.append(f"   - **Model**: `{ex.get('model', 'N/A')}`")
-                lines.append(f"   - **Tokens**: {ex.get('tokens', 'N/A')}")
-                lines.append(f"   - **Retry Count**: {ex.get('retry_count', 'N/A')}")
-                lines.append(f"   - **Fallback**: {ex.get('fallback_triggered', 'N/A')}")
-                lines.append(f"   - **Endpoint**: `{ex.get('endpoint', 'N/A')}`")
-                if ex.get('prompt'):
-                    prompt_preview = ex['prompt'][:80]
-                    if len(ex['prompt']) > 80:
-                        prompt_preview += "..."
-                    lines.append(f"   - **Prompt**: {prompt_preview}")
-                lines.append("")
-        
-        lines.append("---")
-        lines.append("")
-    
-    return "\n".join(lines)
-
-
-def format_html_report(report: Dict[str, Any], logfile: str, summary_only: bool = False) -> str:
-    """Format report as HTML with Bootstrap styling
-    
-    Args:
-        report: Report data structure
-        logfile: Path to log file that was scanned
-        summary_only: If True, omit content examples
-        
-    Returns:
-        HTML report string with inline styles for email compatibility
-    """
-    # Color mapping for severity levels
-    severity_colors = {
-        'critical': '#dc3545',  # Red
-        'high': '#fd7e14',      # Orange
-        'medium': '#ffc107',    # Yellow
-        'low': '#6c757d'        # Gray
-    }
-    
-    # Start HTML with inline styles
-    html_parts = [
-        '<!DOCTYPE html>',
-        '<html lang="en">',
-        '<head>',
-        '    <meta charset="UTF-8">',
-        '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '    <title>CrashLens Guard Report</title>',
-        '    <style>',
-        '        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background-color: #f8f9fa; }',
-        '        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }',
-        '        h1 { color: #212529; border-bottom: 3px solid #0d6efd; padding-bottom: 10px; }',
-        '        .summary { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }',
-        '        .summary-item { display: inline-block; margin-right: 30px; }',
-        '        .summary-label { font-weight: 600; color: #495057; }',
-        '        .violation-card { border-left: 4px solid #dee2e6; padding: 15px; margin: 15px 0; background: #f8f9fa; border-radius: 4px; }',
-        '        .violation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }',
-        '        .rule-id { font-weight: 700; font-size: 1.1em; color: #212529; }',
-        '        .severity-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; color: white; }',
-        '        .description { color: #6c757d; margin: 10px 0; }',
-        '        .count { font-size: 1.2em; font-weight: 600; color: #dc3545; }',
-        '        .examples { margin-top: 15px; }',
-        '        .example-item { background: white; padding: 12px; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6; }',
-        '        .example-row { margin: 5px 0; }',
-        '        .example-label { font-weight: 600; color: #495057; min-width: 120px; display: inline-block; }',
-        '        .example-value { color: #212529; }',
-        '        code { background: #f1f3f5; padding: 2px 6px; border-radius: 3px; font-family: "Courier New", monospace; }',
-        '        .no-violations { text-align: center; padding: 40px; color: #28a745; font-size: 1.3em; }',
-        '        .success-icon { font-size: 3em; }',
-        '    </style>',
-        '</head>',
-        '<body>',
-        '    <div class="container">',
-        '        <h1>🛡️ CrashLens Guard Report</h1>',
-        '        <div class="summary">',
-        f'            <div class="summary-item"><span class="summary-label">Scanned:</span> <code>{logfile}</code></div>',
-        f'            <div class="summary-item"><span class="summary-label">Rules Checked:</span> {len(report["rules"])}</div>',
-        f'            <div class="summary-item"><span class="summary-label">Violations Found:</span> <span class="count">{report["summary"]["violations"]}</span></div>',
-        '        </div>',
-    ]
-    
-    # No violations case
-    if report['summary']['violations'] == 0:
-        html_parts.extend([
-            '        <div class="no-violations">',
-            '            <div class="success-icon">✅</div>',
-            '            <div>No violations detected - All policies passed!</div>',
-            '        </div>',
-        ])
-    else:
-        # Add violation cards
-        for rid, meta in report["rules"].items():
-            if meta["count"] == 0:
-                continue
-            
-            severity = meta['severity'].lower()
-            color = severity_colors.get(severity, '#6c757d')
-            
-            html_parts.extend([
-                f'        <div class="violation-card" style="border-left-color: {color};">',
-                '            <div class="violation-header">',
-                f'                <span class="rule-id">{html.escape(rid)}</span>',
-                f'                <span class="severity-badge" style="background-color: {color};">{html.escape(severity.upper())}</span>',
-                '            </div>',
-                f'            <div class="description">{html.escape(meta["description"])}</div>',
-                f'            <div><span class="summary-label">Violation Count:</span> <span class="count">{meta["count"]}</span></div>',
-            ])
-            
-            # Add examples if available and not summary_only
-            if meta['examples'] and not summary_only:
-                html_parts.append('            <div class="examples">')
-                html_parts.append('                <div class="summary-label">Example Violations:</div>')
-                
-                for i, ex in enumerate(meta['examples'][:3], 1):
-                    html_parts.append('                <div class="example-item">')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Example #{i}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Timestamp:</span> <span class="example-value">{html.escape(str(ex.get("timestamp", "N/A")))}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Model:</span> <code>{html.escape(str(ex.get("model", "N/A")))}</code></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Tokens:</span> <span class="example-value">{html.escape(str(ex.get("tokens", "N/A")))}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Retry Count:</span> <span class="example-value">{html.escape(str(ex.get("retry_count", "N/A")))}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Fallback:</span> <span class="example-value">{html.escape(str(ex.get("fallback_triggered", "N/A")))}</span></div>')
-                    html_parts.append(f'                    <div class="example-row"><span class="example-label">Endpoint:</span> <code>{html.escape(str(ex.get("endpoint", "N/A")))}</code></div>')
-                    
-                    if ex.get('prompt'):
-                        prompt_preview = ex['prompt'][:80]
-                        if len(ex['prompt']) > 80:
-                            prompt_preview += "..."
-                        html_parts.append(f'                    <div class="example-row"><span class="example-label">Prompt:</span> <span class="example-value">{html.escape(prompt_preview)}</span></div>')
-                    
-                    html_parts.append('                </div>')
-                
-                html_parts.append('            </div>')
-            
-            html_parts.append('        </div>')
-    
-    # Close HTML
-    html_parts.extend([
-        '    </div>',
-        '</body>',
-        '</html>'
-    ])
-    
-    return "\n".join(html_parts)
-
-
-def format_text_report(report: Dict[str, Any], logfile: str) -> str:
-    """Format report as plain text
-    
-    Args:
-        report: Report data structure
-        logfile: Path to log file that was scanned
-        
-    Returns:
-        Plain text report string
-    """
-    lines = ["=" * 60]
-    lines.append("CrashLens Guard Report")
-    lines.append("=" * 60)
-    lines.append(f"Scanned: {logfile}")
-    lines.append(f"Rules Checked: {len(report['rules'])}")
-    lines.append(f"Violations Found: {report['summary']['violations']}")
-    lines.append("=" * 60)
-    lines.append("")
-    
-    if report['summary']['violations'] == 0:
-        lines.append("✅ No violations detected")
-        lines.append("")
-        return "\n".join(lines)
-    
-    for rid, meta in report["rules"].items():
-        if meta["count"] == 0:
-            continue
-        
-        lines.append(f"Rule: {rid} [{meta['severity'].upper()}]")
-        lines.append(f"Description: {meta['description']}")
-        lines.append(f"Violation Count: {meta['count']}")
-        
-        if meta['examples']:
-            lines.append("Examples:")
-            for ex in meta['examples'][:2]:
-                timestamp = ex.get('timestamp', 'N/A')
-                model = ex.get('model', 'N/A')
-                tokens = ex.get('tokens', 'N/A')
-                prompt = ex.get('prompt', '')
-                prompt_preview = prompt[:60] if prompt else ''
-                lines.append(f"  - {timestamp} | {model} | tokens={tokens} | prompt={prompt_preview}")
-        
-        lines.append("-" * 60)
-        lines.append("")
-    
-    return "\n".join(lines)
-
-
 @click.command("guard")
 @click.argument("logfile", type=click.Path(), required=False, default=None)
 @click.option("--rules", type=click.Path(exists=True), required=False,
@@ -879,25 +638,6 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
         1 - Violations found that meet or exceed severity threshold
             (only when --fail-on-violations is set and NOT in --dry-run mode)
     """
-    # ============================================================
-    # Step 7: Deprecation Notice for guard command
-    # ============================================================
-    # Show deprecation warning unless unified engine is already enabled
-    # or CRASHLENS_QUIET is set (to avoid noise in CI)
-    if not os.getenv('CRASHLENS_USE_UNIFIED_ENGINE') and not os.getenv('CRASHLENS_QUIET'):
-        click.echo("", err=True)
-        click.echo("⚠️  DEPRECATION NOTICE: The 'guard' command is being phased out.", err=True)
-        click.echo("   Please migrate to 'policy-check' for the unified engine experience.", err=True)
-        click.echo("", err=True)
-        click.echo("   Migration: crashlens policy-check <your-args>", err=True)
-        click.echo("", err=True)
-        click.echo("   To enable unified engine with 'guard':", err=True)
-        click.echo("     export CRASHLENS_USE_UNIFIED_ENGINE=1", err=True)
-        click.echo("", err=True)
-        click.echo("   To silence this warning:", err=True)
-        click.echo("     export CRASHLENS_QUIET=1", err=True)
-        click.echo("", err=True)
-    
     # Resolve log sources (file, directory, glob, or stdin)
     try:
         log_sources = resolve_log_sources(logfile)
@@ -937,208 +677,78 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             suppress_set.add(item)
     
     # ============================================================
-    # STEP 4 PHASE 2: Unified Engine Integration
+    # Unified Engine Integration (Step 10: Legacy code removed)
     # ============================================================
-    # If CRASHLENS_USE_UNIFIED_ENGINE=1, use GuardPolicyEngineAdapter
-    # instead of legacy evaluation loop
-    # Check at runtime (not at module load time) to support test environment variables
-    # ============================================================
-    use_unified_engine = os.getenv("CRASHLENS_USE_UNIFIED_ENGINE", "0") == "1"
-    
-    if use_unified_engine:
-        click.echo("🔧 Using unified PolicyEngine (CRASHLENS_USE_UNIFIED_ENGINE=1)", err=True)
+    try:
+        # Initialize adapter with rules and configuration
+        # Use Path from pathlib (imported at top of file)
+        from pathlib import Path as PathType
+        adapter = GuardPolicyEngineAdapter(
+            rules_yaml_path=PathType(rules),
+            detector_mode="none",  # Start with no detection, can be upgraded later
+            suppress_ids=suppress_set,
+            verbose=False
+        )
         
-        try:
-            # Initialize adapter with rules and configuration
-            # Use Path from pathlib (imported at top of file)
-            from pathlib import Path as PathType
-            adapter = GuardPolicyEngineAdapter(
-                rules_yaml_path=PathType(rules),
-                detector_mode="none",  # Start with no detection, can be upgraded later
-                suppress_ids=suppress_set,
-                verbose=False
-            )
-            
-            # Process all log sources through unified pipeline
-            violations_by_rule, metrics = adapter.process_logs(
-                log_paths=log_sources,
-                model_pricing=None  # Can be added in future phases
-            )
-            
-            # Convert PolicyEngine violations back to legacy guard format
-            results = adapter.convert_violations_to_legacy_format(
-                violations_by_rule=violations_by_rule,
-                strip_pii=strip_pii,
-                no_content=no_content,
-                max_examples=get_max_examples()
-            )
-            
-            # Enrich results with rule objects for compatibility with downstream code
-            # The adapter doesn't have access to Rule objects, so we add them here
-            for rule_id in results:
-                # Find matching rule from ruleset
-                matching_rule = next((r for r in ruleset if r.id == rule_id), None)
-                if matching_rule:
-                    results[rule_id]["rule"] = matching_rule
-                else:
-                    # Create a mock rule if not found (shouldn't happen)
-                    @dataclass
-                    class MockRule:
-                        id: str
-                        description: str
-                        severity: str
-                        cond: Dict[str, Any]
-                        action: str
-                    
-                    results[rule_id]["rule"] = MockRule(
-                        id=rule_id,
-                        description=results[rule_id].get("description", ""),
-                        severity=results[rule_id].get("severity", "error"),
-                        cond={},
-                        action="error"
-                    )
-            
-            # Initialize all rules that had no violations (for reporting consistency)
-            for rule in ruleset:
-                if rule.id not in results and rule.id not in suppress_set:
-                    results[rule.id] = {
-                        "rule": rule,
-                        "count": 0,
-                        "examples": []
-                    }
-            
-            # Initialize all_logs for downstream metrics (empty for now in unified path)
-            # Future: adapter should expose logs for performance checks
-            all_logs = []
-            
-            click.echo(f"✅ Unified engine processed {metrics.get('total_records', 0)} records in {metrics.get('total_batches', 0)} batches", err=True)
-            
-        except Exception as e:
-            click.echo(f"❌ Error in unified engine: {e}", err=True)
-            import traceback
-            traceback.print_exc()
-            raise click.ClickException(f"Unified engine failed: {e}")
-    
-    else:
-        # ============================================================
-        # LEGACY CODE PATH (original guard evaluation)
-        # ============================================================
-        # Initialize results structure
-        results = {
-            r.id: {
-                "rule": r,
-                "count": 0,
-                "examples": []
-            } 
-            for r in ruleset if r.id not in suppress_set
-        }
+        # Process all log sources through unified pipeline
+        violations_by_rule, metrics = adapter.process_logs(
+            log_paths=log_sources,
+            model_pricing=None  # Can be added in future phases
+        )
         
-        # Evaluate each log entry against all rules
-        # Also collect metrics for performance threshold checks
+        # Convert PolicyEngine violations back to legacy guard format
+        results = adapter.convert_violations_to_legacy_format(
+            violations_by_rule=violations_by_rule,
+            strip_pii=strip_pii,
+            no_content=no_content,
+            max_examples=get_max_examples()
+        )
+        
+        # Enrich results with rule objects for compatibility with downstream code
+        # The adapter doesn't have access to Rule objects, so we add them here
+        for rule_id in results:
+            # Find matching rule from ruleset
+            matching_rule = next((r for r in ruleset if r.id == rule_id), None)
+            if matching_rule:
+                results[rule_id]["rule"] = matching_rule
+            else:
+                # Create a mock rule if not found (shouldn't happen)
+                @dataclass
+                class MockRule:
+                    id: str
+                    description: str
+                    severity: str
+                    cond: Dict[str, Any]
+                    action: str
+                
+                results[rule_id]["rule"] = MockRule(
+                    id=rule_id,
+                    description=results[rule_id].get("description", ""),
+                    severity=results[rule_id].get("severity", "error"),
+                    cond={},
+                    action="error"
+                )
+        
+        # Initialize all rules that had no violations (for reporting consistency)
+        for rule in ruleset:
+            if rule.id not in results and rule.id not in suppress_set:
+                results[rule.id] = {
+                    "rule": rule,
+                    "count": 0,
+                    "examples": []
+                }
+        
+        # Initialize all_logs for downstream metrics (empty for now in unified path)
+        # Future: adapter should expose logs for performance checks
         all_logs = []
         
-        from pathlib import Path as PathLib  # Avoid conflict with click.Path
+        click.echo(f"✅ Unified engine processed {metrics.get('total_records', 0)} records in {metrics.get('total_batches', 0)} batches", err=True)
         
-        try:
-            # Process each log source
-            for source_path in log_sources:
-                # Handle stdin
-                if str(source_path) == '-':
-                    click.echo("📖 Reading from stdin...", err=True)
-                    stdin_stream = click.get_text_stream('stdin')
-                    try:
-                        for line in stdin_stream:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                entry = json.loads(line)
-                            except json.JSONDecodeError:
-                                continue  # Skip malformed lines
-                            
-                            all_logs.append(entry)
-                            
-                            for r in ruleset:
-                                if r.id in suppress_set:
-                                    continue
-                                
-                                if eval_condition(r.cond, entry):
-                                    results[r.id]["count"] += 1
-                                    
-                                    max_examples = get_max_examples()
-                                    if not no_content and len(results[r.id]["examples"]) < max_examples:
-                                        example = {
-                                            "timestamp": entry.get("timestamp"),
-                                            "model": entry.get("model"),
-                                            "tokens": entry.get("tokens"),
-                                            "retry_count": entry.get("retry_count"),
-                                            "fallback_triggered": entry.get("fallback_triggered"),
-                                            "endpoint": entry.get("endpoint"),
-                                            "prompt": redact_text(entry.get("prompt", ""), strip_pii)
-                                        }
-                                        results[r.id]["examples"].append(example)
-                    except (EOFError, KeyboardInterrupt):
-                        pass  # Graceful termination for stdin
-                    continue
-                
-                # Handle regular files
-                file_size_bytes = source_path.stat().st_size
-                use_streaming = file_size_bytes > STREAM_THRESHOLD_BYTES
-                
-                if use_streaming:
-                    file_size_mb = file_size_bytes / (1024 * 1024)
-                    click.echo(f"📊 Processing {source_path.name} ({file_size_mb:.2f} MB) in streaming mode (batch_size={STREAM_BATCH_SIZE})", err=True)
-                    
-                    # Streaming mode for large files
-                    for batch in stream_jsonl(source_path, batch_size=STREAM_BATCH_SIZE, skip_malformed=True, verbose=False):
-                        for entry in batch:
-                            all_logs.append(entry)
-                            
-                            for r in ruleset:
-                                if r.id in suppress_set:
-                                    continue
-                                
-                                if eval_condition(r.cond, entry):
-                                    results[r.id]["count"] += 1
-                                    
-                                    max_examples = get_max_examples()
-                                    if not no_content and len(results[r.id]["examples"]) < max_examples:
-                                        example = {
-                                            "timestamp": entry.get("timestamp"),
-                                            "model": entry.get("model"),
-                                            "tokens": entry.get("tokens"),
-                                            "retry_count": entry.get("retry_count"),
-                                            "fallback_triggered": entry.get("fallback_triggered"),
-                                            "endpoint": entry.get("endpoint"),
-                                            "prompt": redact_text(entry.get("prompt", ""), strip_pii)
-                                        }
-                                        results[r.id]["examples"].append(example)
-                else:
-                    # Original line-by-line mode for small files
-                    for entry in load_jsonl(str(source_path)):
-                        all_logs.append(entry)
-                        
-                        for r in ruleset:
-                            if r.id in suppress_set:
-                                continue
-                            
-                            if eval_condition(r.cond, entry):
-                                results[r.id]["count"] += 1
-                                
-                                max_examples = get_max_examples()
-                                if not no_content and len(results[r.id]["examples"]) < max_examples:
-                                    example = {
-                                        "timestamp": entry.get("timestamp"),
-                                        "model": entry.get("model"),
-                                        "tokens": entry.get("tokens"),
-                                        "retry_count": entry.get("retry_count"),
-                                        "fallback_triggered": entry.get("fallback_triggered"),
-                                        "endpoint": entry.get("endpoint"),
-                                        "prompt": redact_text(entry.get("prompt", ""), strip_pii)
-                                    }
-                                    results[r.id]["examples"].append(example)
-        except click.ClickException:
-            raise
+    except Exception as e:
+        click.echo(f"❌ Error in unified engine: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        raise click.ClickException(f"Unified engine failed: {e}")
     
     # Performance threshold checks (env var configured)
     slow_threshold = int(os.getenv("SLOW_RESPONSE_THRESHOLD_MS", "3000"))
@@ -1319,13 +929,17 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
             if meta["count"] > 0:  # Only show rules with violations
                 click.echo(f"{rid:15} | {meta['count']:10} | {meta['severity']:8}")
     elif output == "json":
-        click.echo(format_json_report(report))
+        writer = JSONWriter()
+        click.echo(writer.format(report))
     elif output == "md":
-        click.echo(format_markdown_report(report, logfile))
+        writer = MarkdownWriter()
+        click.echo(writer.format(report, logfile))
     elif output == "html":
-        click.echo(format_html_report(report, logfile, summary_only))
+        writer = HTMLWriter()
+        click.echo(writer.format(report, logfile, summary_only=summary_only))
     else:  # text
-        click.echo(format_text_report(report, logfile))
+        writer = TextWriter()
+        click.echo(writer.format(report, logfile))
     
     # Write JSON report to specified path (for auditability and annotation hooks)
     # Done after stdout output to avoid contaminating piped JSON
