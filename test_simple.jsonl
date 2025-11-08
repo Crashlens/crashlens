@@ -1,1 +1,0 @@
-{"traceId": "trace-1", "startTime": "2025-01-01T10:00:00Z", "input": {"model": "gpt-4o", "prompt": "test"}, "usage": {"prompt_tokens": 3000, "completion_tokens": 150, "total_tokens": 3150}, "cost": 0.30}
