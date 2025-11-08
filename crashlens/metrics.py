@@ -46,6 +46,12 @@ class MetricsCollector:
             registry=self.registry
         )
         
+        self.guard_latency_ms = Gauge(
+            'crashlens_guard_latency_ms',
+            'Evaluation latency in milliseconds',
+            registry=self.registry
+        )
+        
         self.guard_logs_processed = Counter(
             'crashlens_guard_logs_processed_total',
             'Total log entries processed',
@@ -96,6 +102,9 @@ class MetricsCollector:
         
         # Record duration
         self.guard_duration_seconds.observe(duration)
+        
+        # Record latency in milliseconds
+        self.guard_latency_ms.set(duration * 1000)
         
         # Record logs processed
         self.guard_logs_processed.inc(logs_processed)

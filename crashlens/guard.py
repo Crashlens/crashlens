@@ -598,10 +598,10 @@ def eval_condition(cond: Dict[str, Any], entry: Dict[str, Any]) -> bool:
               help="Command to run after report is written (receives report path as argument)")
 @click.option("--push-metrics", is_flag=True,
               help="Push metrics to Prometheus Pushgateway")
-@click.option("--pushgateway-url", default="http://localhost:9091",
-              help="Prometheus Pushgateway URL (default: http://localhost:9091)")
-@click.option("--metrics-job", default="crashlens-guard",
-              help="Metrics job name for grouping (default: crashlens-guard)")
+@click.option("--pushgateway-url", default=None,
+              help="Prometheus Pushgateway URL (default: env CRASHLENS_PUSHGATEWAY or http://localhost:9091)")
+@click.option("--metrics-job", default=None,
+              help="Metrics job name for grouping (default: env CRASHLENS_METRICS_JOB or crashlens-guard)")
 def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fail_on_violations, dry_run, summary_only, baseline_logs, baseline_deviation, cost_cap, report_path, annotation_hook, push_metrics, pushgateway_url, metrics_job):
     """Guard against policy violations in JSONL logs
     
@@ -649,6 +649,12 @@ def guard(logfile, rules, suppress, severity, output, no_content, strip_pii, fai
     # Track exit code and status for metrics
     exit_code = 0
     metrics_status = 'success'
+    
+    # Apply environment variable defaults for metrics configuration
+    if pushgateway_url is None:
+        pushgateway_url = os.getenv('CRASHLENS_PUSHGATEWAY', 'http://localhost:9091')
+    if metrics_job is None:
+        metrics_job = os.getenv('CRASHLENS_METRICS_JOB', 'crashlens-guard')
     
     # Resolve log sources (file, directory, glob, or stdin)
     try:

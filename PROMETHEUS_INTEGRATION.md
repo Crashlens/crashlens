@@ -61,7 +61,66 @@ poetry run crashlens guard logs.jsonl \
 - Import CrashLens dashboard from `dashboards/`
 - Visualize metrics over time
 
-## 📊 Available Metrics
+## � Guard Integration
+
+CrashLens Guard **automatically pushes runtime metrics** to the configured Pushgateway endpoint when `--push-metrics` is enabled. No additional code or configuration required!
+
+### Metrics Pushed Automatically
+
+Every Guard run records:
+- **_runs_total**: Total executions (by status: success/failure, severity threshold)
+- **_violations_total**: Policy violations (by rule_id, severity)
+- **_logs_processed_total**: Log entries analyzed
+- **_duration_seconds**: Execution time (histogram for P95/P99 calculations)
+- **_latency_ms**: Evaluation latency in milliseconds
+- **_last_run_timestamp**: When the last run completed
+- **_active_rules**: Number of rules evaluated
+
+### Configuration via Environment Variables
+
+Configure Pushgateway connection using environment variables (recommended for production):
+
+```bash
+# Set Pushgateway URL
+export CRASHLENS_PUSHGATEWAY=http://localhost:9091
+
+# Set job name for metrics grouping
+export CRASHLENS_METRICS_JOB=guard_production
+
+# Run guard - will use environment variables
+crashlens guard logs.jsonl --rules rules.yaml --push-metrics
+```
+
+**Priority Order**:
+1. CLI flags (`--pushgateway-url`, `--metrics-job`) - highest priority
+2. Environment variables (`CRASHLENS_PUSHGATEWAY`, `CRASHLENS_METRICS_JOB`)
+3. Defaults (`http://localhost:9091`, `crashlens-guard`)
+
+### CI/CD Integration
+
+Example GitHub Actions workflow:
+
+```yaml
+env:
+  CRASHLENS_PUSHGATEWAY: localhost:9091
+  CRASHLENS_METRICS_JOB: guard_ci
+
+steps:
+  - name: Run Guard check
+    run: |
+      poetry run crashlens guard fixtures/combined-logs.jsonl \
+        --rules .crashlens/rules.yaml \
+        --push-metrics \
+        --fail-on-violations
+  
+  - name: Verify metrics pushed
+    run: |
+      curl http://localhost:9091/metrics | grep crashlens_guard
+```
+
+See `.github/workflows/guard-metrics-test.yml` for a complete working example.
+
+## �📊 Available Metrics
 
 ### Counters
 
@@ -72,10 +131,11 @@ poetry run crashlens guard logs.jsonl \
 
 ### Histograms
 
-- `crashlens_guard_duration_seconds` - Execution time distribution
+- `crashlens_guard_duration_seconds` - Execution time distribution (for P95/P99 calculations)
 
 ### Gauges
 
+- `crashlens_guard_latency_ms` - Evaluation latency in milliseconds (latest run)
 - `crashlens_guard_last_run_timestamp` - Last run timestamp
 - `crashlens_guard_active_rules` - Number of active rules
 
@@ -84,10 +144,14 @@ poetry run crashlens guard logs.jsonl \
 ### Environment Variables
 
 ```bash
+# Configure Pushgateway connection
+export CRASHLENS_PUSHGATEWAY=http://localhost:9091
+export CRASHLENS_METRICS_JOB=guard_production
+
 # Disable metrics push temporarily
 export CRASHLENS_DISABLE_METRICS=true
 
-# Custom Pushgateway URL
+# Custom Pushgateway URL (legacy, prefer CRASHLENS_PUSHGATEWAY)
 export CRASHLENS_PUSHGATEWAY_URL=http://custom:9091
 ```
 
@@ -140,9 +204,52 @@ Visualizes Prometheus metrics in dashboards.
 **Access**: http://localhost:3000
 **Login**: admin / admin
 
-**Setup Dashboard**:
-1. Add Prometheus data source: http://prometheus:9090
-2. Import dashboard from `dashboards/crashlens-policy-enforcement.json`
+**Setup Prometheus Data Source**:
+1. Navigate to Configuration → Data Sources
+2. Click "Add data source"
+3. Select "Prometheus"
+4. Set URL: `http://prometheus:9090` (Docker network)
+5. Click "Save & Test"
+
+**Import CrashLens Dashboards**:
+
+CrashLens provides two pre-built Grafana dashboards:
+
+1. **Guard Runtime Dashboard** (`dashboards/crashlens-guard.json`)
+   - Total Guard Runs
+   - Violations by Severity
+   - P95 Evaluation Latency
+   - Logs Processed Rate
+   - Active Rules Count
+   - Top Violated Rules table
+
+2. **Policy Enforcement Dashboard** (`dashboards/crashlens-policy-enforcement.json`)
+   - Comprehensive policy monitoring
+   - FinOps cost tracking
+   - Multi-job aggregation
+
+**Import Steps**:
+1. In Grafana, click "+" → Import
+2. Click "Upload JSON file"
+3. Select `dashboards/crashlens-guard.json`
+4. Select Prometheus data source
+5. Click "Import"
+6. Repeat for `crashlens-policy-enforcement.json`
+
+**Quick PromQL Examples**:
+```promql
+# Total guard runs in last hour
+sum(crashlens_guard_runs_total)
+
+# Violations by severity
+sum by (severity) (crashlens_guard_violations_total)
+
+# P95 latency
+histogram_quantile(0.95, rate(crashlens_guard_duration_seconds_bucket[5m]))
+
+# Current latency in milliseconds
+crashlens_guard_latency_ms
+```
 
 ## 🧪 Testing
 
