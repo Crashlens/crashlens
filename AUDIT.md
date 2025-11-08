@@ -111,7 +111,15 @@ The `crashlens guard` and `crashlens policy-check` commands are redundant. They 
 - **Summary**: Batch-mode detector orchestration with three modes (none/precomputed/inline), constant-memory operation, metrics collection
 - **Documentation**: `docs/STEP_3_DETECTOR_DRIVER_SUMMARY.md`
 
-### ⏳ Step 4: Integrate PolicyEngine into Guard
+### 🔄 Step 4: Integrate PolicyEngine into Guard (Phase 1: Commit 004a)
+- **Status**: Phase 1 Complete (Adapter Layer Only)
+- **Files**: `crashlens/guard_adapter.py`, `tests/test_guard_policyengine_integration.py`
+- **Tests**: 17/17 passing
+- **Summary**: Feature-flagged adapter layer (CRASHLENS_USE_UNIFIED_ENGINE), rule format conversion, legacy output conversion, NO guard.py changes yet
+- **Documentation**: `docs/STEP_4_GUARD_POLICYENGINE_ADAPTER_SUMMARY.md`
+- **Next**: Phase 2 (commit 004b) - Modify guard.py to use adapter
+
+### ⏳ Step 4: Integrate PolicyEngine into Guard (Phase 2: Pending)
 - **Status**: Pending
 - **Planned Changes**:
   - Replace guard's direct JSON loading with LogIterator
