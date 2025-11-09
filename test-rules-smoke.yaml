@@ -1,8 +1,0 @@
-rules:
-  - id: TEST_RULE
-    description: "Test rule for smoke testing"
-    if:
-      cost: {'>': 0.01}
-    action: warn
-    severity: warn
-    suggestion: "This is a test warning"
