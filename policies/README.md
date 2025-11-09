@@ -1,8 +1,39 @@
-# CrashLens Policies: Syntax, Composition, and Extension
+# CrashLens Policy Files
+
+This directory contains reusable policy templates for common AI token waste patterns.
+
+## 🚀 Quick Start
+
+```bash
+# Scan logs with a policy template
+crashlens scan logs.jsonl --policy-template retry-loop-prevention
+
+# Enforce policies in CI/CD
+crashlens guard logs.jsonl \
+  --policy-file policies/retry-loop-detector.yaml \
+  --fail-on-violations
+
+# List all built-in templates
+crashlens list-policy-templates
+```
+
+## 📁 Available Policies
+
+| Policy File | Purpose | Use Case |
+|-------------|---------|----------|
+| `retry-loop-detector.yaml` | Detect excessive retry patterns | Production monitoring |
+| `fallback-chain-detector.yaml` | Monitor model fallback patterns | Reliability tracking |
+| `max-cost-per-trace.yaml` | Enforce per-trace cost limits | Budget protection |
+| `block-gpt4-on-summary.yaml` | Prevent expensive models on simple tasks | Cost optimization |
+| `ci-sample.yaml` | Lightweight checks for CI/CD | Continuous integration |
+
+---
+
+## 📖 Policy Syntax Reference
 
 This guide documents the YAML policy format supported by CrashLens, how matching works, available operators, actions and severities, thresholds and limits, and how to extend the system with hooks (webhooks, mutators/templates).
 
-CrashLens evaluates each log entry against your rules using AND logic within each rule’s `match` block. When a rule matches, a violation is emitted with its configured `action` and `severity`.
+CrashLens evaluates each log entry against your rules using AND logic within each rule's `match` block. When a rule matches, a violation is emitted with its configured `action` and `severity`.
 
 ## Core schema
 
@@ -121,4 +152,123 @@ The parser normalizes Langfuse-style logs to a stable schema (see `crashlens.par
 
 ---
 
-For advanced policies, see examples in `examples/policies/`.
+## 🎯 Usage Examples
+
+### Basic Guard Usage
+
+```bash
+# Enforce policy with violations causing CI failure
+crashlens guard logs.jsonl \
+  --policy-file policies/retry-loop-detector.yaml \
+  --fail-on-violations
+
+# Check policy without failing (dry-run)
+crashlens guard logs.jsonl \
+  --policy-file policies/max-cost-per-trace.yaml \
+  --dry-run
+
+# Filter by severity level
+crashlens guard logs.jsonl \
+  --policy-file policies/ci-sample.yaml \
+  --severity critical \
+  --fail-on-violations
+```
+
+### Privacy & Data Protection
+
+```bash
+# Strip PII before policy check
+crashlens guard logs.jsonl \
+  --policy-file policies/fallback-chain-detector.yaml \
+  --strip-pii \
+  --fail-on-violations
+
+# Summary-only mode (no trace IDs in output)
+crashlens guard logs.jsonl \
+  --policy-file policies/block-gpt4-on-summary.yaml \
+  --summary-only
+```
+
+### Multiple Policies
+
+```bash
+# Combine multiple policy files
+crashlens guard logs.jsonl \
+  --policy-file policies/retry-loop-detector.yaml \
+  --policy-file policies/max-cost-per-trace.yaml \
+  --fail-on-violations
+
+# Use built-in policy templates
+crashlens scan logs.jsonl \
+  --policy-template "retry-loop-prevention,budget-protection"
+```
+
+### CI/CD Integration
+
+```bash
+# GitHub Actions example
+- name: Enforce AI Cost Policies
+  run: |
+    crashlens guard logs.jsonl \
+      --policy-file policies/ci-sample.yaml \
+      --severity critical \
+      --fail-on-violations \
+      --output-dir policy-violations/
+
+# GitLab CI example
+script:
+  - crashlens guard logs.jsonl --policy-file policies/ci-sample.yaml --fail-on-violations
+
+# With cost cap
+crashlens guard logs.jsonl \
+  --policy-file policies/max-cost-per-trace.yaml \
+  --cost-cap 0.50 \
+  --fail-on-violations
+```
+
+### Development Workflows
+
+```bash
+# Test policy locally before committing
+crashlens guard sample-logs.jsonl \
+  --policy-file policies/retry-loop-detector.yaml \
+  --dry-run \
+  --format markdown
+
+# Generate detailed report for analysis
+crashlens guard logs.jsonl \
+  --policy-file policies/fallback-chain-detector.yaml \
+  --format json \
+  --output-dir reports/
+
+# Compare with baseline
+crashlens guard logs.jsonl \
+  --policy-file policies/max-cost-per-trace.yaml \
+  --baseline-file baseline.json \
+  --fail-on-violations
+```
+
+### Production Monitoring
+
+```bash
+# Weekly audit with PII protection
+crashlens guard weekly-logs.jsonl \
+  --policy-file policies/retry-loop-detector.yaml \
+  --policy-file policies/fallback-chain-detector.yaml \
+  --strip-pii \
+  --summary-only \
+  --output-dir weekly-reports/
+
+# Real-time monitoring with Prometheus
+crashlens scan logs.jsonl \
+  --policy-template "retry-loop-prevention,budget-protection" \
+  --push-metrics \
+  --pushgateway-url http://localhost:9091
+```
+
+---
+
+For advanced policies and more examples, see:
+- **[Guard Command Reference](../docs/commands/guard-command.md)**
+- **[Policy Templates](../docs/commands/list-policy-templates-command.md)**
+- **[CI/CD Integration Examples](../examples/ci-workflows/)**

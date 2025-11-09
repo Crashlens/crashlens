@@ -1,0 +1,640 @@
+# CrashLens Policy: Production-Ready Combined
+# Comprehensive rules for production LLM cost governance
+# Estimated Savings: 40-60% overall
+
+metadata:
+  name: "Production-Ready Combined Policy"
+  description: "Comprehensive cost governance combining critical rules from all policy templates"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "40-60%"
+  tags:
+    - production
+    - comprehensive
+    - cost-governance
+    - best-practices
+  documentation: "https://crashlens.dev/docs/policies/production-ready"
+  
+  # References to other policy templates
+  includes:
+    - model-overkill-detection (top critical rules)
+    - retry-loop-prevention (top critical rules)
+    - budget-protection (all rules)
+    - fallback-storm-detection (top critical rules)
+    - prompt-optimization (top critical rules)
+    - context-window-optimization (critical warnings)
+
+# Configuration variables (customize per environment)
+variables:
+  # Model overkill thresholds
+  simple_task_threshold: 50  # tokens
+  
+  # Retry limits
+  max_retries_per_minute: 5
+  min_retry_interval_seconds: 1
+  max_retry_limit: 10
+  
+  # Budget limits (adjust per environment)
+  max_cost_per_call: 0.50  # $0.50
+  hourly_spend_limit: 100.00  # $100/hour
+  daily_spend_limit: 1000.00  # $1000/day
+  
+  # Fallback limits
+  max_fallback_chain_length: 3
+  
+  # Context limits
+  repeated_context_threshold: 20
+
+rules:
+  # ============================================================================
+  # CRITICAL PRIORITY (FAIL) - Must fix immediately
+  # ============================================================================
+  
+  # === BUDGET PROTECTION (4 rules) ===
+  
+  - id: single_call_too_expensive
+    description: "Single API call costs > $0.50"
+    match:
+      cost: "> 0.50"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 CRITICAL: Single call cost > $0.50!
+      
+      **Immediate Actions**:
+      1. Review token count (likely > 30K tokens)
+      2. Break into smaller requests
+      3. Use cheaper models for preprocessing
+      4. Check for retry aggregation errors
+      
+      **Learn More**: https://crashlens.dev/docs/cost-per-call-optimization
+  
+  - id: hourly_spend_threshold
+    description: "Hourly spend exceeds $100 (spending spike)"
+    match:
+      sum_cost_1h: "> 100"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Hourly spending spike: $100+!
+      
+      **Immediate Actions**:
+      1. Check for retry storms
+      2. Identify top spenders
+      3. Enable rate limiting
+      4. Consider emergency circuit breaker
+      
+      **Learn More**: https://crashlens.dev/docs/incident-response
+  
+  - id: daily_budget_exceeded
+    description: "Daily spend exceeds $1000"
+    match:
+      sum_cost_24h: "> 1000"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Daily budget exceeded!
+      
+      **Immediate Actions**:
+      1. Set hard budget limits in OpenAI dashboard
+      2. Enable progressive rate limiting
+      3. Switch to cheaper models
+      4. Review high-cost endpoints
+      
+      **Learn More**: https://crashlens.dev/docs/budget-management
+  
+  - id: exponential_backoff_failure
+    description: "5+ retry attempts in < 60 seconds (backoff broken)"
+    match:
+      retry_count: "> 5"
+      time_window_seconds: "< 60"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Exponential backoff failure!
+      
+      **Immediate Actions**:
+      1. Implement exponential backoff with jitter
+      2. Add circuit breaker (5 failures = 60s cooldown)
+      3. Set max retry limit (3-5 attempts)
+      
+      **Implementation**:
+      ```python
+      from tenacity import retry, wait_exponential_jitter, stop_after_attempt
+      
+      @retry(
+          stop=stop_after_attempt(3),
+          wait=wait_exponential_jitter(initial=1, max=60)
+      )
+      def call_llm_with_retry(prompt):
+          return openai.ChatCompletion.create(...)
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/retry-best-practices
+  
+  - id: infinite_retry_detected
+    description: "More than 10 retry attempts (infinite loop)"
+    match:
+      retry_count: "> 10"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Infinite retry loop detected!
+      
+      **Immediate Actions**:
+      1. Set MAX_RETRIES = 3 (hard limit)
+      2. Implement circuit breaker
+      3. Add dead letter queue for persistent failures
+      4. Monitor retry counts in production
+      
+      **Learn More**: https://crashlens.dev/docs/circuit-breaker-pattern
+  
+  - id: retry_storm_detected
+    description: "10+ traces retrying simultaneously (API outage)"
+    match:
+      distinct_trace_count: "> 10"
+      all_retrying: true
+      time_window_seconds: "< 60"
+    action: fail
+    severity: critical
+    suggestion: |
+      🌪️  Retry storm detected!
+      
+      **Immediate Actions**:
+      1. Implement global circuit breaker
+      2. Add API health checks
+      3. Enable graceful degradation
+      4. Alert ops team
+      
+      **Learn More**: https://crashlens.dev/docs/retry-storms
+  
+  - id: repeated_fallback_failure
+    description: "Same fallback pattern failing 10+ times"
+    match:
+      fallback_pattern_count: "> 10"
+      all_attempts_failed: true
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Fallback strategy broken!
+      
+      **Immediate Actions**:
+      1. Analyze failure logs for systemic errors
+      2. Implement fail-fast for non-retryable errors
+      3. Add dead letter queue
+      4. Enable graceful degradation
+      
+      **Learn More**: https://crashlens.dev/docs/handling-systemic-failures
+  
+  # === MODEL OVERKILL (3 critical rules) ===
+  
+  - id: gpt4_for_simple_tasks
+    description: "GPT-4 used for simple tasks (< 50 tokens)"
+    match:
+      model: "gpt-4"
+      usage.prompt_tokens: "< 50"
+    action: fail
+    severity: high
+    suggestion: |
+      💡 Model overkill detected!
+      
+      Switch to gpt-4o-mini (200x cheaper) or gpt-3.5-turbo for simple tasks.
+      
+      **Potential Savings**: 90-95%
+      
+      **Example Fix**:
+      ```python
+      # Before: GPT-4 ($0.03/1K)
+      model = "gpt-4"
+      
+      # After: GPT-4o-mini ($0.00015/1K) - 200x cheaper!
+      model = "gpt-4o-mini"
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/model-selection-guide
+  
+  - id: claude_opus_overkill
+    description: "Claude Opus for tasks < 100 tokens"
+    match:
+      model: "claude-3-opus-20240229"
+      usage.total_tokens: "< 100"
+    action: fail
+    severity: high
+    suggestion: |
+      🚨 Expensive model for tiny task!
+      
+      Switch to Claude Haiku (60x cheaper) or Sonnet (5x cheaper).
+      
+      **Cost Comparison** (per million tokens):
+      - Claude Opus: $15/$75
+      - Claude Sonnet: $3/$15 (5x cheaper)
+      - Claude Haiku: $0.25/$1.25 (60x cheaper!)
+      
+      **Learn More**: https://crashlens.dev/docs/claude-model-selection
+  
+  - id: o1_preview_overkill
+    description: "O1-preview used for tasks < 100 tokens"
+    match:
+      model:
+        - "o1-preview"
+        - "o1-mini"
+      usage.prompt_tokens: "< 100"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Most expensive model for tiny task!
+      
+      O1-preview is $15/$60 per million tokens (most expensive).
+      Switch to GPT-4o or GPT-4o-mini for 100x savings.
+      
+      **When to Use O1**: Complex multi-step reasoning, PhD-level tasks
+      **NOT for**: Simple Q&A, classification, short responses
+      
+      **Learn More**: https://openai.com/o1
+  
+  # === FALLBACK ISSUES (1 critical rule) ===
+  
+  - id: cascading_fallback_chain
+    description: "3+ models tried for same traceId"
+    match:
+      distinct_model_count: "> 3"
+      group_by: traceId
+    action: fail
+    severity: high
+    suggestion: |
+      ⚠️  Cascading fallback chain!
+      
+      Limit fallback chain to 2 models (primary + backup).
+      
+      **Recommended Pattern**:
+      - Primary: Best quality model
+      - Fallback: Cheaper alternative or different provider
+      - No more than 2 attempts
+      
+      **Learn More**: https://crashlens.dev/docs/fallback-strategy
+  
+  # ============================================================================
+  # HIGH PRIORITY (FAIL) - Fix soon
+  # ============================================================================
+  
+  - id: immediate_retry_loop
+    description: "Retries with < 1 second interval"
+    match:
+      retry_count: "> 3"
+      retry_interval_seconds: "< 1"
+    action: fail
+    severity: high
+    suggestion: |
+      ⚠️  Immediate retry loop!
+      
+      Add minimum 2-second delay between retries.
+      
+      **Quick Fix**:
+      ```python
+      import time
+      
+      for attempt in range(3):
+          try:
+              return call_api()
+          except Exception as e:
+              if attempt < 2:
+                  time.sleep(2 ** attempt)  # 1s, 2s, 4s
+              else:
+                  raise
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/retry-intervals
+  
+  - id: redundant_retries_on_client_errors
+    description: "Retrying 4xx errors (non-retryable)"
+    match:
+      status_code:
+        - 400
+        - 401
+        - 403
+        - 404
+        - 422
+      retry_count: "> 1"
+    action: fail
+    severity: high
+    suggestion: |
+      🚫 Don't retry client errors!
+      
+      **Non-Retryable**: 400, 401, 403, 404, 422
+      **Retryable**: 429, 500, 502, 503, 504
+      
+      Fix the request instead of retrying.
+      
+      **Learn More**: https://crashlens.dev/docs/error-handling
+  
+  - id: cost_per_user_session
+    description: "Cost per session > $5"
+    match:
+      sum_cost_by_trace: "> 5"
+    action: warn
+    severity: high
+    suggestion: |
+      ⚠️  Expensive user session!
+      
+      **Optimization Strategies**:
+      1. Implement conversation summarization at 80% budget
+      2. Use sliding window (last 10 messages)
+      3. Switch to cheaper models after first 3 turns
+      4. Set session budget limit ($5 max)
+      
+      **Learn More**: https://crashlens.dev/docs/conversation-cost-management
+  
+  - id: inefficient_cost_per_token
+    description: "Cost per completion token > $0.01"
+    match:
+      cost_per_completion_token: "> 0.01"
+    action: fail
+    severity: high
+    suggestion: |
+      🚨 Extremely high cost per token!
+      
+      Normal: $0.00006 per token (GPT-4)
+      Yours: > $0.01 per token (300x+ normal!)
+      
+      **Check for**:
+      1. Retry loops (multiple attempts aggregated)
+      2. Long fallback chains
+      3. Model overkill (O1-preview)
+      4. Cost calculation bugs
+      
+      **Learn More**: https://crashlens.dev/docs/cost-per-token-analysis
+  
+  # ============================================================================
+  # MEDIUM PRIORITY (WARN) - Optimize when possible
+  # ============================================================================
+  
+  - id: gpt4_for_short_completions
+    description: "GPT-4 generating < 10 completion tokens"
+    match:
+      model: "gpt-4"
+      usage.completion_tokens: "< 10"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Short completion on expensive model
+      
+      Simple responses rarely need GPT-4. Consider gpt-4o-mini or gpt-3.5-turbo.
+      
+      **Savings**: 90%+ for yes/no answers, classifications, short summaries
+      
+      **Learn More**: https://crashlens.dev/docs/when-to-use-gpt4
+  
+  - id: expensive_model_for_structured_tasks
+    description: "Expensive models for classification/extraction"
+    match:
+      model:
+        - "gpt-4"
+        - "gpt-4-32k"
+        - "claude-3-opus-20240229"
+      prompt: "regex:(classify|extract|keywords?|categorize|label|sentiment)"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Consider cheaper alternatives for structured tasks
+      
+      **Better Options**:
+      - GPT-4o-mini: 200x cheaper
+      - GPT-3.5-turbo: 20x cheaper
+      - Traditional NLP: Free
+      
+      **Learn More**: https://crashlens.dev/docs/structured-task-optimization
+  
+  - id: fallback_to_more_expensive
+    description: "Fallback from cheap to expensive model"
+    match:
+      fallback_from: "gpt-3.5-turbo"
+      fallback_to: "gpt-4"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Backwards fallback detected!
+      
+      Fallback should go expensive → cheap (not cheap → expensive).
+      
+      **Correct**: GPT-4 → GPT-3.5 (rate limit fallback)
+      **Incorrect**: GPT-3.5 → GPT-4 (increases cost!)
+      
+      **Learn More**: https://crashlens.dev/docs/fallback-vs-escalation
+  
+  - id: long_prompt_short_response
+    description: "Prompt > 2000 tokens, completion < 50 tokens"
+    match:
+      usage.prompt_tokens: "> 2000"
+      usage.completion_tokens: "< 50"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Inefficient token ratio!
+      
+      40:1 input/output ratio is highly inefficient.
+      
+      **Optimization**:
+      1. Reduce few-shot examples (2-3 max)
+      2. Use embeddings for context selection
+      3. Compress system prompts
+      4. Enable prompt caching
+      
+      **Savings**: 50-70% by optimizing prompt length
+      
+      **Learn More**: https://crashlens.dev/docs/prompt-optimization
+  
+  - id: repeated_prompt_content
+    description: "Same prompt sent 10+ times"
+    match:
+      prompt_hash_count: "> 10"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Repeated prompt detected!
+      
+      Enable caching for 90% savings.
+      
+      **Solutions**:
+      1. OpenAI prompt caching (GPT-4 Turbo/4o - automatic)
+      2. Application-level caching (Redis)
+      3. Semantic caching (for similar prompts)
+      
+      **Learn More**: https://crashlens.dev/docs/caching-strategies
+  
+  - id: near_context_limit
+    description: "Using > 90% of context window"
+    match:
+      prompt_tokens: "> context_limit * 0.90"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Near context window limit!
+      
+      Risk of truncation or quality degradation.
+      
+      **Solutions**:
+      1. Sliding window (keep last 10-20 messages)
+      2. Summarize old context
+      3. Use RAG instead of full documents
+      4. Switch to larger context model
+      
+      **Learn More**: https://crashlens.dev/docs/context-management
+  
+  - id: repeated_context_loading
+    description: "Same context loaded 20+ times"
+    match:
+      context_hash_count: "> 20"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Repeated context loading!
+      
+      Use conversation memory or caching for 90%+ savings.
+      
+      **Solutions**:
+      1. OpenAI prompt caching (automatic)
+      2. Conversation state management
+      3. Vector DB for RAG
+      4. Redis caching layer
+      
+      **Learn More**: https://crashlens.dev/docs/context-caching
+
+# ============================================================================
+# POLICY USAGE & EXAMPLES
+# ============================================================================
+
+# Basic production enforcement
+# crashlens guard logs.jsonl --policy-file policies/production-ready.yaml --fail-on-violations
+
+# CI/CD integration (GitHub Actions)
+# name: LLM Cost Governance
+# on: [push, pull_request]
+# jobs:
+#   guard:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install CrashLens
+#         run: pip install crashlens
+#       - name: Check LLM costs
+#         run: |
+#           crashlens guard logs/*.jsonl \
+#             --policy-file policies/production-ready.yaml \
+#             --fail-on-violations \
+#             --format json \
+#             --output-dir reports/
+
+# Continuous monitoring (Slack alerts)
+# crashlens guard production-logs.jsonl \
+#   --policy-file policies/production-ready.yaml \
+#   --format slack \
+#   --slack-webhook $SLACK_WEBHOOK \
+#   --strip-pii
+
+# Weekly cost review
+# crashlens guard weekly-logs.jsonl \
+#   --policy-file policies/production-ready.yaml \
+#   --format markdown \
+#   --output-dir weekly-reports/ \
+#   --summary-only
+
+# Custom environment variables
+# export CRASHLENS_MAX_COST_PER_CALL=1.00  # Higher limit for dev
+# export CRASHLENS_HOURLY_LIMIT=500  # $500/hour for high-traffic prod
+# crashlens guard logs.jsonl --policy-file policies/production-ready.yaml
+
+# ============================================================================
+# CUSTOMIZATION EXAMPLES
+# ============================================================================
+
+# Create custom thresholds file: custom-thresholds.yaml
+# variables:
+#   max_cost_per_call: 1.00  # Higher for dev/staging
+#   hourly_spend_limit: 200.00  # Adjust per environment
+#   daily_spend_limit: 2000.00
+#   max_retries_per_minute: 10  # More lenient for testing
+
+# Use custom thresholds
+# crashlens guard logs.jsonl \
+#   --policy-file policies/production-ready.yaml \
+#   --config custom-thresholds.yaml
+
+# ============================================================================
+# EXPECTED SAVINGS BREAKDOWN
+# ============================================================================
+
+# Estimated savings by category (based on typical usage patterns):
+# 
+# 1. Model Overkill Prevention: 15-20%
+#    - Switch GPT-4 → GPT-4o-mini for simple tasks
+#    - Claude Opus → Haiku for basic operations
+# 
+# 2. Retry Loop Elimination: 10-15%
+#    - Fix exponential backoff
+#    - Eliminate infinite retries
+#    - Don't retry 4xx errors
+# 
+# 3. Budget Protection: 5-10%
+#    - Prevent spending spikes
+#    - Rate limiting
+#    - Cost alerts
+# 
+# 4. Fallback Optimization: 5-10%
+#    - Shorter fallback chains
+#    - Correct fallback direction
+#    - Fix broken strategies
+# 
+# 5. Prompt Optimization: 5-10%
+#    - Reduce token waste
+#    - Enable caching
+#    - Better context management
+# 
+# 6. Context Window Optimization: 5-10%
+#    - Prevent truncation
+#    - Cache repeated context
+#    - Summarize conversations
+# 
+# Total Expected Savings: 40-60%
+
+# ============================================================================
+# COMPLIANCE & REPORTING
+# ============================================================================
+
+# Generate compliance report
+# crashlens guard logs.jsonl \
+#   --policy-file policies/production-ready.yaml \
+#   --format markdown \
+#   --output-dir compliance-reports/ \
+#   --include-suggestions
+
+# Export metrics to Prometheus
+# crashlens guard logs.jsonl \
+#   --policy-file policies/production-ready.yaml \
+#   --push-metrics \
+#   --pushgateway-url http://localhost:9091
+
+# Email report to team
+# crashlens guard logs.jsonl \
+#   --policy-file policies/production-ready.yaml \
+#   --format markdown \
+#   --email-to team@company.com \
+#   --email-subject "Weekly LLM Cost Review"
+
+# ============================================================================
+# RELATED DOCUMENTATION
+# ============================================================================
+
+# Individual policy templates (for focused analysis):
+# - model-overkill-detection.yaml: Model selection optimization
+# - retry-loop-prevention.yaml: Retry pattern fixes
+# - budget-protection.yaml: Spending limit enforcement
+# - fallback-storm-detection.yaml: Fallback chain optimization
+# - prompt-optimization.yaml: Token efficiency
+# - context-window-optimization.yaml: Context management
+
+# Documentation links:
+# - Policy syntax: https://crashlens.dev/docs/policy-syntax
+# - CI/CD integration: https://crashlens.dev/docs/ci-cd-integration
+# - Best practices: https://crashlens.dev/docs/best-practices
+# - Troubleshooting: https://crashlens.dev/docs/troubleshooting

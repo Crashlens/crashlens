@@ -347,7 +347,7 @@ docker compose up -d
 
 ### Prometheus Not Scraping
 
-1. **Check prometheus.yml**:
+1. **Check dashboards/prometheus.yml**:
    ```yaml
    scrape_configs:
      - job_name: 'pushgateway'

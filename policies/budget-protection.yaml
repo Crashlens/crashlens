@@ -1,0 +1,564 @@
+# CrashLens Policy: Budget Protection
+# Enforce spending limits and prevent budget overruns
+# Estimated Savings: Varies (prevents catastrophic overspend)
+
+metadata:
+  name: "Budget Protection"
+  description: "Enforces spending limits at trace, hourly, and daily levels to prevent budget overruns"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "Varies (prevents catastrophic overspend)"
+  tags:
+    - budget
+    - cost-control
+    - spending-limits
+    - governance
+  documentation: "https://crashlens.dev/docs/policies/budget-protection"
+
+# Configuration variables (customize per environment)
+variables:
+  # Per-call limits
+  max_cost_per_call: 0.50  # $0.50 per single API call
+  
+  # Time-based limits
+  hourly_spend_limit: 100.00  # $100 per hour
+  daily_spend_limit: 1000.00  # $1000 per day
+  weekly_spend_limit: 5000.00  # $5000 per week
+  
+  # Per-session limits
+  max_cost_per_session: 5.00  # $5 per user session/trace
+  
+  # Token limits (as proxy for cost)
+  max_tokens_per_call: 10000  # 10K tokens max
+
+rules:
+  # Rule 1: Single Call Too Expensive (> $0.50)
+  - id: single_call_too_expensive
+    description: "Single API call costs > $0.50"
+    match:
+      cost: "> 0.50"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 CRITICAL: Single Call Too Expensive!
+      
+      This API call cost > $0.50. This is unusually high and may indicate:
+      1. Extremely long prompt (> 30K tokens)
+      2. Expensive model (O1-preview, GPT-4 with large context)
+      3. Multiple retries aggregated incorrectly
+      4. Bug in cost calculation
+      
+      **Cost Benchmarks** (for reference):
+      - Typical GPT-4 call: $0.01 - $0.10
+      - Large GPT-4 call (16K tokens): $0.20 - $0.30
+      - **> $0.50**: Investigate immediately
+      
+      **Action Items**:
+      
+      **1. Review Token Count**:
+      ```python
+      def analyze_expensive_call(log_entry):
+          cost = log_entry['cost']
+          prompt_tokens = log_entry['usage']['prompt_tokens']
+          completion_tokens = log_entry['usage']['completion_tokens']
+          model = log_entry['model']
+          
+          print(f"🔍 Expensive Call Analysis:")
+          print(f"  Model: {model}")
+          print(f"  Prompt: {prompt_tokens:,} tokens")
+          print(f"  Completion: {completion_tokens:,} tokens")
+          print(f"  Total: {prompt_tokens + completion_tokens:,} tokens")
+          print(f"  Cost: ${cost:.4f}")
+          
+          # Check if tokens justify cost
+          expected_cost = calculate_expected_cost(model, prompt_tokens, completion_tokens)
+          if abs(cost - expected_cost) > 0.10:
+              print(f"⚠️  Cost mismatch! Expected: ${expected_cost:.4f}")
+      ```
+      
+      **2. Break Into Smaller Requests**:
+      ```python
+      # ❌ Bad: One huge request
+      full_document = load_document()  # 50K tokens
+      response = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{
+              "role": "user",
+              "content": f"Analyze this document: {full_document}"
+          }]
+      )  # Cost: $0.60+
+      
+      # ✅ Good: Chunk into smaller requests
+      chunks = split_document(full_document, chunk_size=2000)
+      summaries = []
+      
+      for chunk in chunks:
+          summary = openai.ChatCompletion.create(
+              model="gpt-4",
+              messages=[{
+                  "role": "user",
+                  "content": f"Summarize (50 words): {chunk}"
+              }]
+          )
+          summaries.append(summary)
+      # Each chunk: $0.10, Total: $0.50 (10% savings + better quality)
+      
+      # Final synthesis
+      final_summary = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{
+              "role": "user",
+              "content": f"Combine these summaries: {summaries}"
+          }]
+      )
+      ```
+      
+      **3. Use Cheaper Models for Preprocessing**:
+      ```python
+      # Step 1: Extract key sections with GPT-4o-mini (cheap)
+      key_sections = openai.ChatCompletion.create(
+          model="gpt-4o-mini",  # $0.0002 per call
+          messages=[{
+              "role": "user",
+              "content": f"Extract key sections from: {document}"
+          }]
+      )
+      
+      # Step 2: Deep analysis with GPT-4 (expensive but only on key parts)
+      analysis = openai.ChatCompletion.create(
+          model="gpt-4",  # $0.10 per call
+          messages=[{
+              "role": "user",
+              "content": f"Analyze: {key_sections}"
+          }]
+      )
+      # Total: $0.10 vs $0.60 (83% savings)
+      ```
+      
+      **4. Implement Cost Alerts**:
+      ```python
+      MAX_CALL_COST = 0.50
+      
+      def call_with_cost_limit(func, *args, **kwargs):
+          response = func(*args, **kwargs)
+          cost = calculate_cost(response)
+          
+          if cost > MAX_CALL_COST:
+              alert_team(f"⚠️  Expensive call: ${cost:.4f}")
+              log_to_monitoring(response, cost)
+          
+          return response
+      ```
+      
+      **Immediate Actions**:
+      1. Review this specific call's prompt/model
+      2. Check for retry aggregation errors
+      3. Consider chunking strategy
+      4. Set up cost monitoring alerts
+      
+      **Learn More**: https://crashlens.dev/docs/cost-per-call-optimization
+
+  # Rule 2: Hourly Spend Threshold (> $100/hour)
+  - id: hourly_spend_threshold
+    description: "Total spend exceeds $100 in 1 hour (spending spike)"
+    match:
+      sum_cost_1h: "> 100"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Hourly Spending Spike Detected!
+      
+      Your system spent > $100 in the last hour. This is 10x normal usage.
+      
+      **Possible Causes**:
+      1. Retry storm (many requests retrying simultaneously)
+      2. Traffic spike (viral content, bot attack)
+      3. Expensive model deployed accidentally
+      4. Infinite loop in application code
+      5. Production incident
+      
+      **Incident Response Checklist**:
+      
+      **1. Check for Retry Storms**:
+      ```bash
+      # Count retry attempts in last hour
+      crashlens scan logs-last-1h.jsonl \
+        --policy-file retry-loop-prevention.yaml
+      
+      # Look for patterns
+      grep "retry_count" logs-last-1h.jsonl | sort | uniq -c
+      ```
+      
+      **2. Identify Top Spenders**:
+      ```python
+      import json
+      from collections import defaultdict
+      
+      def analyze_spending_spike(logfile):
+          spending_by_endpoint = defaultdict(float)
+          spending_by_model = defaultdict(float)
+          spending_by_user = defaultdict(float)
+          
+          with open(logfile) as f:
+              for line in f:
+                  entry = json.loads(line)
+                  cost = entry.get('cost', 0)
+                  
+                  spending_by_endpoint[entry.get('endpoint', 'unknown')] += cost
+                  spending_by_model[entry.get('model', 'unknown')] += cost
+                  spending_by_user[entry.get('user_id', 'unknown')] += cost
+          
+          print("Top spending endpoints:")
+          for endpoint, cost in sorted(spending_by_endpoint.items(), 
+                                       key=lambda x: x[1], reverse=True)[:5]:
+              print(f"  {endpoint}: ${cost:.2f}")
+          
+          print("\\nTop spending models:")
+          for model, cost in sorted(spending_by_model.items(), 
+                                    key=lambda x: x[1], reverse=True)[:5]:
+              print(f"  {model}: ${cost:.2f}")
+          
+          print("\\nTop spending users:")
+          for user, cost in sorted(spending_by_user.items(), 
+                                   key=lambda x: x[1], reverse=True)[:5]:
+              print(f"  {user}: ${cost:.2f}")
+      ```
+      
+      **3. Implement Rate Limiting**:
+      ```python
+      from datetime import datetime, timedelta
+      import redis
+      
+      redis_client = redis.Redis()
+      
+      def rate_limit_check(user_id, limit_per_hour=100):
+          key = f"rate_limit:{user_id}:{datetime.now().hour}"
+          count = redis_client.incr(key)
+          redis_client.expire(key, 3600)  # 1 hour TTL
+          
+          if count > limit_per_hour:
+              raise Exception(f"Rate limit exceeded: {count}/{limit_per_hour}")
+          
+          return count
+      
+      # Usage
+      try:
+          rate_limit_check(user_id, limit_per_hour=100)
+          response = call_openai(prompt)
+      except Exception as e:
+          return {"error": "Rate limit exceeded, try again later"}
+      ```
+      
+      **4. Emergency Circuit Breaker**:
+      ```python
+      # Global kill switch
+      EMERGENCY_STOP = False  # Set to True to stop all LLM calls
+      
+      def call_with_circuit_breaker(func, *args, **kwargs):
+          if EMERGENCY_STOP:
+              raise Exception("Emergency circuit breaker activated")
+          
+          return func(*args, **kwargs)
+      ```
+      
+      **5. Send Alerts**:
+      ```python
+      import requests
+      
+      def send_spending_alert(hourly_cost, threshold=100):
+          if hourly_cost > threshold:
+              # Slack alert
+              requests.post(
+                  SLACK_WEBHOOK_URL,
+                  json={
+                      "text": f"🚨 Spending spike: ${hourly_cost:.2f}/hour "
+                              f"(threshold: ${threshold})"
+                  }
+              )
+              
+              # PagerDuty
+              trigger_pagerduty_incident(
+                  title="LLM Spending Spike",
+                  details=f"Hourly spend: ${hourly_cost:.2f}"
+              )
+      ```
+      
+      **Immediate Actions**:
+      1. Check logs for retry storms
+      2. Identify top spending endpoints/users
+      3. Enable rate limiting
+      4. Consider activating emergency circuit breaker
+      5. Alert on-call team
+      
+      **Learn More**: https://crashlens.dev/docs/incident-response
+
+  # Rule 3: Daily Budget Exceeded (> $1000/day)
+  - id: daily_budget_exceeded
+    description: "Daily spend exceeds $1000 budget"
+    match:
+      sum_cost_24h: "> 1000"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Daily Budget Exceeded!
+      
+      Your daily spending exceeded $1000. Enable rate limiting and review usage patterns.
+      
+      **Budget Management Strategies**:
+      
+      **1. Set Hard Budget Limits** (OpenAI):
+      ```python
+      # Set usage limits in OpenAI dashboard
+      # https://platform.openai.com/account/billing/limits
+      
+      # Monthly limit: $1000
+      # Email alert at: $900 (90%)
+      # Hard stop at: $1000
+      ```
+      
+      **2. Implement Daily Budget Tracking**:
+      ```python
+      import redis
+      from datetime import datetime
+      
+      DAILY_BUDGET = 1000  # $1000
+      redis_client = redis.Redis()
+      
+      def check_daily_budget():
+          today = datetime.now().strftime("%Y-%m-%d")
+          key = f"daily_spend:{today}"
+          current_spend = float(redis_client.get(key) or 0)
+          
+          if current_spend >= DAILY_BUDGET:
+              raise Exception(f"Daily budget exceeded: ${current_spend:.2f}")
+          
+          return DAILY_BUDGET - current_spend  # Remaining budget
+      
+      def record_spend(cost):
+          today = datetime.now().strftime("%Y-%m-%d")
+          key = f"daily_spend:{today}"
+          
+          new_total = redis_client.incrbyfloat(key, cost)
+          redis_client.expire(key, 86400 * 7)  # Keep for 7 days
+          
+          # Alert at 80%, 90%, 95%
+          percent_used = (new_total / DAILY_BUDGET) * 100
+          if percent_used >= 80 and percent_used < 85:
+              send_alert(f"⚠️  80% of daily budget used: ${new_total:.2f}")
+          
+          return new_total
+      ```
+      
+      **3. Progressive Rate Limiting**:
+      ```python
+      def get_rate_limit_for_budget():
+          remaining_budget = check_daily_budget()
+          remaining_hours = 24 - datetime.now().hour
+          
+          # Calculate max spend per hour for rest of day
+          max_hourly_spend = remaining_budget / remaining_hours
+          
+          # Convert to requests per minute (assume $0.10 per request)
+          avg_cost_per_request = 0.10
+          max_requests_per_hour = max_hourly_spend / avg_cost_per_request
+          max_requests_per_minute = max_requests_per_hour / 60
+          
+          return int(max_requests_per_minute)
+      ```
+      
+      **4. Cost-Aware Model Selection**:
+      ```python
+      def select_model_by_budget(task_complexity, remaining_budget):
+          # If budget running low, use cheaper models
+          budget_percent_remaining = (remaining_budget / DAILY_BUDGET) * 100
+          
+          if budget_percent_remaining < 10:
+              # Critical budget - cheapest models only
+              return "gpt-4o-mini" if task_complexity < 5 else "gpt-3.5-turbo"
+          elif budget_percent_remaining < 30:
+              # Low budget - prefer cheaper models
+              return "gpt-3.5-turbo" if task_complexity < 7 else "gpt-4o"
+          else:
+              # Normal budget - full model selection
+              if task_complexity < 3:
+                  return "gpt-4o-mini"
+              elif task_complexity < 7:
+                  return "gpt-3.5-turbo"
+              else:
+                  return "gpt-4"
+      ```
+      
+      **Immediate Actions**:
+      1. Set hard budget limits in OpenAI dashboard
+      2. Implement daily spending tracker
+      3. Enable progressive rate limiting
+      4. Switch to cheaper models when budget low
+      5. Review and optimize high-cost endpoints
+      
+      **Learn More**: https://crashlens.dev/docs/budget-management
+
+  # Rule 4: Cost Per User Session Too High (> $5/session)
+  - id: cost_per_user_session
+    description: "Cost per session/traceId exceeds $5"
+    match:
+      sum_cost_by_trace: "> 5"
+    action: warn
+    severity: high
+    suggestion: |
+      ⚠️  Expensive User Session Detected!
+      
+      This user session cost > $5. This may indicate:
+      1. Very long conversation (50+ turns)
+      2. Large context window (full history sent each time)
+      3. Expensive model used throughout
+      4. Inefficient context management
+      
+      **Optimization Strategies**:
+      
+      **1. Implement Conversation Summarization**:
+      ```python
+      def manage_conversation_cost(messages, max_cost=5.0, current_cost=0):
+          if current_cost > max_cost * 0.8:  # 80% of budget
+              # Summarize conversation history
+              history = messages[:-1]  # All except last user message
+              
+              summary = openai.ChatCompletion.create(
+                  model="gpt-4o-mini",  # Cheap model for summarization
+                  messages=[{
+                      "role": "user",
+                      "content": f"Summarize this conversation in 200 words:\\n{history}"
+                  }]
+              )
+              
+              # Replace history with summary
+              messages = [
+                  {"role": "system", "content": "Previous conversation summary: " + summary},
+                  messages[-1]  # Current user message
+              ]
+          
+          return messages
+      ```
+      
+      **2. Use Sliding Window**:
+      ```python
+      MAX_MESSAGES = 10  # Keep last 10 messages only
+      
+      def get_context_window(messages, max_messages=MAX_MESSAGES):
+          if len(messages) <= max_messages:
+              return messages
+          
+          # Keep system message + last N messages
+          system_msg = [msg for msg in messages if msg['role'] == 'system']
+          recent_msgs = messages[-max_messages:]
+          
+          return system_msg + recent_msgs
+      ```
+      
+      **3. Switch to Cheaper Models Mid-Conversation**:
+      ```python
+      def select_model_for_turn(turn_number, session_cost):
+          # Use GPT-4 for first 3 turns, then cheaper models
+          if turn_number <= 3:
+              return "gpt-4"
+          elif session_cost < 2.0:
+              return "gpt-3.5-turbo"
+          else:
+              return "gpt-4o-mini"  # Cheapest for long conversations
+      ```
+      
+      **4. Implement Session Budget**:
+      ```python
+      class ConversationSession:
+          def __init__(self, session_id, max_budget=5.0):
+              self.session_id = session_id
+              self.max_budget = max_budget
+              self.current_cost = 0
+              self.messages = []
+          
+          def add_turn(self, user_message):
+              if self.current_cost >= self.max_budget:
+                  return {"error": "Session budget exceeded. Start new session."}
+              
+              # Select model based on remaining budget
+              remaining = self.max_budget - self.current_cost
+              model = "gpt-4" if remaining > 2.0 else "gpt-4o-mini"
+              
+              response = openai.ChatCompletion.create(
+                  model=model,
+                  messages=self.messages + [user_message]
+              )
+              
+              self.current_cost += calculate_cost(response)
+              self.messages.append(user_message)
+              self.messages.append(response)
+              
+              return response
+      ```
+      
+      **Immediate Actions**:
+      1. Implement conversation summarization at 80% budget
+      2. Use sliding window (keep last 10 messages)
+      3. Switch to cheaper models after first 3 turns
+      4. Set session budget limits ($5 max)
+      5. Offer "start new session" when budget exceeded
+      
+      **Learn More**: https://crashlens.dev/docs/conversation-cost-management
+
+  # Rule 5: Weekly Budget Threshold
+  - id: weekly_budget_threshold
+    description: "Weekly spend exceeds $5000 budget"
+    match:
+      sum_cost_7d: "> 5000"
+    action: warn
+    severity: high
+    suggestion: |
+      ⚠️  Weekly Spending Trend Alert
+      
+      Your weekly spending is trending toward $5000+. Review usage patterns and optimize.
+      
+      **Weekly Review Checklist**:
+      1. Run cost analysis report
+      2. Identify optimization opportunities
+      3. Review model selection strategy
+      4. Check for retry/fallback issues
+      5. Update budget forecasts
+      
+      **Generate Cost Report**:
+      ```bash
+      crashlens scan weekly-logs.jsonl \
+        --format markdown \
+        --output-dir weekly-reports/ \
+        --summary-only
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/weekly-cost-review
+
+# Example Logs That Trigger This Policy
+
+# Example 1: Expensive single call (triggers single_call_too_expensive)
+# {
+#   "traceId": "trace_123",
+#   "model": "gpt-4",
+#   "usage": {"prompt_tokens": 15000, "completion_tokens": 5000, "total_tokens": 20000},
+#   "cost": 0.75
+# }
+# Expected: FAIL (critical) - Break into smaller requests
+
+# Usage Examples
+
+# Basic budget enforcement
+# crashlens guard logs.jsonl --policy-file policies/budget-protection.yaml --fail-on-violations
+
+# Custom budget thresholds
+# crashlens guard logs.jsonl --policy-file policies/budget-protection.yaml \
+#   --config custom-budgets.yaml
+
+# Continuous monitoring
+# crashlens guard hourly-logs.jsonl --policy-file policies/budget-protection.yaml \
+#   --format slack --slack-webhook $SLACK_WEBHOOK
+
+# Related Templates
+# - model-overkill-detection.yaml: Reduce model costs
+# - retry-loop-prevention.yaml: Eliminate retry waste
+# - prompt-optimization.yaml: Optimize token usage

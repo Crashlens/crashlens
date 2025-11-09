@@ -1,0 +1,620 @@
+# CrashLens Policy: Prompt Optimization
+# Optimize prompt efficiency and reduce wasted tokens
+# Estimated Savings: 15-30% through better prompt engineering
+
+metadata:
+  name: "Prompt Optimization"
+  description: "Detects inefficient prompts, token waste, and opportunities for prompt caching"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "15-30%"
+  tags:
+    - prompt-engineering
+    - token-optimization
+    - caching
+    - cost-optimization
+  documentation: "https://crashlens.dev/docs/policies/prompt-optimization"
+
+# Configuration variables
+variables:
+  long_prompt_threshold: 2000  # tokens
+  short_completion_threshold: 50  # tokens
+  repeated_prompt_threshold: 10  # count
+  expensive_cost_per_token: 0.01  # $0.01 per completion token
+  verbose_system_prompt_threshold: 1000  # tokens
+
+rules:
+  # Rule 1: Long Prompt, Short Response (inefficient token ratio)
+  - id: long_prompt_short_response
+    description: "Prompt > 2000 tokens but completion < 50 tokens (inefficient)"
+    match:
+      usage.prompt_tokens: "> 2000"
+      usage.completion_tokens: "< 50"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Inefficient Token Ratio Detected!
+      
+      You're sending 2000+ prompt tokens but getting < 50 completion tokens.
+      This is a 40:1 input/output ratio (highly inefficient).
+      
+      **Cost Analysis**:
+      - Prompt tokens (2000): ~$0.06 (at GPT-4 pricing)
+      - Completion tokens (50): ~$0.003
+      - **You're paying 20x more for input than output!**
+      
+      **Common Causes**:
+      1. Including full documentation in prompt for yes/no questions
+      2. Sending entire codebase for simple queries
+      3. Verbose examples when 1-2 would suffice
+      4. Unnecessary context that doesn't affect output
+      
+      **Optimization Strategies**:
+      
+      **1. Use Few-Shot Examples** (not many-shot):
+      ```python
+      # ❌ Bad: 50 examples (2000 tokens)
+      prompt = f"""
+      Here are 50 examples of classifications:
+      Example 1: "I love it" → positive
+      Example 2: "Great product" → positive
+      ...
+      Example 50: "Worst purchase" → negative
+      
+      Now classify: "{user_input}"
+      """
+      
+      # ✅ Good: 2-3 examples (200 tokens)
+      prompt = f"""
+      Classify sentiment (positive/negative/neutral):
+      
+      Examples:
+      "I love it" → positive
+      "It's okay" → neutral
+      "Worst purchase" → negative
+      
+      Input: "{user_input}"
+      Classification:
+      """
+      ```
+      
+      **2. Extract Relevant Context** (not full context):
+      ```python
+      # ❌ Bad: Full 5000-line codebase
+      prompt = f"Here's the entire codebase:\\n{full_code}\\nExplain function X"
+      
+      # ✅ Good: Extract only relevant function
+      relevant_code = extract_function(full_code, "function X")
+      prompt = f"Explain this function:\\n{relevant_code}"
+      ```
+      
+      **3. Use Embeddings for Context Selection**:
+      ```python
+      from openai import OpenAI
+      
+      client = OpenAI()
+      
+      # Get embeddings for all context chunks
+      chunks = split_into_chunks(long_document, chunk_size=500)
+      chunk_embeddings = [
+          client.embeddings.create(input=chunk, model="text-embedding-3-small")
+          for chunk in chunks
+      ]
+      
+      # Find most relevant chunks for query
+      query_embedding = client.embeddings.create(
+          input=user_query, 
+          model="text-embedding-3-small"
+      )
+      
+      relevant_chunks = get_top_k_similar(query_embedding, chunk_embeddings, k=3)
+      
+      # Use only relevant context
+      prompt = f"""
+      Context: {' '.join(relevant_chunks)}
+      
+      Question: {user_query}
+      """
+      ```
+      
+      **4. Compress System Prompts**:
+      ```python
+      # ❌ Bad: Verbose instructions (1500 tokens)
+      system_prompt = """
+      You are a helpful assistant. You should always be polite.
+      You should always provide accurate information. You should
+      never make up facts. You should cite sources when possible.
+      You should format your responses clearly. You should use
+      bullet points when appropriate. You should be concise yet
+      comprehensive. You should adapt your tone to the user...
+      """
+      
+      # ✅ Good: Compressed (150 tokens)
+      system_prompt = """
+      You are a helpful, accurate assistant. Provide:
+      - Factual, cited information
+      - Clear, concise responses with bullet points
+      - Tone adapted to context
+      """
+      ```
+      
+      **5. Use Prompt Caching** (OpenAI):
+      ```python
+      # Cache system prompt (billed once, reused)
+      response = client.chat.completions.create(
+          model="gpt-4-turbo",
+          messages=[
+              {
+                  "role": "system",
+                  "content": long_system_prompt  # Cached automatically
+              },
+              {"role": "user", "content": user_query}
+          ]
+      )
+      # Subsequent requests with same system prompt: 90% discount on cached tokens!
+      ```
+      
+      **Immediate Actions**:
+      1. Reduce few-shot examples to 2-3 (not 50)
+      2. Use embeddings to select relevant context only
+      3. Compress verbose system prompts
+      4. Enable prompt caching for repeated context
+      
+      **Potential Savings**: 50-70% by optimizing prompt length
+      
+      **Learn More**: https://crashlens.dev/docs/prompt-optimization
+
+  # Rule 2: Repeated Prompt Content (use caching or DB)
+  - id: repeated_prompt_content
+    description: "Same prompt sent 10+ times (enable caching or store results)"
+    match:
+      prompt_hash_count: "> 10"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Repeated Prompt Detected!
+      
+      You've sent the same prompt 10+ times. This is wasteful when results could be cached.
+      
+      **Cost Impact**:
+      - Same prompt 10x = 10x cost
+      - Example: $0.10 per call × 10 = $1.00 (could be $0.10 with caching)
+      
+      **Caching Strategies**:
+      
+      **1. OpenAI Prompt Caching** (automatic):
+      ```python
+      # Enable prompt caching (GPT-4 Turbo, GPT-4o)
+      response = client.chat.completions.create(
+          model="gpt-4-turbo",
+          messages=[
+              {
+                  "role": "system",
+                  "content": "Your repeated system prompt..."  # Cached
+              },
+              {"role": "user", "content": variable_query}
+          ]
+      )
+      # Cached tokens: 90% discount!
+      ```
+      
+      **2. Application-Level Caching** (Redis):
+      ```python
+      import redis
+      import hashlib
+      import json
+      
+      redis_client = redis.Redis(host='localhost', port=6379, db=0)
+      
+      def get_cached_response(prompt, model="gpt-4", ttl=3600):
+          # Generate cache key
+          cache_key = hashlib.sha256(
+              f"{model}:{prompt}".encode()
+          ).hexdigest()
+          
+          # Check cache
+          cached = redis_client.get(cache_key)
+          if cached:
+              print("✅ Cache hit - saved API call!")
+              return json.loads(cached)
+          
+          # Call API
+          response = openai.ChatCompletion.create(
+              model=model,
+              messages=[{"role": "user", "content": prompt}]
+          )
+          
+          # Cache result
+          redis_client.setex(
+              cache_key,
+              ttl,  # Cache for 1 hour
+              json.dumps(response)
+          )
+          
+          return response
+      ```
+      
+      **3. Database Caching** (for long-term results):
+      ```python
+      import sqlite3
+      
+      def get_or_compute_response(prompt):
+          conn = sqlite3.connect('cache.db')
+          cursor = conn.cursor()
+          
+          # Check if response exists
+          cursor.execute(
+              "SELECT response, created_at FROM cache WHERE prompt_hash = ?",
+              (hash(prompt),)
+          )
+          row = cursor.fetchone()
+          
+          if row and (datetime.now() - row[1]).days < 7:  # 7-day TTL
+              return json.loads(row[0])
+          
+          # Generate new response
+          response = call_openai(prompt)
+          
+          # Store in database
+          cursor.execute(
+              "INSERT OR REPLACE INTO cache VALUES (?, ?, ?)",
+              (hash(prompt), json.dumps(response), datetime.now())
+          )
+          conn.commit()
+          
+          return response
+      ```
+      
+      **4. Semantic Caching** (for similar prompts):
+      ```python
+      from sklearn.metrics.pairwise import cosine_similarity
+      import numpy as np
+      
+      class SemanticCache:
+          def __init__(self, similarity_threshold=0.95):
+              self.cache = []  # List of (embedding, response) tuples
+              self.threshold = similarity_threshold
+          
+          def get_embedding(self, text):
+              response = client.embeddings.create(
+                  input=text,
+                  model="text-embedding-3-small"
+              )
+              return np.array(response.data[0].embedding)
+          
+          def get(self, prompt):
+              prompt_embedding = self.get_embedding(prompt)
+              
+              for cached_embedding, cached_response in self.cache:
+                  similarity = cosine_similarity(
+                      [prompt_embedding],
+                      [cached_embedding]
+                  )[0][0]
+                  
+                  if similarity >= self.threshold:
+                      print(f"✅ Semantic match ({similarity:.2%}) - using cached response")
+                      return cached_response
+              
+              return None
+          
+          def set(self, prompt, response):
+              embedding = self.get_embedding(prompt)
+              self.cache.append((embedding, response))
+      
+      # Usage
+      cache = SemanticCache()
+      cached = cache.get("What is AI?")
+      if not cached:
+          cached = call_openai("What is AI?")
+          cache.set("What is AI?", cached)
+      ```
+      
+      **5. LangChain Caching**:
+      ```python
+      from langchain.cache import InMemoryCache, RedisCache
+      from langchain.llms import OpenAI
+      import langchain
+      
+      # Enable caching
+      langchain.llm_cache = InMemoryCache()
+      # Or Redis for production
+      # langchain.llm_cache = RedisCache(redis_url="redis://localhost:6379")
+      
+      llm = OpenAI(model_name="gpt-4")
+      
+      # First call - hits API
+      response1 = llm("What is AI?")  # $0.10
+      
+      # Second call - returns cached result
+      response2 = llm("What is AI?")  # $0.00 (cached!)
+      ```
+      
+      **Immediate Actions**:
+      1. Enable OpenAI prompt caching (automatic in GPT-4 Turbo/4o)
+      2. Implement Redis caching for frequently repeated prompts
+      3. Use semantic caching for similar prompts
+      4. Set appropriate TTL (1 hour to 7 days depending on use case)
+      
+      **Potential Savings**: 90% for repeated prompts
+      
+      **Learn More**: https://crashlens.dev/docs/caching-strategies
+
+  # Rule 3: Expensive Cost Per Token
+  - id: inefficient_cost_per_token
+    description: "Cost per completion token > $0.01 (extremely expensive)"
+    match:
+      cost_per_completion_token: "> 0.01"
+    action: fail
+    severity: high
+    suggestion: |
+      🚨 Extremely High Cost Per Token!
+      
+      You're paying > $0.01 per completion token. This is 300x more expensive than GPT-4!
+      
+      **Normal Pricing** (per 1K completion tokens):
+      - GPT-4o-mini: $0.0006 → $0.0000006 per token
+      - GPT-3.5-turbo: $0.002 → $0.000002 per token
+      - GPT-4: $0.06 → $0.00006 per token
+      - GPT-4-turbo: $0.03 → $0.00003 per token
+      
+      **Your cost**: $0.01+ per token (300x+ GPT-4!)
+      
+      **Possible Causes**:
+      1. Multiple retries for same request (retry loop)
+      2. Fallback chain (trying 5+ models)
+      3. Model overkill (O1-preview for simple tasks)
+      4. Aggregation error (summing costs incorrectly)
+      
+      **Debugging Steps**:
+      
+      ```python
+      # Calculate cost per token
+      def analyze_cost_efficiency(log_entry):
+          cost = log_entry['cost']
+          completion_tokens = log_entry['usage']['completion_tokens']
+          
+          if completion_tokens == 0:
+              print("⚠️  Zero completion tokens - failed request?")
+              return
+          
+          cost_per_token = cost / completion_tokens
+          
+          print(f"Cost per token: ${cost_per_token:.6f}")
+          
+          # Expected ranges
+          if cost_per_token > 0.001:
+              print("🚨 CRITICAL: 100x+ normal cost!")
+              print("Check for:")
+              print("  - Retry loops")
+              print("  - Multiple model attempts")
+              print("  - Wrong model (O1-preview?)")
+          elif cost_per_token > 0.0001:
+              print("⚠️  HIGH: 10x+ normal cost")
+              print("Check model selection")
+          else:
+              print("✅ Normal cost range")
+      ```
+      
+      **Immediate Actions**:
+      1. Review trace for retry loops (should be 1 attempt)
+      2. Check if fallback chain is too long (should be 2-3 models max)
+      3. Verify model selection (should not be O1-preview for simple tasks)
+      4. Check cost calculation logic (aggregation errors?)
+      
+      **Learn More**: https://crashlens.dev/docs/cost-per-token-analysis
+
+  # Rule 4: Verbose System Prompt (> 1000 tokens)
+  - id: verbose_system_prompt
+    description: "System prompt exceeds 1000 tokens (compress or externalize)"
+    match:
+      system_prompt_tokens: "> 1000"
+    action: warn
+    severity: low
+    suggestion: |
+      💡 Verbose System Prompt Detected
+      
+      Your system prompt is > 1000 tokens. Consider compression or external knowledge retrieval.
+      
+      **Cost Impact**:
+      - 1000-token system prompt sent 10K times = 10M tokens
+      - At GPT-4 pricing: 10M × $0.00003 = $300
+      - Compressed to 200 tokens: 2M × $0.00003 = $60
+      - **Savings: $240 (80%)**
+      
+      **Compression Techniques**:
+      
+      **1. Remove Redundancy**:
+      ```python
+      # ❌ Bad: Verbose (1200 tokens)
+      system_prompt = """
+      You are a customer support assistant. You should be helpful.
+      You should be polite. You should be professional. You should
+      respond to customer inquiries. You should provide accurate
+      information about products. You should help with orders.
+      You should handle complaints. You should escalate complex
+      issues. You should follow company policies. You should...
+      [50 more lines of similar instructions]
+      """
+      
+      # ✅ Good: Compressed (200 tokens)
+      system_prompt = """
+      You are a professional customer support assistant. Provide:
+      - Accurate product information
+      - Order assistance and tracking
+      - Complaint resolution (escalate if complex)
+      - Policy-compliant responses
+      
+      Tone: Helpful, polite, professional
+      """
+      ```
+      
+      **2. Move Knowledge to RAG**:
+      ```python
+      # ❌ Bad: Include all product info in prompt
+      system_prompt = f"""
+      Here is our product catalog:
+      {product1_details}  # 500 tokens
+      {product2_details}  # 500 tokens
+      {product3_details}  # 500 tokens
+      ...
+      
+      Answer customer questions using this information.
+      """
+      
+      # ✅ Good: Use RAG to fetch relevant products
+      relevant_products = vector_db.search(user_query, top_k=3)
+      
+      system_prompt = """
+      You are a product assistant. Use the provided context to answer questions.
+      """
+      
+      user_prompt = f"""
+      Context: {relevant_products}
+      
+      Question: {user_query}
+      """
+      ```
+      
+      **3. Use Functions/Tools**:
+      ```python
+      # ❌ Bad: Include all API documentation
+      system_prompt = """
+      You can call these functions:
+      - get_order(order_id): Returns order details [full API docs...]
+      - cancel_order(order_id): Cancels order [full API docs...]
+      - track_shipment(tracking_id): Returns tracking [full API docs...]
+      [20 more functions with full documentation = 2000 tokens]
+      """
+      
+      # ✅ Good: Use function calling (OpenAI knows API format)
+      tools = [
+          {
+              "type": "function",
+              "function": {
+                  "name": "get_order",
+                  "description": "Get order details",
+                  "parameters": {
+                      "type": "object",
+                      "properties": {
+                          "order_id": {"type": "string"}
+                      }
+                  }
+              }
+          }
+      ]
+      
+      response = client.chat.completions.create(
+          model="gpt-4-turbo",
+          messages=[{"role": "user", "content": user_query}],
+          tools=tools
+      )
+      ```
+      
+      **4. Use Prompt Templates**:
+      ```python
+      # Base system prompt (short)
+      base_prompt = "You are a {role}. {tone_guidelines}"
+      
+      # Populate dynamically
+      system_prompt = base_prompt.format(
+          role="customer support assistant",
+          tone_guidelines="Be helpful and professional."
+      )
+      ```
+      
+      **Immediate Actions**:
+      1. Remove redundant instructions
+      2. Move static knowledge to RAG/vector DB
+      3. Use function calling instead of documenting APIs
+      4. Compress to < 300 tokens if possible
+      
+      **Potential Savings**: 70-80% on system prompt tokens
+      
+      **Learn More**: https://crashlens.dev/docs/system-prompt-optimization
+
+  # Rule 5: Zero Output Tokens (failed requests)
+  - id: zero_output_tokens
+    description: "Zero completion tokens generated (likely a failed request)"
+    match:
+      usage.completion_tokens: "== 0"
+      cost: "> 0"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Zero Completion Tokens But Cost Incurred
+      
+      Request charged but produced no output. Possible causes:
+      1. Request timed out
+      2. Content filter triggered
+      3. Max tokens set to 0
+      4. API error after billing
+      
+      **Debugging**:
+      ```python
+      if completion_tokens == 0 and cost > 0:
+          print("⚠️  Failed request - charged for prompt only")
+          print(f"Prompt tokens: {prompt_tokens}")
+          print(f"Cost: ${cost}")
+          print(f"Check error field: {error}")
+      ```
+      
+      **Prevention**:
+      1. Check max_tokens setting (should be > 0)
+      2. Review content filters
+      3. Implement proper error handling
+      4. Don't pay for failed requests (retry with backoff)
+      
+      **Learn More**: https://crashlens.dev/docs/failed-request-handling
+
+# Example Logs That Trigger This Policy
+
+# Example 1: Long prompt, short completion (triggers long_prompt_short_response)
+# {
+#   "traceId": "trace_123",
+#   "model": "gpt-4",
+#   "usage": {
+#     "prompt_tokens": 2500,
+#     "completion_tokens": 20,
+#     "total_tokens": 2520
+#   },
+#   "cost": 0.078,
+#   "prompt": "[2500 tokens of context with 50 examples]"
+# }
+# Expected: WARN (medium) - Optimize prompt, reduce examples
+
+# Example 2: Repeated prompt (triggers repeated_prompt_content)
+# Multiple log entries with same prompt_hash, count > 10
+# Expected: WARN (medium) - Enable caching
+
+# Example 3: Expensive per-token cost (triggers inefficient_cost_per_token)
+# {
+#   "traceId": "trace_456",
+#   "model": "gpt-4",
+#   "usage": {
+#     "completion_tokens": 10
+#   },
+#   "cost": 0.15,  # $0.015 per token (extremely high)
+#   "retry_count": 5
+# }
+# Expected: FAIL (high) - Check for retry loops
+
+# Usage Examples
+
+# Basic usage
+# crashlens guard logs.jsonl --policy-file policies/prompt-optimization.yaml
+
+# Weekly monitoring
+# crashlens guard production-logs.jsonl \
+#   --policy-file policies/prompt-optimization.yaml \
+#   --summary-only
+
+# CI/CD integration
+# crashlens guard logs.jsonl \
+#   --policy-file policies/prompt-optimization.yaml \
+#   --fail-on-violations --format json
+
+# Related Templates
+# - model-overkill-detection.yaml: Choose right models
+# - budget-protection.yaml: Enforce spending limits
+# - context-window-optimization.yaml: Optimize context usage

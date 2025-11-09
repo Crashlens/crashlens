@@ -1,6 +1,22 @@
 # CrashLens Policy: Retry Loop Detector
 # Designed for Langfuse traces - detects expensive retry patterns
 # yaml-language-server: $schema=../../crashlens/config/policy-schema.json
+#
+# Usage:
+#   crashlens guard logs.jsonl --policy-file policies/retry-loop-detector.yaml --fail-on-violations
+#   crashlens scan logs.jsonl --policy-template retry-loop-prevention
+#
+# Production monitoring:
+#   crashlens guard production-logs.jsonl \
+#     --policy-file policies/retry-loop-detector.yaml \
+#     --severity critical \
+#     --strip-pii \
+#     --fail-on-violations
+#
+# Related templates:
+#   - retry-loop-prevention
+#   - error-storm-detection
+#   - budget-protection
 
 rules:
   - id: excessive_retry_pattern

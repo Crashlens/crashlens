@@ -1,0 +1,319 @@
+# CrashLens Policy: Model Overkill Detection
+# Prevents expensive models (GPT-4, Claude Opus) being used for simple tasks
+# Estimated Savings: 30-50% by switching to cheaper models
+
+metadata:
+  name: "Model Overkill Detection"
+  description: "Detects when expensive LLM models are used for tasks that could be handled by cheaper alternatives"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "30-50%"
+  tags:
+    - cost-optimization
+    - model-selection
+    - efficiency
+  documentation: "https://crashlens.dev/docs/policies/model-overkill"
+
+# Configuration variables (override with --config)
+variables:
+  simple_task_threshold: 50  # tokens
+  short_completion_threshold: 10  # tokens
+  small_task_threshold: 100  # tokens
+  gpt4_cost_per_1k_prompt: 0.03  # $0.03/1K
+  gpt35_cost_per_1k_prompt: 0.0015  # $0.0015/1K (20x cheaper)
+
+rules:
+  # Rule 1: GPT-4 for Simple Tasks (< 50 prompt tokens)
+  - id: gpt4_for_simple_tasks
+    description: "Detect GPT-4 used for simple tasks with minimal prompt tokens"
+    match:
+      model: "gpt-4"
+      usage.prompt_tokens: "< 50"
+    action: fail
+    severity: high
+    suggestion: |
+      💡 Model Overkill Detected!
+      
+      You're using GPT-4 ($0.03/1K tokens) for a simple task with < 50 prompt tokens.
+      
+      **Cost Comparison**:
+      - GPT-4: $0.03 per 1K prompt tokens
+      - GPT-4o-mini: $0.00015 per 1K (200x cheaper!)
+      - GPT-3.5-turbo: $0.0015 per 1K (20x cheaper)
+      
+      **Recommended Actions**:
+      1. Switch to `gpt-4o-mini` for classification, extraction, or simple Q&A
+      2. Use `gpt-3.5-turbo` if you need slightly better reasoning
+      3. Reserve GPT-4 for complex reasoning tasks (> 500 tokens)
+      
+      **Potential Savings**: 90-95% cost reduction
+      
+      **Example Fix**:
+      ```python
+      # Before (expensive)
+      response = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{"role": "user", "content": "Classify: positive or negative?"}]
+      )
+      
+      # After (90% cheaper)
+      response = openai.ChatCompletion.create(
+          model="gpt-4o-mini",
+          messages=[{"role": "user", "content": "Classify: positive or negative?"}]
+      )
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/model-selection-guide
+
+  # Rule 2: GPT-4 for Short Completions (< 10 completion tokens)
+  - id: gpt4_for_short_completions
+    description: "GPT-4 generating very short responses (< 10 tokens)"
+    match:
+      model: "gpt-4"
+      usage.completion_tokens: "< 10"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Short Completion on Expensive Model
+      
+      GPT-4 generated < 10 completion tokens. Simple responses rarely need GPT-4's reasoning power.
+      
+      **Common Use Cases for Cheaper Models**:
+      - Yes/No answers → gpt-4o-mini or gpt-3.5-turbo
+      - Single-word classifications → gpt-4o-mini
+      - Sentiment labels → gpt-3.5-turbo
+      - Short summaries (< 50 words) → gpt-3.5-turbo
+      
+      **Cost Example**:
+      - GPT-4 (10 tokens): ~$0.0006
+      - GPT-4o-mini (10 tokens): ~$0.000003 (200x cheaper!)
+      
+      **Fix**: Switch to cheaper model unless complex reasoning is required.
+      
+      **Learn More**: https://crashlens.dev/docs/when-to-use-gpt4
+
+  # Rule 3: Claude Opus Overkill (< 100 total tokens)
+  - id: claude_opus_overkill
+    description: "Claude Opus used for tasks with < 100 total tokens"
+    match:
+      model: "claude-3-opus-20240229"
+      usage.total_tokens: "< 100"
+    action: fail
+    severity: high
+    suggestion: |
+      🚨 Expensive Model for Tiny Task!
+      
+      You're using Claude 3 Opus ($15/$75 per million tokens) for a task < 100 tokens.
+      
+      **Cost Comparison** (per million tokens):
+      - Claude 3 Opus: $15 input / $75 output
+      - Claude 3 Sonnet: $3 input / $15 output (5x cheaper)
+      - Claude 3 Haiku: $0.25 input / $1.25 output (60x cheaper!)
+      
+      **When to Use Each Claude Model**:
+      - **Haiku**: Simple tasks, classification, extraction (< 500 tokens)
+      - **Sonnet**: Balanced quality/cost, most production use cases
+      - **Opus**: Complex reasoning, creative writing, deep analysis
+      
+      **Potential Savings**: 60-80% by switching to Haiku or Sonnet
+      
+      **Example Fix**:
+      ```python
+      # Before (expensive)
+      response = anthropic.messages.create(
+          model="claude-3-opus-20240229",
+          messages=[{"role": "user", "content": "Extract email"}]
+      )
+      
+      # After (60x cheaper)
+      response = anthropic.messages.create(
+          model="claude-3-haiku-20240307",
+          messages=[{"role": "user", "content": "Extract email"}]
+      )
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/claude-model-selection
+
+  # Rule 4: Expensive Models for Keyword/Classification Tasks
+  - id: expensive_model_for_structured_tasks
+    description: "Expensive models (GPT-4/Opus) used for keyword extraction or classification"
+    match:
+      model: 
+        - "gpt-4"
+        - "gpt-4-32k"
+        - "claude-3-opus-20240229"
+      prompt: "regex:(classify|extract|keywords?|categorize|label|tag|sentiment)"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Consider Cheaper Alternatives for Structured Tasks
+      
+      You're using an expensive model for keyword extraction, classification, or categorization.
+      
+      **Better Alternatives**:
+      1. **GPT-4o-mini**: 200x cheaper, excellent for structured tasks
+      2. **GPT-3.5-turbo**: 20x cheaper, fast classification
+      3. **Traditional NLP**: spaCy, NLTK (free, instant)
+      4. **Fine-tuned smaller models**: Distill to custom model
+      
+      **When to Use Traditional NLP Instead**:
+      - Keyword extraction → TF-IDF, RAKE, YAKE
+      - Named entity recognition → spaCy, Hugging Face
+      - Sentiment analysis → DistilBERT, RoBERTa
+      - Text classification → scikit-learn + embeddings
+      
+      **Cost Comparison** (10K requests):
+      - GPT-4: $30-50
+      - GPT-4o-mini: $0.15-0.30
+      - Traditional NLP: $0 (compute only)
+      
+      **Example Fix**:
+      ```python
+      # Simple classification - use GPT-4o-mini
+      if task_type == "classification":
+          model = "gpt-4o-mini"
+      # Complex reasoning - use GPT-4
+      elif task_type == "analysis":
+          model = "gpt-4"
+      ```
+      
+      **Learn More**: https://crashlens.dev/docs/structured-task-optimization
+
+  # Rule 5: GPT-4 Turbo Overkill (when regular GPT-4 would suffice)
+  - id: gpt4_turbo_unnecessary
+    description: "GPT-4 Turbo used for tasks < 2000 tokens (regular GPT-4 is cheaper)"
+    match:
+      model: "gpt-4-turbo"
+      usage.prompt_tokens: "< 2000"
+    action: warn
+    severity: low
+    suggestion: |
+      ℹ️  Consider Standard GPT-4 for Shorter Prompts
+      
+      You're using GPT-4 Turbo for a prompt < 2000 tokens. Standard GPT-4 may be more cost-effective.
+      
+      **Model Selection Guide**:
+      - **gpt-4-turbo**: Best for 8K-32K token contexts, multimodal, JSON mode
+      - **gpt-4**: Standard model, cheaper for < 8K contexts
+      - **gpt-4o**: Faster, cheaper, better for most use cases
+      - **gpt-4o-mini**: 200x cheaper, great for simple tasks
+      
+      **Cost Comparison** (1K prompt + 500 completion tokens):
+      - GPT-4 Turbo: $0.04
+      - GPT-4: $0.045
+      - GPT-4o: $0.008 (5x cheaper!)
+      - GPT-4o-mini: $0.0002 (200x cheaper!)
+      
+      **Recommendation**: Use gpt-4o or gpt-4o-mini unless you need Turbo-specific features.
+      
+      **Learn More**: https://openai.com/pricing
+
+  # Rule 6: O1-Preview for Simple Tasks
+  - id: o1_preview_overkill
+    description: "O1-preview (most expensive) used for tasks < 100 tokens"
+    match:
+      model:
+        - "o1-preview"
+        - "o1-mini"
+      usage.prompt_tokens: "< 100"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 CRITICAL: Most Expensive Model for Tiny Task!
+      
+      You're using O1-preview ($15/$60 per million) for a task < 100 tokens.
+      
+      **Cost Comparison** (per million tokens):
+      - O1-preview: $15 input / $60 output (MOST EXPENSIVE)
+      - GPT-4: $30 input / $60 output
+      - GPT-4o: $2.50 input / $10 output (6x cheaper than O1)
+      - GPT-4o-mini: $0.15 input / $0.60 output (100x cheaper!)
+      
+      **When to Use O1 Models**:
+      - Complex multi-step reasoning (PhD-level)
+      - Mathematical proofs
+      - Scientific research tasks
+      - Advanced coding challenges
+      
+      **NOT for**:
+      - Simple Q&A
+      - Classification
+      - Extraction
+      - Short responses
+      
+      **Immediate Action**: Switch to GPT-4o or GPT-4o-mini
+      
+      **Potential Savings**: 90-99% cost reduction
+      
+      **Learn More**: https://openai.com/o1
+
+# Example Logs That Trigger This Policy
+
+# Example 1: GPT-4 for simple classification (triggers gpt4_for_simple_tasks)
+# {
+#   "traceId": "trace_123",
+#   "model": "gpt-4",
+#   "usage": {
+#     "prompt_tokens": 25,
+#     "completion_tokens": 1,
+#     "total_tokens": 26
+#   },
+#   "cost": 0.00078,
+#   "prompt": "Classify this sentiment: I love this product!"
+# }
+# Expected: FAIL (high severity) - Switch to gpt-4o-mini (90% cheaper)
+
+# Example 2: Claude Opus for keyword extraction (triggers claude_opus_overkill)
+# {
+#   "traceId": "trace_456",
+#   "model": "claude-3-opus-20240229",
+#   "usage": {
+#     "prompt_tokens": 50,
+#     "completion_tokens": 10,
+#     "total_tokens": 60
+#   },
+#   "cost": 0.0015,
+#   "prompt": "Extract keywords from: AI is transforming healthcare"
+# }
+# Expected: FAIL (high severity) - Use Claude Haiku (60x cheaper)
+
+# Example 3: O1-preview for simple task (triggers o1_preview_overkill)
+# {
+#   "traceId": "trace_789",
+#   "model": "o1-preview",
+#   "usage": {
+#     "prompt_tokens": 30,
+#     "completion_tokens": 5,
+#     "total_tokens": 35
+#   },
+#   "cost": 0.0015,
+#   "prompt": "Summarize in 3 words: CrashLens saves money"
+# }
+# Expected: FAIL (critical severity) - Use GPT-4o-mini (100x cheaper)
+
+# Usage Examples
+
+# Basic usage
+# crashlens guard logs.jsonl --policy-file policies/model-overkill-detection.yaml
+
+# Fail CI/CD on violations
+# crashlens guard logs.jsonl --policy-file policies/model-overkill-detection.yaml --fail-on-violations
+
+# With custom thresholds
+# crashlens guard logs.jsonl --policy-file policies/model-overkill-detection.yaml \
+#   --config custom-thresholds.yaml
+
+# Generate detailed report
+# crashlens guard logs.jsonl --policy-file policies/model-overkill-detection.yaml \
+#   --format markdown --output-dir reports/
+
+# Continuous monitoring (weekly)
+# crashlens guard production-logs.jsonl \
+#   --policy-file policies/model-overkill-detection.yaml \
+#   --summary-only --strip-pii
+
+# Related Templates
+# - retry-loop-prevention.yaml: Detect retry waste
+# - budget-protection.yaml: Enforce spending limits
+# - prompt-optimization.yaml: Optimize prompt efficiency

@@ -11,7 +11,7 @@
 ```bash
 # 1. Start services
 docker run -d -p 9091:9091 prom/pushgateway
-docker run -d -p 9090:9090 -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus
+docker run -d -p 9090:9090 -v $(pwd)/dashboards/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus
 docker run -d -p 3000:3000 grafana/grafana
 
 # 2. Import dashboard

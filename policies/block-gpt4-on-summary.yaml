@@ -1,5 +1,14 @@
 # CrashLens Policy: Block GPT-4 on Summary Tasks
 # Optimized for Langfuse users - prevents expensive model usage for simple summarization
+#
+# Usage:
+#   crashlens guard logs.jsonl --policy-file policies/block-gpt4-on-summary.yaml --fail-on-violations
+#   crashlens scan logs.jsonl --policy-template model-overkill-detection
+#
+# Related templates:
+#   - model-overkill-detection
+#   - budget-protection
+#   - token-efficiency
 
 rules:
   - id: block_gpt4_summary_tasks

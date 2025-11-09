@@ -1,0 +1,566 @@
+# CrashLens Policy: Retry Loop Prevention
+# Blocks inefficient retry patterns and exponential backoff failures
+# Estimated Savings: 20-40% by eliminating retry waste
+
+metadata:
+  name: "Retry Loop Prevention"
+  description: "Detects and prevents inefficient retry patterns, immediate retries, and exponential backoff failures"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "20-40%"
+  tags:
+    - reliability
+    - retry-logic
+    - error-handling
+    - cost-optimization
+  documentation: "https://crashlens.dev/docs/policies/retry-prevention"
+
+# Configuration variables
+variables:
+  max_retries_per_minute: 5
+  min_retry_interval_seconds: 1
+  max_retry_limit: 10
+  exponential_backoff_base: 2  # 2^n backoff
+  non_retryable_status_codes: [400, 401, 403, 404, 422]
+
+rules:
+  # Rule 1: Exponential Backoff Failure (5+ retries in 60 seconds)
+  - id: exponential_backoff_failure
+    description: "Same traceId with 5+ API calls in 60 seconds (backoff not working)"
+    match:
+      retry_count: "> 5"
+      time_window_seconds: "< 60"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 CRITICAL: Exponential Backoff Failure Detected!
+      
+      Your system made 5+ retry attempts in < 60 seconds. This indicates:
+      1. No exponential backoff implemented
+      2. Broken retry logic
+      3. Missing circuit breaker
+      
+      **Current Behavior** (assuming immediate retries):
+      - Attempt 1: 0s
+      - Attempt 2: 0s (immediate)
+      - Attempt 3: 0s (immediate)
+      - Attempt 4: 0s (immediate)
+      - Attempt 5: 0s (immediate)
+      - **Total Cost**: 5x original request cost 💸
+      
+      **Correct Exponential Backoff** (with jitter):
+      - Attempt 1: 0s (initial)
+      - Attempt 2: 1-2s delay (2^1 * random(0.5-1.5))
+      - Attempt 3: 2-6s delay (2^2 * random(0.5-1.5))
+      - Attempt 4: 4-12s delay (2^3 * random(0.5-1.5))
+      - Attempt 5: 8-24s delay (2^4 * random(0.5-1.5))
+      
+      **Implementation**:
+      ```python
+      import random
+      import time
+      from tenacity import retry, stop_after_attempt, wait_exponential_jitter
+      
+      @retry(
+          stop=stop_after_attempt(3),
+          wait=wait_exponential_jitter(initial=1, max=60, jitter=0.5),
+          reraise=True
+      )
+      def call_llm_with_retry(prompt):
+          return openai.ChatCompletion.create(
+              model="gpt-4",
+              messages=[{"role": "user", "content": prompt}]
+          )
+      
+      # Or manual implementation
+      def exponential_backoff_retry(func, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except Exception as e:
+                  if attempt == max_attempts - 1:
+                      raise
+                  delay = (2 ** attempt) * random.uniform(0.5, 1.5)
+                  print(f"Retry {attempt+1} failed, waiting {delay:.2f}s")
+                  time.sleep(delay)
+      ```
+      
+      **Circuit Breaker Pattern**:
+      ```python
+      from circuitbreaker import circuit
+      
+      @circuit(failure_threshold=5, recovery_timeout=60)
+      def call_llm(prompt):
+          return openai.ChatCompletion.create(...)
+      ```
+      
+      **Immediate Actions**:
+      1. Implement exponential backoff with jitter
+      2. Add circuit breaker (5 failures = 60s cooldown)
+      3. Set max retry limit (3-5 attempts)
+      4. Log retry attempts for monitoring
+      
+      **Potential Savings**: 60-80% by eliminating wasteful retries
+      
+      **Learn More**: https://crashlens.dev/docs/retry-best-practices
+
+  # Rule 2: Immediate Retry Loop (< 1 second between retries)
+  - id: immediate_retry_loop
+    description: "Retries with < 1 second between attempts (hammering API)"
+    match:
+      retry_count: "> 3"
+      retry_interval_seconds: "< 1"
+    action: fail
+    severity: high
+    suggestion: |
+      ⚠️  Immediate Retry Loop Detected!
+      
+      Your system is retrying requests with < 1 second delay. This is:
+      1. Ineffective (API still failing)
+      2. Expensive (burning tokens on doomed requests)
+      3. Rate-limit triggering (making problem worse)
+      
+      **Why Immediate Retries Fail**:
+      - Transient errors need time to resolve (network, API capacity)
+      - Rate limits enforce cooldown periods
+      - Overloaded APIs need breathing room
+      
+      **Minimum Retry Delays**:
+      - **1st retry**: 1-2 seconds
+      - **2nd retry**: 2-4 seconds
+      - **3rd retry**: 4-8 seconds
+      - **4th retry**: 8-16 seconds (if needed)
+      
+      **Quick Fix** (add minimum 2-second delay):
+      ```python
+      import time
+      
+      def retry_with_delay(func, max_attempts=3, min_delay=2):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except Exception as e:
+                  if attempt == max_attempts - 1:
+                      raise
+                  print(f"Attempt {attempt+1} failed, waiting {min_delay}s")
+                  time.sleep(min_delay)
+                  min_delay *= 2  # Double delay each retry
+      ```
+      
+      **Better Fix** (use library with backoff):
+      ```python
+      from tenacity import retry, wait_fixed
+      
+      @retry(wait=wait_fixed(2), stop=stop_after_attempt(3))
+      def call_api():
+          return openai.ChatCompletion.create(...)
+      ```
+      
+      **Immediate Actions**:
+      1. Add minimum 2-second delay between retries
+      2. Implement exponential backoff
+      3. Reduce max retry attempts to 3-5
+      
+      **Potential Savings**: 50-70% by avoiding wasteful immediate retries
+      
+      **Learn More**: https://crashlens.dev/docs/retry-intervals
+
+  # Rule 3: Retrying Non-Retryable Errors (4xx client errors)
+  - id: redundant_retries_on_client_errors
+    description: "Multiple retries for 400/401/403 errors (non-retryable status codes)"
+    match:
+      status_code:
+        - 400
+        - 401
+        - 403
+        - 404
+        - 422
+      retry_count: "> 1"
+    action: fail
+    severity: high
+    suggestion: |
+      🚫 Don't Retry Client Errors (4xx)!
+      
+      You're retrying requests that returned client error status codes (4xx).
+      These errors indicate problems with the REQUEST, not the API.
+      
+      **Non-Retryable Status Codes**:
+      - **400 Bad Request**: Invalid request format → Fix the request
+      - **401 Unauthorized**: Invalid API key → Check credentials
+      - **403 Forbidden**: Permission denied → Verify access rights
+      - **404 Not Found**: Resource doesn't exist → Check endpoint
+      - **422 Unprocessable Entity**: Validation failed → Fix input data
+      
+      **Retryable Status Codes** (safe to retry):
+      - **429 Too Many Requests**: Rate limited → Use exponential backoff
+      - **500 Internal Server Error**: API issue → Retry with backoff
+      - **502 Bad Gateway**: Temporary failure → Retry
+      - **503 Service Unavailable**: API overloaded → Retry with delay
+      - **504 Gateway Timeout**: Request timeout → Retry
+      
+      **Correct Implementation**:
+      ```python
+      import requests
+      from tenacity import retry, retry_if_exception_type, stop_after_attempt
+      
+      # Define retryable errors
+      RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+      
+      def should_retry(exception):
+          if isinstance(exception, requests.HTTPError):
+              return exception.response.status_code in RETRYABLE_STATUS_CODES
+          return False
+      
+      @retry(
+          retry=retry_if_exception_type(requests.HTTPError),
+          stop=stop_after_attempt(3),
+          retry=retry_if_exception(should_retry)
+      )
+      def call_api():
+          response = requests.post(...)
+          response.raise_for_status()  # Raises HTTPError for 4xx/5xx
+          return response.json()
+      
+      # Or manual check
+      def call_with_smart_retry(func, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except requests.HTTPError as e:
+                  status_code = e.response.status_code
+                  
+                  # Don't retry client errors (4xx)
+                  if 400 <= status_code < 500:
+                      print(f"Client error {status_code} - not retrying")
+                      raise
+                  
+                  # Retry server errors (5xx) and rate limits (429)
+                  if attempt < max_attempts - 1:
+                      delay = 2 ** attempt
+                      print(f"Server error {status_code}, retrying in {delay}s")
+                      time.sleep(delay)
+                  else:
+                      raise
+      ```
+      
+      **OpenAI Specific**:
+      ```python
+      import openai
+      
+      try:
+          response = openai.ChatCompletion.create(...)
+      except openai.error.InvalidRequestError:
+          # 400-level error - don't retry
+          print("Invalid request - fix the input")
+          raise
+      except openai.error.RateLimitError:
+          # 429 - safe to retry with backoff
+          print("Rate limited - retrying with backoff")
+          time.sleep(2)
+          # retry logic
+      except openai.error.ServiceUnavailableError:
+          # 503 - safe to retry
+          print("Service unavailable - retrying")
+          # retry logic
+      ```
+      
+      **Immediate Actions**:
+      1. Check status code before retrying
+      2. Only retry 429, 500, 502, 503, 504
+      3. Fail fast on 4xx errors
+      4. Log 4xx errors for debugging (don't retry)
+      
+      **Potential Savings**: 80-90% by not retrying doomed requests
+      
+      **Learn More**: https://crashlens.dev/docs/error-handling
+
+  # Rule 4: Infinite Retry Loop (> 10 attempts)
+  - id: infinite_retry_detected
+    description: "More than 10 retry attempts for same request (infinite loop)"
+    match:
+      retry_count: "> 10"
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 INFINITE RETRY LOOP DETECTED!
+      
+      Your system attempted 10+ retries for the same request. This indicates:
+      1. No maximum retry limit
+      2. Broken error handling
+      3. Missing circuit breaker
+      
+      **Cost Impact**:
+      - 10 retries = 10x original cost 💸💸💸
+      - If each call is $0.10, you spent $1.00 on a failing request
+      - Multiply by thousands of requests = budget disaster
+      
+      **Root Causes**:
+      1. While loop without exit condition
+      2. Retry decorator without max attempts
+      3. Persistent API outage (need circuit breaker)
+      4. Invalid credentials (4xx error being retried)
+      
+      **Maximum Retry Limits** (industry standard):
+      - **Synchronous requests**: 3 attempts max
+      - **Background jobs**: 5 attempts max
+      - **Critical operations**: 7 attempts max
+      - **Never exceed**: 10 attempts
+      
+      **Implementation with Hard Limit**:
+      ```python
+      from tenacity import retry, stop_after_attempt
+      
+      MAX_RETRIES = 3  # Hard limit
+      
+      @retry(stop=stop_after_attempt(MAX_RETRIES))
+      def call_api():
+          return openai.ChatCompletion.create(...)
+      
+      # Or manual with counter
+      def retry_with_limit(func, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except Exception as e:
+                  if attempt == max_attempts - 1:
+                      print(f"All {max_attempts} attempts failed")
+                      raise
+                  delay = 2 ** attempt
+                  time.sleep(delay)
+      ```
+      
+      **Circuit Breaker Pattern** (prevent infinite loops):
+      ```python
+      from circuitbreaker import circuit
+      
+      @circuit(
+          failure_threshold=5,    # Open circuit after 5 failures
+          recovery_timeout=60,    # Wait 60s before retrying
+          expected_exception=Exception
+      )
+      def call_api_with_breaker():
+          return openai.ChatCompletion.create(...)
+      ```
+      
+      **Dead Letter Queue** (for persistent failures):
+      ```python
+      def call_with_dlq(func, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except Exception as e:
+                  if attempt == max_attempts - 1:
+                      # Send to dead letter queue for manual review
+                      send_to_dlq(request_data, error=str(e))
+                      raise
+                  time.sleep(2 ** attempt)
+      ```
+      
+      **Monitoring & Alerts**:
+      ```python
+      import logging
+      
+      logger = logging.getLogger(__name__)
+      
+      def retry_with_monitoring(func, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except Exception as e:
+                  logger.warning(f"Retry {attempt+1}/{max_attempts} failed: {e}")
+                  
+                  if attempt >= 2:  # Alert after 3rd failure
+                      alert_team(f"Multiple retry failures for {func.__name__}")
+                  
+                  if attempt == max_attempts - 1:
+                      logger.error(f"All {max_attempts} attempts exhausted")
+                      raise
+                  
+                  time.sleep(2 ** attempt)
+      ```
+      
+      **Immediate Actions**:
+      1. Set MAX_RETRIES = 3 (or 5 max)
+      2. Implement circuit breaker
+      3. Add dead letter queue for persistent failures
+      4. Monitor retry counts in production
+      5. Alert on > 5 retries for any request
+      
+      **Potential Savings**: 70-90% by capping retry attempts
+      
+      **Learn More**: https://crashlens.dev/docs/circuit-breaker-pattern
+
+  # Rule 5: Retry Storm (many traces retrying simultaneously)
+  - id: retry_storm_detected
+    description: "10+ different traces retrying in same 60-second window (API outage)"
+    match:
+      distinct_trace_count: "> 10"
+      all_retrying: true
+      time_window_seconds: "< 60"
+    action: fail
+    severity: critical
+    suggestion: |
+      🌪️  RETRY STORM DETECTED!
+      
+      10+ different requests are all retrying simultaneously. This indicates:
+      1. Upstream API outage
+      2. Network connectivity issue
+      3. Missing global circuit breaker
+      
+      **Cost Impact**:
+      - 10 traces × 3 retries each = 30 wasted API calls
+      - If API is down, ALL retries will fail
+      - Example: 1000 users × 3 retries = $$$$ wasted
+      
+      **Solution: Global Circuit Breaker**:
+      ```python
+      from circuitbreaker import circuit
+      import redis
+      
+      # Shared circuit breaker across all instances
+      redis_client = redis.Redis(host='localhost', port=6379)
+      
+      def global_circuit_breaker(func):
+          circuit_key = f"circuit_breaker:{func.__name__}"
+          
+          def wrapper(*args, **kwargs):
+              # Check if circuit is open
+              if redis_client.get(circuit_key) == b'open':
+                  raise Exception("Circuit breaker open - API unavailable")
+              
+              try:
+                  return func(*args, **kwargs)
+              except Exception as e:
+                  # Increment failure count
+                  failures = redis_client.incr(f"{circuit_key}:failures")
+                  
+                  # Open circuit after 5 failures
+                  if failures >= 5:
+                      redis_client.setex(circuit_key, 60, 'open')  # 60s cooldown
+                      print("Circuit breaker opened - stopping all retries")
+                  
+                  raise
+          
+          return wrapper
+      
+      @global_circuit_breaker
+      def call_openai_api():
+          return openai.ChatCompletion.create(...)
+      ```
+      
+      **Health Check Before Retry**:
+      ```python
+      import requests
+      
+      def api_health_check():
+          try:
+              response = requests.get("https://status.openai.com/api/v2/status.json", timeout=5)
+              status = response.json()
+              return status.get('status', {}).get('indicator') == 'none'
+          except:
+              return False
+      
+      def retry_with_health_check(func, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return func()
+              except Exception as e:
+                  if attempt < max_attempts - 1:
+                      # Check API health before retrying
+                      if not api_health_check():
+                          print("API health check failed - aborting retries")
+                          raise
+                      
+                      delay = 2 ** attempt
+                      time.sleep(delay)
+                  else:
+                      raise
+      ```
+      
+      **Graceful Degradation**:
+      ```python
+      def call_with_fallback(primary_func, fallback_func):
+          try:
+              return primary_func()
+          except Exception as e:
+              print(f"Primary API failed: {e}")
+              
+              # Check if it's a widespread outage
+              if is_retry_storm():
+                  print("Retry storm detected - using cached response")
+                  return get_cached_response()
+              
+              # Fallback to alternative
+              return fallback_func()
+      ```
+      
+      **Immediate Actions**:
+      1. Implement global circuit breaker (shared across instances)
+      2. Add API health checks before retrying
+      3. Set up status page monitoring
+      4. Enable graceful degradation (cached responses)
+      5. Alert ops team when storm detected
+      
+      **Potential Savings**: 90%+ by avoiding storm retries
+      
+      **Learn More**: https://crashlens.dev/docs/retry-storms
+
+# Example Logs That Trigger This Policy
+
+# Example 1: Exponential backoff failure (triggers exponential_backoff_failure)
+# {
+#   "traceId": "trace_retry_123",
+#   "model": "gpt-4",
+#   "retry_count": 6,
+#   "time_window_seconds": 45,
+#   "usage": {"prompt_tokens": 100, "completion_tokens": 0},
+#   "cost": 0.003,
+#   "status": "failed"
+# }
+# Expected: FAIL (critical) - Implement exponential backoff
+
+# Example 2: Immediate retry loop (triggers immediate_retry_loop)
+# {
+#   "traceId": "trace_retry_456",
+#   "model": "gpt-4",
+#   "retry_count": 5,
+#   "retry_interval_seconds": 0.2,
+#   "usage": {"prompt_tokens": 100, "completion_tokens": 0},
+#   "cost": 0.0015
+# }
+# Expected: FAIL (high) - Add minimum 2-second delay
+
+# Example 3: Retrying 401 error (triggers redundant_retries_on_client_errors)
+# {
+#   "traceId": "trace_retry_789",
+#   "model": "gpt-4",
+#   "retry_count": 3,
+#   "status_code": 401,
+#   "error": "Invalid API key",
+#   "cost": 0.0
+# }
+# Expected: FAIL (high) - Don't retry 401 errors
+
+# Usage Examples
+
+# Basic usage
+# crashlens guard logs.jsonl --policy-file policies/retry-loop-prevention.yaml
+
+# Fail CI/CD on violations
+# crashlens guard logs.jsonl --policy-file policies/retry-loop-prevention.yaml --fail-on-violations
+
+# Weekly monitoring
+# crashlens guard production-logs.jsonl \
+#   --policy-file policies/retry-loop-prevention.yaml \
+#   --strip-pii --summary-only
+
+# Custom retry thresholds
+# crashlens guard logs.jsonl \
+#   --policy-file policies/retry-loop-prevention.yaml \
+#   --config custom-retry-config.yaml
+
+# Related Templates
+# - fallback-storm-detection.yaml: Detect fallback cascades
+# - budget-protection.yaml: Prevent cost overruns
+# - production-ready.yaml: Combined production rules

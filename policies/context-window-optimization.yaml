@@ -1,0 +1,618 @@
+# CrashLens Policy: Context Window Optimization
+# Efficient context window usage and token management
+# Estimated Savings: 10-25% through better context management
+
+metadata:
+  name: "Context Window Optimization"
+  description: "Detects inefficient context window usage, truncation risks, and repeated context loading"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "10-25%"
+  tags:
+    - context-management
+    - token-optimization
+    - memory
+    - efficiency
+  documentation: "https://crashlens.dev/docs/policies/context-window"
+
+# Configuration variables
+variables:
+  context_limit_warning_threshold: 0.90  # 90% of max context
+  repeated_context_threshold: 20  # Same context 20+ times
+  min_completion_space_ratio: 0.10  # 10% for completion
+
+rules:
+  # Rule 1: Near Context Limit (> 90% of model's max)
+  - id: near_context_limit
+    description: "Using > 90% of model's context window (risk of truncation)"
+    match:
+      prompt_tokens: "> context_limit * 0.90"
+    action: warn
+    severity: medium
+    suggestion: |
+      ⚠️  Near Context Window Limit!
+      
+      You're using > 90% of the model's context window. Risk of truncation or quality degradation.
+      
+      **Context Limits** (approximate):
+      - GPT-3.5-turbo: 16K tokens (4K default)
+      - GPT-4: 8K tokens (default)
+      - GPT-4-32k: 32K tokens
+      - GPT-4-turbo: 128K tokens
+      - GPT-4o: 128K tokens
+      - Claude 3: 200K tokens
+      - Claude 3.5 Sonnet: 200K tokens
+      
+      **Risks of Exceeding Context**:
+      1. Automatic truncation (oldest messages dropped)
+      2. Quality degradation (model "forgets" early context)
+      3. Higher latency (more tokens to process)
+      4. Increased cost (paying for unused context)
+      
+      **Optimization Strategies**:
+      
+      **1. Sliding Window** (keep recent context only):
+      ```python
+      def sliding_window_context(messages, max_tokens=4000):
+          # Keep system message + recent messages
+          system_msgs = [m for m in messages if m['role'] == 'system']
+          
+          # Estimate tokens (rough: 1 token ≈ 4 chars)
+          def estimate_tokens(msg):
+              return len(msg['content']) // 4
+          
+          # Add messages from end until hitting limit
+          recent_msgs = []
+          token_count = sum(estimate_tokens(m) for m in system_msgs)
+          
+          for msg in reversed(messages):
+              if msg['role'] == 'system':
+                  continue
+              
+              msg_tokens = estimate_tokens(msg)
+              if token_count + msg_tokens <= max_tokens:
+                  recent_msgs.insert(0, msg)
+                  token_count += msg_tokens
+              else:
+                  break
+          
+          return system_msgs + recent_msgs
+      
+      # Usage
+      context = sliding_window_context(full_conversation, max_tokens=4000)
+      response = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=context
+      )
+      ```
+      
+      **2. Conversation Summarization**:
+      ```python
+      async def summarize_old_context(messages, threshold=4000):
+          # Count tokens
+          total_tokens = sum(count_tokens(m['content']) for m in messages)
+          
+          if total_tokens > threshold:
+              # Split: old context to summarize + recent to keep
+              split_point = len(messages) // 2
+              old_context = messages[:split_point]
+              recent_context = messages[split_point:]
+              
+              # Summarize old context with cheap model
+              summary_response = await openai.ChatCompletion.acreate(
+                  model="gpt-4o-mini",  # Cheap for summarization
+                  messages=[{
+                      "role": "user",
+                      "content": f"Summarize this conversation in 300 words:\\n{old_context}"
+                  }]
+              )
+              
+              summary = summary_response.choices[0].message.content
+              
+              # New context: summary + recent messages
+              return [{
+                  "role": "system",
+                  "content": f"Previous conversation summary: {summary}"
+              }] + recent_context
+          
+          return messages
+      ```
+      
+      **3. RAG (Retrieval-Augmented Generation)**:
+      ```python
+      from openai import OpenAI
+      import faiss
+      import numpy as np
+      
+      client = OpenAI()
+      
+      class RAGContext:
+          def __init__(self, documents):
+              self.documents = documents
+              # Create embeddings for all documents
+              self.embeddings = self._embed_documents(documents)
+              # Build FAISS index
+              self.index = faiss.IndexFlatL2(len(self.embeddings[0]))
+              self.index.add(np.array(self.embeddings))
+          
+          def _embed_documents(self, docs):
+              embeddings = []
+              for doc in docs:
+                  response = client.embeddings.create(
+                      input=doc,
+                      model="text-embedding-3-small"
+                  )
+                  embeddings.append(response.data[0].embedding)
+              return embeddings
+          
+          def retrieve_relevant(self, query, top_k=3):
+              # Embed query
+              query_response = client.embeddings.create(
+                  input=query,
+                  model="text-embedding-3-small"
+              )
+              query_embedding = np.array([query_response.data[0].embedding])
+              
+              # Search index
+              distances, indices = self.index.search(query_embedding, top_k)
+              
+              # Return relevant documents
+              return [self.documents[i] for i in indices[0]]
+      
+      # Usage
+      rag = RAGContext(large_document_collection)
+      relevant_docs = rag.retrieve_relevant(user_query, top_k=3)
+      
+      # Use only relevant context (not entire collection)
+      response = client.chat.completions.create(
+          model="gpt-4",
+          messages=[
+              {"role": "system", "content": "Use the provided context to answer."},
+              {"role": "user", "content": f"Context: {relevant_docs}\\n\\nQuestion: {user_query}"}
+          ]
+      )
+      ```
+      
+      **4. Prompt Compression**:
+      ```python
+      def compress_prompt(text, target_ratio=0.7):
+          # Use GPT-4o-mini to compress prompt
+          response = openai.ChatCompletion.create(
+              model="gpt-4o-mini",
+              messages=[{
+                  "role": "user",
+                  "content": f"Compress this to {int(len(text) * target_ratio)} chars, keep key info:\\n{text}"
+              }]
+          )
+          return response.choices[0].message.content
+      
+      # Compress before sending to expensive model
+      if count_tokens(prompt) > 4000:
+          prompt = compress_prompt(prompt, target_ratio=0.7)
+      
+      response = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{"role": "user", "content": prompt}]
+      )
+      ```
+      
+      **5. Use Longer Context Models When Needed**:
+      ```python
+      def select_model_by_context(prompt_tokens):
+          if prompt_tokens < 4000:
+              return "gpt-3.5-turbo"  # 4K context, cheap
+          elif prompt_tokens < 8000:
+              return "gpt-4"  # 8K context
+          elif prompt_tokens < 32000:
+              return "gpt-4-32k"  # 32K context
+          else:
+              return "gpt-4-turbo"  # 128K context
+      ```
+      
+      **Immediate Actions**:
+      1. Implement sliding window (keep last 10-20 messages)
+      2. Summarize old context when > 4K tokens
+      3. Use RAG instead of sending full documents
+      4. Compress prompts with GPT-4o-mini before sending to GPT-4
+      
+      **Potential Savings**: 30-50% by avoiding full context reloads
+      
+      **Learn More**: https://crashlens.dev/docs/context-management
+
+  # Rule 2: Wasteful Context Padding (large prompt, small completion space)
+  - id: wasteful_context_padding
+    description: "Large prompt (> 15K tokens) but max_tokens < 500 (< 10% for completion)"
+    match:
+      usage.prompt_tokens: "> 15000"
+      max_tokens: "< 500"
+    action: warn
+    severity: low
+    suggestion: |
+      💡 Inefficient Context/Completion Ratio
+      
+      You're sending 15K+ tokens but only allowing 500 tokens for completion (< 3% ratio).
+      This may indicate inefficient context management.
+      
+      **Cost Impact**:
+      - 15K prompt tokens: $0.45 (at GPT-4 pricing)
+      - 500 completion tokens: $0.03
+      - **You're paying 15x more for input than output**
+      
+      **Recommendations**:
+      
+      **1. Trim Unnecessary Context**:
+      ```python
+      # Instead of sending full 15K context for short answer
+      # Extract only relevant sections
+      
+      def extract_relevant_context(full_context, query, max_tokens=2000):
+          # Use embeddings to find relevant sections
+          from sklearn.metrics.pairwise import cosine_similarity
+          
+          # Split context into chunks
+          chunks = split_into_chunks(full_context, chunk_size=500)
+          
+          # Find most relevant chunks
+          chunk_embeddings = get_embeddings(chunks)
+          query_embedding = get_embedding(query)
+          
+          similarities = cosine_similarity([query_embedding], chunk_embeddings)[0]
+          top_indices = np.argsort(similarities)[-3:]  # Top 3 chunks
+          
+          relevant_context = ' '.join([chunks[i] for i in top_indices])
+          return relevant_context
+      
+      # Use extracted context (2K tokens) instead of full context (15K)
+      relevant = extract_relevant_context(full_doc, user_query)
+      response = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{
+              "role": "user",
+              "content": f"Context: {relevant}\\n\\nQuestion: {user_query}"
+          }],
+          max_tokens=500
+      )
+      ```
+      
+      **2. Increase Completion Space**:
+      ```python
+      # If context must be large, allow more completion space
+      response = openai.ChatCompletion.create(
+          model="gpt-4-turbo",  # 128K context
+          messages=[{"role": "user", "content": large_context}],
+          max_tokens=4000  # Allow 20% of context for completion
+      )
+      ```
+      
+      **3. Use Two-Stage Processing**:
+      ```python
+      # Stage 1: Extract with cheap model
+      extraction = openai.ChatCompletion.create(
+          model="gpt-4o-mini",
+          messages=[{
+              "role": "user",
+              "content": f"Extract key points from: {full_doc}"
+          }],
+          max_tokens=2000
+      )
+      
+      # Stage 2: Analyze with expensive model (smaller context)
+      analysis = openai.ChatCompletion.create(
+          model="gpt-4",
+          messages=[{
+              "role": "user",
+              "content": f"Analyze: {extraction}"
+          }],
+          max_tokens=1000
+      )
+      ```
+      
+      **Immediate Actions**:
+      1. Extract relevant sections (not full context)
+      2. Balance input/output ratio (aim for 5:1 max)
+      3. Use two-stage processing for large documents
+      
+      **Learn More**: https://crashlens.dev/docs/context-completion-ratio
+
+  # Rule 3: Repeated Context Loading (same context 20+ times, no caching)
+  - id: repeated_context_loading
+    description: "Same context loaded 20+ times without caching"
+    match:
+      context_hash_count: "> 20"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Repeated Context Loading Detected!
+      
+      You've loaded the same context 20+ times. Use conversation memory or caching.
+      
+      **Cost Impact**:
+      - Same 5K token context loaded 20 times = 100K tokens
+      - At GPT-4 pricing: 100K × $0.00003 = $3.00
+      - **With caching: $0.003** (99% savings!)
+      
+      **Caching Solutions**:
+      
+      **1. OpenAI Prompt Caching** (GPT-4 Turbo/4o):
+      ```python
+      # Context automatically cached
+      for i in range(20):
+          response = client.chat.completions.create(
+              model="gpt-4-turbo",
+              messages=[
+                  {
+                      "role": "system",
+                      "content": large_context  # Cached after first call
+                  },
+                  {"role": "user", "content": f"Query {i}"}
+              ]
+          )
+      # First call: Full price
+      # Calls 2-20: 90% discount on cached context!
+      ```
+      
+      **2. Conversation State Management**:
+      ```python
+      class ConversationManager:
+          def __init__(self, session_id):
+              self.session_id = session_id
+              self.context = load_initial_context()  # Load once
+              self.messages = []
+          
+          def add_turn(self, user_message):
+              # Add to conversation
+              self.messages.append({
+                  "role": "user",
+                  "content": user_message
+              })
+              
+              # Build messages with cached context
+              full_messages = [
+                  {"role": "system", "content": self.context}
+              ] + self.messages
+              
+              # Call API
+              response = openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=full_messages
+              )
+              
+              # Save response
+              self.messages.append({
+                  "role": "assistant",
+                  "content": response.choices[0].message.content
+              })
+              
+              return response
+      
+      # Usage (context loaded once, reused 20+ times)
+      conv = ConversationManager("session_123")
+      for query in user_queries:
+          conv.add_turn(query)
+      ```
+      
+      **3. Vector Database for RAG**:
+      ```python
+      import chromadb
+      
+      # Initialize vector DB (one-time)
+      client = chromadb.Client()
+      collection = client.create_collection("docs")
+      
+      # Index documents once
+      collection.add(
+          documents=document_chunks,
+          ids=[f"chunk_{i}" for i in range(len(document_chunks))]
+      )
+      
+      # Query 20+ times (no re-embedding needed)
+      for query in user_queries:
+          results = collection.query(
+              query_texts=[query],
+              n_results=3
+          )
+          
+          relevant_context = results['documents'][0]
+          
+          response = openai.ChatCompletion.create(
+              model="gpt-4",
+              messages=[{
+                  "role": "user",
+                  "content": f"Context: {relevant_context}\\n\\nQuestion: {query}"
+              }]
+          )
+      ```
+      
+      **4. Redis Caching**:
+      ```python
+      import redis
+      import hashlib
+      
+      redis_client = redis.Redis()
+      
+      def hash_context(context):
+          return hashlib.sha256(context.encode()).hexdigest()
+      
+      def call_with_context_cache(context, query):
+          context_hash = hash_context(context)
+          cache_key = f"context:{context_hash}"
+          
+          # Check if context already processed
+          cached_embedding = redis_client.get(cache_key)
+          
+          if not cached_embedding:
+              # First time - cache it
+              redis_client.setex(
+                  cache_key,
+                  3600 * 24,  # 24 hour TTL
+                  "processed"
+              )
+          
+          # Use context (either from cache or fresh)
+          response = openai.ChatCompletion.create(
+              model="gpt-4-turbo",  # Has built-in caching
+              messages=[
+                  {"role": "system", "content": context},
+                  {"role": "user", "content": query}
+              ]
+          )
+          
+          return response
+      ```
+      
+      **Immediate Actions**:
+      1. Enable OpenAI prompt caching (GPT-4 Turbo/4o)
+      2. Implement conversation state management
+      3. Use vector DB for document retrieval
+      4. Add Redis caching layer
+      
+      **Potential Savings**: 90%+ on repeated context
+      
+      **Learn More**: https://crashlens.dev/docs/context-caching
+
+  # Rule 4: Context Truncation Occurred
+  - id: context_overflow_truncation
+    description: "Context was truncated due to limit (quality degradation)"
+    match:
+      truncated: true
+    action: warn
+    severity: high
+    suggestion: |
+      ⚠️  Context Truncation Detected!
+      
+      Your prompt was truncated because it exceeded the model's context window.
+      This causes quality degradation as early context is lost.
+      
+      **Impact**:
+      - Information loss (early messages dropped)
+      - Inconsistent responses (model "forgets" earlier instructions)
+      - Wasted tokens (you paid for truncated content)
+      
+      **Prevention Strategies**:
+      
+      **1. Monitor Context Size**:
+      ```python
+      import tiktoken
+      
+      def count_tokens(text, model="gpt-4"):
+          encoding = tiktoken.encoding_for_model(model)
+          return len(encoding.encode(text))
+      
+      def safe_call(messages, model="gpt-4", max_tokens=8000):
+          # Count tokens
+          total_tokens = sum(count_tokens(m['content']) for m in messages)
+          
+          # Check limit
+          if total_tokens > max_tokens * 0.9:  # 90% threshold
+              print(f"⚠️  Near context limit: {total_tokens}/{max_tokens}")
+              print("Applying context compression...")
+              messages = compress_context(messages, target=max_tokens * 0.8)
+          
+          return openai.ChatCompletion.create(
+              model=model,
+              messages=messages
+          )
+      ```
+      
+      **2. Adaptive Context Management**:
+      ```python
+      def adaptive_context(messages, model="gpt-4"):
+          # Get model's context limit
+          context_limits = {
+              "gpt-3.5-turbo": 4000,
+              "gpt-4": 8000,
+              "gpt-4-32k": 32000,
+              "gpt-4-turbo": 128000
+          }
+          
+          max_tokens = context_limits.get(model, 4000)
+          current_tokens = sum(count_tokens(m['content']) for m in messages)
+          
+          # If near limit, switch strategy
+          if current_tokens > max_tokens * 0.9:
+              # Option 1: Summarize
+              messages = summarize_old_messages(messages)
+              
+              # Option 2: Switch to model with larger context
+              if model == "gpt-4" and current_tokens < 32000:
+                  print("Switching to GPT-4-32k for larger context")
+                  model = "gpt-4-32k"
+              
+              # Option 3: Use streaming with RAG
+              if current_tokens > 32000:
+                  print("Using RAG for very large context")
+                  return call_with_rag(messages)
+          
+          return openai.ChatCompletion.create(
+              model=model,
+              messages=messages
+          )
+      ```
+      
+      **3. Proactive Summarization**:
+      ```python
+      async def call_with_auto_summarize(messages, threshold=6000):
+          total_tokens = sum(count_tokens(m['content']) for m in messages)
+          
+          if total_tokens > threshold:
+              # Summarize automatically
+              old_context = messages[:-3]  # Summarize all but last 3
+              
+              summary = await openai.ChatCompletion.acreate(
+                  model="gpt-4o-mini",
+                  messages=[{
+                      "role": "user",
+                      "content": f"Summarize: {old_context}"
+                  }]
+              )
+              
+              # Rebuild context
+              messages = [
+                  {"role": "system", "content": f"Context: {summary}"}
+              ] + messages[-3:]
+          
+          return await openai.ChatCompletion.acreate(
+              model="gpt-4",
+              messages=messages
+          )
+      ```
+      
+      **Immediate Actions**:
+      1. Monitor context size before each call
+      2. Implement automatic summarization at 80% threshold
+      3. Switch to larger context models when needed
+      4. Use RAG for very large documents
+      
+      **Learn More**: https://crashlens.dev/docs/preventing-truncation
+
+# Example Logs That Trigger This Policy
+
+# Example 1: Near context limit (triggers near_context_limit)
+# {
+#   "traceId": "trace_123",
+#   "model": "gpt-4",
+#   "usage": {"prompt_tokens": 7500, "completion_tokens": 100},
+#   "context_limit": 8000,
+#   "cost": 0.23
+# }
+# Expected: WARN (medium) - Use sliding window or summarization
+
+# Example 2: Repeated context (triggers repeated_context_loading)
+# Multiple entries with same context_hash, count > 20
+# Expected: WARN (medium) - Enable caching
+
+# Usage Examples
+
+# Basic usage
+# crashlens guard logs.jsonl --policy-file policies/context-window-optimization.yaml
+
+# CI/CD integration
+# crashlens guard logs.jsonl \
+#   --policy-file policies/context-window-optimization.yaml \
+#   --fail-on-violations
+
+# Related Templates
+# - prompt-optimization.yaml: Optimize overall prompts
+# - model-overkill-detection.yaml: Choose right models
+# - budget-protection.yaml: Control spending

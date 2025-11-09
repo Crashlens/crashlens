@@ -1,5 +1,21 @@
 # CrashLens Policy: CI Sample - Lightweight checks for continuous integration
 # Quick validation suitable for CI/CD pipelines
+#
+# Usage:
+#   crashlens guard logs.jsonl --policy-file policies/ci-sample.yaml --fail-on-violations
+#   crashlens guard logs.jsonl --policy-file policies/ci-sample.yaml --severity critical --dry-run
+#
+# CI/CD Integration:
+#   # GitHub Actions
+#   - run: crashlens guard logs.jsonl --policy-file policies/ci-sample.yaml --fail-on-violations
+#
+#   # GitLab CI
+#   script:
+#     - crashlens guard logs.jsonl --policy-file policies/ci-sample.yaml --fail-on-violations
+#
+# Related templates:
+#   - budget-protection
+#   - rate-limit-management
 
 rules:
   - id: ci_cost_check

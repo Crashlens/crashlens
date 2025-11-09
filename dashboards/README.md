@@ -137,7 +137,7 @@ docker run -d --name pushgateway \
 docker run -d --name prometheus \
   -p 9090:9090 \
   -v $(pwd)/dashboards/crashlens-alert-rules.yml:/etc/prometheus/crashlens-alert-rules.yml \
-  -v /path/to/prometheus.yml:/etc/prometheus/prometheus.yml \
+  -v $(pwd)/dashboards/prometheus.yml:/etc/prometheus/prometheus.yml \
   --link pushgateway:pushgateway \
   --restart unless-stopped \
   prom/prometheus

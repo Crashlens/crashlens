@@ -1,5 +1,20 @@
 # CrashLens Policy: Fallback Chain Detector
 # Monitors model fallback patterns and cascading failures
+#
+# Usage:
+#   crashlens guard logs.jsonl --policy-file policies/fallback-chain-detector.yaml --fail-on-violations
+#   crashlens scan logs.jsonl --policy-template fallback-storm-detection
+#
+# Weekly monitoring:
+#   crashlens guard weekly-logs.jsonl \
+#     --policy-file policies/fallback-chain-detector.yaml \
+#     --summary-only \
+#     --output-dir reports/
+#
+# Related templates:
+#   - fallback-chain-detector
+#   - error-storm-detection
+#   - retry-loop-prevention
 
 rules:
   - id: excessive_fallback_usage

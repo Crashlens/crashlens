@@ -1,0 +1,545 @@
+# CrashLens Policy: Fallback Storm Detection
+# Prevent cascading model failures wasting tokens
+# Estimated Savings: 10-35% by fixing fallback chains
+
+metadata:
+  name: "Fallback Storm Detection"
+  description: "Detects cascading fallback chains, incorrect fallback direction, and repeated fallback failures"
+  version: "1.0.0"
+  author: "CrashLens Team"
+  last_updated: "2025-11-09"
+  estimated_savings: "10-35%"
+  tags:
+    - fallback
+    - error-handling
+    - reliability
+    - cost-optimization
+  documentation: "https://crashlens.dev/docs/policies/fallback-storms"
+
+# Configuration variables
+variables:
+  max_fallback_chain_length: 3  # Maximum models to try
+  fallback_pattern_repeat_threshold: 10  # Same pattern failing 10+ times
+
+rules:
+  # Rule 1: Cascading Fallback Chain (3+ models tried)
+  - id: cascading_fallback_chain
+    description: "3+ different models tried for same traceId (fallback chain too long)"
+    match:
+      distinct_model_count: "> 3"
+      group_by: traceId
+    action: fail
+    severity: high
+    suggestion: |
+      ⚠️  Cascading Fallback Chain Detected!
+      
+      Your system tried 3+ different models for the same request. This indicates:
+      1. Poorly designed fallback strategy
+      2. All models failing (systemic issue)
+      3. Invalid request retried across models
+      
+      **Cost Impact**:
+      - Model 1 (GPT-4): $0.15
+      - Fallback to Model 2 (Claude Opus): $0.12
+      - Fallback to Model 3 (GPT-3.5): $0.02
+      - Fallback to Model 4 (GPT-4o-mini): $0.001
+      - **Total wasted: $0.29** (should have started with Model 4)
+      
+      **Fallback Best Practices**:
+      
+      **1. Two-Tier Fallback** (Recommended):
+      ```python
+      def call_with_fallback(prompt):
+          try:
+              # Primary: Best quality
+              return openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+          except openai.error.RateLimitError:
+              # Fallback: Cheaper but still good
+              print("Rate limited on GPT-4, falling back to GPT-3.5-turbo")
+              return openai.ChatCompletion.create(
+                  model="gpt-3.5-turbo",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+          except openai.error.ServiceUnavailableError:
+              # Last resort: Alternative provider
+              print("OpenAI unavailable, falling back to Claude")
+              return anthropic.messages.create(
+                  model="claude-3-haiku-20240307",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+      ```
+      
+      **2. Start Cheap, Escalate If Needed**:
+      ```python
+      def smart_model_selection(prompt, complexity_score=None):
+          # Auto-detect complexity if not provided
+          if complexity_score is None:
+              complexity_score = estimate_complexity(prompt)
+          
+          # Start with cheapest appropriate model
+          if complexity_score < 3:
+              model = "gpt-4o-mini"  # $0.0002 per call
+          elif complexity_score < 7:
+              model = "gpt-3.5-turbo"  # $0.002 per call
+          else:
+              model = "gpt-4"  # $0.10 per call
+          
+          try:
+              response = openai.ChatCompletion.create(
+                  model=model,
+                  messages=[{"role": "user", "content": prompt}]
+              )
+              
+              # Check if response quality is sufficient
+              if is_response_adequate(response):
+                  return response
+              else:
+                  # Escalate to better model
+                  print(f"{model} response inadequate, escalating")
+                  return call_better_model(prompt, model)
+          
+          except Exception as e:
+              print(f"{model} failed: {e}")
+              return fallback_to_alternative(prompt)
+      
+      def call_better_model(prompt, current_model):
+          # Escalation path
+          escalation_map = {
+              "gpt-4o-mini": "gpt-3.5-turbo",
+              "gpt-3.5-turbo": "gpt-4o",
+              "gpt-4o": "gpt-4"
+          }
+          
+          next_model = escalation_map.get(current_model)
+          if not next_model:
+              raise Exception("No better model available")
+          
+          return openai.ChatCompletion.create(
+              model=next_model,
+              messages=[{"role": "user", "content": prompt}]
+          )
+      ```
+      
+      **3. Check Error Type Before Fallback**:
+      ```python
+      import openai
+      
+      def fallback_with_error_check(prompt):
+          try:
+              return openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+          except openai.error.InvalidRequestError as e:
+              # 400-level error - fallback won't help
+              print(f"Invalid request - fix the input, don't fallback: {e}")
+              raise
+          except openai.error.AuthenticationError:
+              # 401 - fallback won't help
+              print("Authentication failed - check API key")
+              raise
+          except openai.error.RateLimitError:
+              # 429 - fallback might help
+              print("Rate limited - trying alternative model")
+              return call_alternative_provider(prompt)
+          except openai.error.ServiceUnavailableError:
+              # 503 - fallback might help
+              print("Service unavailable - trying alternative")
+              return call_alternative_provider(prompt)
+      ```
+      
+      **4. Circuit Breaker for Fallback Chain**:
+      ```python
+      from circuitbreaker import circuit
+      
+      @circuit(failure_threshold=5, recovery_timeout=60)
+      def call_gpt4(prompt):
+          return openai.ChatCompletion.create(model="gpt-4", ...)
+      
+      @circuit(failure_threshold=5, recovery_timeout=60)
+      def call_claude(prompt):
+          return anthropic.messages.create(model="claude-3-haiku", ...)
+      
+      def call_with_circuit_breaker(prompt):
+          try:
+              return call_gpt4(prompt)
+          except CircuitBreakerOpenException:
+              print("GPT-4 circuit open - skipping to Claude")
+              return call_claude(prompt)
+          except Exception:
+              # GPT-4 failed but circuit not open yet
+              try:
+                  return call_claude(prompt)
+              except:
+                  # Both failed
+                  return get_cached_response(prompt) or default_response()
+      ```
+      
+      **Immediate Actions**:
+      1. Limit fallback chain to 2 models (primary + one backup)
+      2. Start with cheaper model, escalate only if needed
+      3. Check error type - don't fallback on 4xx errors
+      4. Implement circuit breakers to skip known-failing services
+      
+      **Potential Savings**: 60-80% by starting cheap and avoiding long chains
+      
+      **Learn More**: https://crashlens.dev/docs/fallback-strategy
+
+  # Rule 2: Fallback to More Expensive Model (wrong direction)
+  - id: fallback_to_more_expensive
+    description: "Fallback from cheap model to expensive model (backwards logic)"
+    match:
+      fallback_from: "gpt-3.5-turbo"
+      fallback_to: "gpt-4"
+    action: warn
+    severity: medium
+    suggestion: |
+      💡 Backwards Fallback Detected!
+      
+      Your system is falling back from GPT-3.5 → GPT-4 (cheap → expensive).
+      This defeats the purpose of cost-optimized fallbacks.
+      
+      **Correct Fallback Direction**: Expensive → Cheap
+      - ✅ GPT-4 → GPT-3.5-turbo (if rate limited)
+      - ✅ Claude Opus → Claude Haiku (if service issues)
+      - ✅ O1-preview → GPT-4 (if quota exceeded)
+      
+      **Incorrect Fallback Direction**: Cheap → Expensive
+      - ❌ GPT-3.5 → GPT-4 (increases cost!)
+      - ❌ Claude Haiku → Claude Opus (15x more expensive!)
+      - ❌ GPT-4o-mini → GPT-4 (200x more expensive!)
+      
+      **When to Escalate** (not fallback):
+      You might intentionally escalate (cheap → expensive) when:
+      1. Response quality inadequate
+      2. User explicitly requests better model
+      3. Task complexity higher than expected
+      
+      But this is **escalation**, not **fallback** (different use case).
+      
+      **Correct Implementation**:
+      ```python
+      def call_with_cost_optimized_fallback(prompt):
+          try:
+              # Start with best model
+              return openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+          except openai.error.RateLimitError:
+              # Fallback to CHEAPER model
+              print("GPT-4 rate limited - using GPT-3.5-turbo")
+              return openai.ChatCompletion.create(
+                  model="gpt-3.5-turbo",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+          except openai.error.ServiceUnavailableError:
+              # Fallback to ALTERNATIVE PROVIDER (similar cost)
+              print("OpenAI unavailable - using Claude Haiku")
+              return anthropic.messages.create(
+                  model="claude-3-haiku-20240307",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+      ```
+      
+      **Quality-Based Escalation** (separate from fallback):
+      ```python
+      def call_with_quality_escalation(prompt):
+          # Try cheap model first
+          response = openai.ChatCompletion.create(
+              model="gpt-3.5-turbo",
+              messages=[{"role": "user", "content": prompt}]
+          )
+          
+          # Check quality
+          quality_score = evaluate_response_quality(response)
+          
+          if quality_score < 0.7:
+              print("Response quality low - escalating to GPT-4")
+              response = openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+          
+          return response
+      ```
+      
+      **Immediate Actions**:
+      1. Review fallback logic - should go expensive → cheap
+      2. Separate "fallback" (error handling) from "escalation" (quality improvement)
+      3. Ensure rate limit fallbacks use cheaper alternatives
+      
+      **Learn More**: https://crashlens.dev/docs/fallback-vs-escalation
+
+  # Rule 3: Repeated Fallback Failure (same pattern failing 10+ times)
+  - id: repeated_fallback_failure
+    description: "Same fallback pattern failing 10+ times (strategy broken)"
+    match:
+      fallback_pattern_count: "> 10"
+      all_attempts_failed: true
+    action: fail
+    severity: critical
+    suggestion: |
+      🚨 Fallback Strategy Broken!
+      
+      The same fallback pattern has failed 10+ times. Your fallback strategy is not working.
+      
+      **Common Causes**:
+      1. All models failing for same reason (invalid API key, bad request format)
+      2. Network issue affecting all providers
+      3. Request itself is invalid (4xx error across all models)
+      4. Quota exceeded across all models
+      
+      **Diagnostic Steps**:
+      
+      **1. Check Error Consistency**:
+      ```python
+      def analyze_fallback_failures(logfile):
+          from collections import Counter
+          
+          errors = []
+          with open(logfile) as f:
+              for line in f:
+                  entry = json.loads(line)
+                  if entry.get('fallback_executed') and entry.get('status') != 'success':
+                      errors.append(entry.get('error', 'unknown'))
+          
+          error_counts = Counter(errors)
+          
+          print("Fallback failure reasons:")
+          for error, count in error_counts.most_common(10):
+              print(f"  {count}x: {error}")
+          
+          # If same error across all attempts, it's a systemic issue
+          if len(error_counts) == 1:
+              print("\\n⚠️  Same error across all fallbacks - fallback won't help!")
+              print("Fix the root cause instead of retrying.")
+      ```
+      
+      **2. Implement Fail-Fast for Systemic Errors**:
+      ```python
+      SYSTEMIC_ERRORS = [
+          "invalid_api_key",
+          "authentication_failed",
+          "invalid_request_error",
+          "content_filter_triggered"
+      ]
+      
+      def should_attempt_fallback(error):
+          # Don't fallback if error is systemic
+          for systemic_error in SYSTEMIC_ERRORS:
+              if systemic_error in str(error).lower():
+                  print(f"Systemic error detected: {error}")
+                  print("Skipping fallback - fix root cause instead")
+                  return False
+          return True
+      
+      def call_with_smart_fallback(prompt):
+          try:
+              return openai.ChatCompletion.create(model="gpt-4", ...)
+          except Exception as e:
+              if not should_attempt_fallback(e):
+                  raise  # Don't fallback
+              
+              # Safe to fallback
+              return call_alternative(prompt)
+      ```
+      
+      **3. Dead Letter Queue for Persistent Failures**:
+      ```python
+      import boto3
+      
+      sqs = boto3.client('sqs')
+      DLQ_URL = "https://sqs.us-east-1.amazonaws.com/xxx/failed-llm-requests"
+      
+      def call_with_dlq(prompt, max_attempts=3):
+          for attempt in range(max_attempts):
+              try:
+                  return openai.ChatCompletion.create(model="gpt-4", ...)
+              except Exception as e:
+                  if attempt == max_attempts - 1:
+                      # Send to DLQ for manual review
+                      sqs.send_message(
+                          QueueUrl=DLQ_URL,
+                          MessageBody=json.dumps({
+                              "prompt": prompt,
+                              "error": str(e),
+                              "attempts": max_attempts,
+                              "timestamp": datetime.now().isoformat()
+                          })
+                      )
+                      raise
+      ```
+      
+      **4. Graceful Degradation**:
+      ```python
+      def call_with_graceful_degradation(prompt):
+          try:
+              # Try primary model
+              return openai.ChatCompletion.create(model="gpt-4", ...)
+          except Exception as e:
+              print(f"Primary failed: {e}")
+              
+              try:
+                  # Try fallback
+                  return call_fallback_model(prompt)
+              except Exception as e2:
+                  print(f"Fallback also failed: {e2}")
+                  
+                  # Graceful degradation - return cached/default response
+                  cached = get_cached_similar_response(prompt)
+                  if cached:
+                      print("Using cached similar response")
+                      return cached
+                  else:
+                      print("Returning default response")
+                      return {
+                          "content": "I apologize, but I'm experiencing technical difficulties. Please try again later.",
+                          "degraded": True
+                      }
+      ```
+      
+      **Immediate Actions**:
+      1. Analyze failure logs - identify systemic errors
+      2. Implement fail-fast for non-retryable errors
+      3. Add dead letter queue for manual review
+      4. Enable graceful degradation (cached responses)
+      5. Alert engineering team on repeated failures
+      
+      **Learn More**: https://crashlens.dev/docs/handling-systemic-failures
+
+  # Rule 4: Unnecessary Fallback (primary succeeded but fallback triggered)
+  - id: unnecessary_fallback
+    description: "Fallback triggered when primary model succeeded"
+    match:
+      primary_status: 200
+      fallback_executed: true
+    action: warn
+    severity: low
+    suggestion: |
+      💡 Bug in Fallback Logic
+      
+      Your system triggered a fallback even though the primary model succeeded.
+      This indicates a bug in error handling logic.
+      
+      **Common Bugs**:
+      
+      **1. Catching Success as Exception**:
+      ```python
+      # ❌ Bug: Catching non-errors
+      def call_with_broken_fallback(prompt):
+          try:
+              response = openai.ChatCompletion.create(model="gpt-4", ...)
+              # Some validation that incorrectly raises exception
+              if len(response.choices[0].message.content) == 0:
+                  raise ValueError("Empty response")
+              return response
+          except:  # Too broad - catches ValueError too!
+              print("Fallback triggered")
+              return call_fallback(prompt)
+      
+      # ✅ Fix: Specific exception handling
+      def call_with_correct_fallback(prompt):
+          try:
+              response = openai.ChatCompletion.create(model="gpt-4", ...)
+              return response
+          except (openai.error.RateLimitError, 
+                  openai.error.ServiceUnavailableError) as e:
+              # Only fallback on specific errors
+              print(f"Fallback triggered: {e}")
+              return call_fallback(prompt)
+      ```
+      
+      **2. Incorrect Status Code Check**:
+      ```python
+      # ❌ Bug: Wrong status check
+      def call_with_wrong_check(prompt):
+          response = openai.ChatCompletion.create(model="gpt-4", ...)
+          
+          # Bug: HTTP status isn't returned by OpenAI library
+          if response.status_code != 200:  # This attribute doesn't exist!
+              return call_fallback(prompt)
+          
+          return response
+      
+      # ✅ Fix: Check for actual errors
+      def call_with_correct_check(prompt):
+          try:
+              response = openai.ChatCompletion.create(model="gpt-4", ...)
+              # If we got here, it succeeded
+              return response
+          except Exception as e:
+              return call_fallback(prompt)
+      ```
+      
+      **3. Async/Promise Issues**:
+      ```python
+      # ❌ Bug: Not awaiting async call
+      async def call_async_wrong(prompt):
+          try:
+              response = openai.ChatCompletion.acreate(model="gpt-4", ...)
+              # Bug: Not awaited, so exception not caught properly
+              return response
+          except Exception:
+              return call_fallback(prompt)
+      
+      # ✅ Fix: Await properly
+      async def call_async_correct(prompt):
+          try:
+              response = await openai.ChatCompletion.acreate(model="gpt-4", ...)
+              return response
+          except Exception as e:
+              print(f"Primary failed: {e}")
+              return await call_fallback(prompt)
+      ```
+      
+      **Immediate Actions**:
+      1. Review fallback trigger logic
+      2. Use specific exception types (not bare `except:`)
+      3. Add logging to identify false triggers
+      4. Unit test fallback logic with successful responses
+      
+      **Learn More**: https://crashlens.dev/docs/fallback-debugging
+
+# Example Logs That Trigger This Policy
+
+# Example 1: Long fallback chain (triggers cascading_fallback_chain)
+# {
+#   "traceId": "trace_123",
+#   "models_attempted": ["gpt-4", "claude-3-opus", "gpt-3.5-turbo", "gpt-4o-mini"],
+#   "all_failed": true,
+#   "total_cost": 0.29
+# }
+# Expected: FAIL (high) - Limit fallback chain to 2 models
+
+# Example 2: Backwards fallback (triggers fallback_to_more_expensive)
+# {
+#   "traceId": "trace_456",
+#   "primary_model": "gpt-3.5-turbo",
+#   "fallback_model": "gpt-4",
+#   "cost": 0.12
+# }
+# Expected: WARN (medium) - Fallback should go cheaper, not more expensive
+
+# Usage Examples
+
+# Basic usage
+# crashlens guard logs.jsonl --policy-file policies/fallback-storm-detection.yaml
+
+# CI/CD integration
+# crashlens guard logs.jsonl \
+#   --policy-file policies/fallback-storm-detection.yaml \
+#   --fail-on-violations
+
+# Weekly monitoring
+# crashlens guard production-logs.jsonl \
+#   --policy-file policies/fallback-storm-detection.yaml \
+#   --strip-pii --summary-only
+
+# Related Templates
+# - retry-loop-prevention.yaml: Fix retry patterns
+# - model-overkill-detection.yaml: Choose right models
+# - budget-protection.yaml: Enforce spending limits

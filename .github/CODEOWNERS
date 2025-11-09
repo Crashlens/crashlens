@@ -4,43 +4,43 @@
 # Code owners are automatically requested for review when PRs affect their files.
 # 
 # Global ownership - all files require review from main maintainers
-* @LawLight
+* @Aditya26189
 
 # Core CLI and main package
-/crashlens/ @LawLight
-/crashlens/cli.py @LawLight
+/crashlens/ @Aditya26189
+/crashlens/cli.py @Aditya26189
 
 # Detectors - Critical algorithms that need careful review
-/crashlens/detectors/ @LawLight
+/crashlens/detectors/ @Aditya26189
 
 # Parsers - Data ingestion logic
-/crashlens/parsers/ @LawLight
+/crashlens/parsers/ @Aditya26189
 
 # Reporters - Output formatting
-/crashlens/reporters/ @LawLight
+/crashlens/reporters/ @Aditya26189
 
 # Configuration files
-/crashlens/config/ @LawLight
-/pyproject.toml @LawLight
-/poetry.lock @LawLight
+/crashlens/config/ @Aditya26189
+/pyproject.toml @Aditya26189
+/poetry.lock @Aditya26189
 
 # GitHub workflows and CI/CD
-/.github/workflows/ @LawLight
-/.github/ @LawLight
+/.github/workflows/ @Aditya26189
+/.github/ @Aditya26189
 
 # Documentation
-/README.md @LawLight
-/docs/ @LawLight
-/*.md @LawLight
+/README.md @Aditya26189
+/docs/ @Aditya26189
+/*.md @Aditya26189
 
 # Tests - Ensure test quality
-/tests/ @LawLight
+/tests/ @Aditya26189
 
 # Example data and logs
-/examples-logs/ @LawLight
-/examples/ @LawLight
+/examples-logs/ @Aditya26189
+/examples/ @Aditya26189
 
 # Security and policy files
-/SECURITY.md @LawLight
-/LICENSE @LawLight
-/policies/ @LawLight
+/SECURITY.md @Aditya26189
+/LICENSE @Aditya26189
+/policies/ @Aditya26189
