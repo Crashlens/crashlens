@@ -558,15 +558,16 @@ def generate_detailed_reports(
             # Add detector-specific details
             if detector_type == 'retry_loop':
                 issue['retry_count'] = detection.get('retry_count', 0)
-                issue['models_involved'] = detection.get('models_used', [])
+                model = detection.get('model', '')
+                issue['models_involved'] = [model] if model else []
             elif detector_type == 'fallback_storm':
                 issue['models_used'] = detection.get('models_used', [])
                 issue['num_calls'] = detection.get('num_calls', 0)
             elif detector_type == 'fallback_failure':
-                issue['expensive_model'] = detection.get('model_used', '')
-                issue['cheaper_model'] = detection.get('suggested_model', '')
+                issue['expensive_model'] = detection.get('fallback_model', '')
+                issue['cheaper_model'] = detection.get('primary_model', '')
             elif detector_type == 'overkill_model':
-                issue['expensive_model'] = detection.get('model_used', '')
+                issue['expensive_model'] = detection.get('model', '')
                 issue['suggested_model'] = detection.get('suggested_model', '')
             
             issues.append(issue)
