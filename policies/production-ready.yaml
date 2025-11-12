@@ -1,5 +1,6 @@
 # CrashLens Policy: Production-Ready Combined
 # Comprehensive rules for production LLM cost governance
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: 40-60% overall
 
 metadata:

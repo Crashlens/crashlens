@@ -1,5 +1,6 @@
 # CrashLens Policy: Fallback Storm Detection
 # Prevent cascading model failures wasting tokens
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: 10-35% by fixing fallback chains
 
 metadata:
@@ -15,6 +16,8 @@ metadata:
     - reliability
     - cost-optimization
   documentation: "https://crashlens.dev/docs/policies/fallback-storms"
+
+version: 1
 
 # Configuration variables
 variables:

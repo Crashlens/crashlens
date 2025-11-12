@@ -1,5 +1,6 @@
 # CrashLens Policy: Retry Loop Prevention
 # Blocks inefficient retry patterns and exponential backoff failures
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: 20-40% by eliminating retry waste
 
 metadata:

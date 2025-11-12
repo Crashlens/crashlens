@@ -1,5 +1,6 @@
 # CrashLens Policy: Block GPT-4 on Summary Tasks
 # Optimized for Langfuse users - prevents expensive model usage for simple summarization
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 #
 # Usage:
 #   crashlens guard logs.jsonl --policy-file policies/block-gpt4-on-summary.yaml --fail-on-violations
@@ -10,11 +11,13 @@
 #   - budget-protection
 #   - token-efficiency
 
+version: 1
+
 rules:
   - id: block_gpt4_summary_tasks
     description: "Block GPT-4 usage for simple summarization tasks"
     match:
-      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      model: "in:[gpt-4,gpt-4-turbo,gpt-4o]"
     action: fail
     severity: high
     suggestion: "Use gpt-3.5-turbo or gpt-4o-mini for summarization tasks - they're 10x cheaper and equally effective"
@@ -22,7 +25,7 @@ rules:
   - id: warn_gpt4_short_prompts
     description: "Warn when GPT-4 is used for very short prompts"
     match:
-      input.model: ["gpt-4", "gpt-4-turbo", "gpt-4o"]
+      model: "in:[gpt-4,gpt-4-turbo,gpt-4o]"
       usage.prompt_tokens: "<30"
     action: warn
     severity: medium
@@ -33,8 +36,7 @@ rules:
     match:
       usage.prompt_tokens: "<100"
     action: warn
-    severity: low=
-    
+    severity: low
     suggestion: "Short prompt detected - ensure you're using cost-effective models"
 
 global:
@@ -44,3 +46,4 @@ global:
 cost_thresholds:
   warning_threshold: 0.02  # $0.02 per request
   critical_threshold: 0.10  # $0.10 per request
+

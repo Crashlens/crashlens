@@ -1,5 +1,6 @@
 # CrashLens Policy: Model Overkill Detection
 # Prevents expensive models (GPT-4, Claude Opus) being used for simple tasks
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: 30-50% by switching to cheaper models
 
 metadata:
@@ -15,6 +16,8 @@ metadata:
     - efficiency
   documentation: "https://crashlens.dev/docs/policies/model-overkill"
 
+version: 1
+
 # Configuration variables (override with --config)
 variables:
   simple_task_threshold: 50  # tokens
@@ -28,8 +31,8 @@ rules:
   - id: gpt4_for_simple_tasks
     description: "Detect GPT-4 used for simple tasks with minimal prompt tokens"
     match:
-      model: "gpt-4"
-      usage.prompt_tokens: "< 50"
+      model: "in:[gpt-4,gpt-4-turbo,gpt-4o]"
+      usage.prompt_tokens: "<50"
     action: fail
     severity: high
     suggestion: |
@@ -70,8 +73,8 @@ rules:
   - id: gpt4_for_short_completions
     description: "GPT-4 generating very short responses (< 10 tokens)"
     match:
-      model: "gpt-4"
-      usage.completion_tokens: "< 10"
+      model: "in:[gpt-4,gpt-4-turbo,gpt-4o]"
+      usage.completion_tokens: "<10"
     action: warn
     severity: medium
     suggestion: |

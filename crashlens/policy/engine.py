@@ -69,27 +69,61 @@ class PolicyMatcher:
         Returns:
             True if the condition matches, False otherwise
         """
-        if isinstance(rule_value, str) and any(op in rule_value for op in cls.OPERATORS):
-            # Handle operator-based conditions like ">2", "!=gpt-4", "regex: pattern"
+        # Handle special string conditions
+        if isinstance(rule_value, str):
+            # Check for "not_empty" condition
+            if rule_value == "not_empty":
+                return log_value is not None and log_value != "" and log_value != []
+            
+            # Check for "empty" condition
+            if rule_value == "empty":
+                return log_value is None or log_value == "" or log_value == []
+            
+            # Handle "in:[val1,val2,val3]" format
+            if rule_value.startswith("in:[") and rule_value.endswith("]"):
+                values_str = rule_value[4:-1]  # Extract content between "in:[" and "]"
+                values = [v.strip() for v in values_str.split(",")]
+                return str(log_value) in values
+            
+            # Handle "not_in:[val1,val2,val3]" format
+            if rule_value.startswith("not_in:[") and rule_value.endswith("]"):
+                values_str = rule_value[8:-1]  # Extract content between "not_in:[" and "]"
+                values = [v.strip() for v in values_str.split(",")]
+                return str(log_value) not in values
+            
+            # Handle "regex:pattern" format
+            if rule_value.startswith("regex:"):
+                pattern = rule_value[6:].strip()
+                try:
+                    return bool(re.search(pattern, str(log_value)))
+                except re.error as e:
+                    logging.warning(f"Invalid regex pattern '{pattern}': {e}")
+                    return False
+            
+            # Handle comparison operators
             for op_str, op_func in cls.OPERATORS.items():
                 if rule_value.startswith(op_str):
                     try:
                         expected = rule_value[len(op_str):].strip()
-                        # Remove leading colon if present (for "regex: pattern" format)
+                        # Remove leading colon if present
                         if expected.startswith(':'):
                             expected = expected[1:].strip()
-                        # Handle special operators
-                        if op_str in ['not in']:
-                            # Parse the list from the string format "not in:['item1', 'item2']"
-                            if ':' in expected:
-                                list_str = expected.split(':', 1)[1]
+                        
+                        # Special handling for 'in' and 'not in' operators with old format
+                        if op_str in ['in', 'not in']:
+                            # Parse list format: "in: ['item1', 'item2']"
+                            if expected.startswith('['):
                                 import ast
-                                expected = ast.literal_eval(list_str)
+                                try:
+                                    expected = ast.literal_eval(expected)
+                                except (ValueError, SyntaxError):
+                                    # Try simpler parsing
+                                    expected = [v.strip().strip("'\"") for v in expected[1:-1].split(',')]
+                        
                         return op_func(log_value, expected)
                     except (ValueError, TypeError, SyntaxError) as e:
                         logging.warning(f"Policy match error: {e}")
                         return False
-            return False  # No matching operator found
         
         # Handle list conditions (for 'in' operator)
         elif isinstance(rule_value, list):
@@ -98,6 +132,8 @@ class PolicyMatcher:
         # Handle direct equality
         else:
             return log_value == rule_value
+        
+        return False
     
     @classmethod
     def evaluate_match_block(cls, log_entry: Dict[str, Any], match_conditions: Dict[str, Any]) -> bool:
@@ -188,8 +224,12 @@ class PolicyEngine:
         self.rules: List[PolicyRule] = []
         self.logger = logging.getLogger(__name__)
         self.global_config: Dict[str, Any] = {}
+        self.cost_thresholds: Dict[str, float] = {}
+        self.fallback_monitoring: Dict[str, Any] = {}
         self.violation_counts: Dict[str, int] = {}
         self.traces_flagged: Set[str] = set()
+        self.max_violations_per_rule: int = 100  # Default
+        self.enable_cost_estimation: bool = True  # Default
         
         # Benchmark stats tracking (constant memory: ~5 floats per rule)
         self._collect_stats = False  # Flag to enable stats collection
@@ -220,7 +260,20 @@ class PolicyEngine:
             
             # Load global configuration
             self.global_config = policy_data.get('global', {})
-            max_violations_per_rule = self.global_config.get('max_violations_per_rule', 100)
+            self.max_violations_per_rule = self.global_config.get('max_violations_per_rule', 100)
+            self.enable_cost_estimation = self.global_config.get('enable_cost_estimation', True)
+            
+            # Load cost thresholds
+            self.cost_thresholds = policy_data.get('cost_thresholds', {})
+            
+            # Load fallback monitoring config
+            self.fallback_monitoring = policy_data.get('fallback_monitoring', {})
+            
+            # Log loaded configurations
+            if self.cost_thresholds:
+                self.logger.info(f"Cost thresholds: {self.cost_thresholds}")
+            if self.fallback_monitoring:
+                self.logger.info(f"Fallback monitoring: {self.fallback_monitoring}")
             
             # Initialize violation counters
             self.rules = []
@@ -241,7 +294,7 @@ class PolicyEngine:
                     self.logger.error(f"Invalid rule '{rule_data.get('id', 'unknown')}': {e}")
                     
             self.logger.info(f"Loaded {len(self.rules)} policy rules from {policy_file}")
-            self.logger.info(f"Global config: max_violations_per_rule={max_violations_per_rule}")
+            self.logger.info(f"Global config: max_violations_per_rule={self.max_violations_per_rule}, enable_cost_estimation={self.enable_cost_estimation}")
             
         except Exception as e:
             raise ValueError(f"Failed to load policy file {policy_file}: {e}")
@@ -307,11 +360,9 @@ class PolicyEngine:
             self.logger.debug(f"Trace {trace_id} already flagged, skipping additional rule checks")
             return violations, skipped_rules
         
-        max_violations_per_rule = self.global_config.get('max_violations_per_rule', 100)
-        
         for rule in self.rules:
             # Check if rule has reached its violation limit
-            if self.violation_counts[rule.id] >= max_violations_per_rule:
+            if self.violation_counts[rule.id] >= self.max_violations_per_rule:
                 skipped_rules.append(rule.id)
                 continue
             

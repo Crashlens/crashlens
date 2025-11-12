@@ -1,5 +1,6 @@
 # CrashLens Policy: Fallback Chain Detector
 # Monitors model fallback patterns and cascading failures
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 #
 # Usage:
 #   crashlens guard logs.jsonl --policy-file policies/fallback-chain-detector.yaml --fail-on-violations
@@ -15,52 +16,107 @@
 #   - fallback-chain-detector
 #   - error-storm-detection
 #   - retry-loop-prevention
+#
+# NOTE: This policy requires metadata.fallback_count to be present in your logs.
+#       Add this field when tracking fallback attempts.
+
+version: 1
 
 rules:
   - id: excessive_fallback_usage
     description: "Block excessive fallback to expensive models"
     match:
-      fallback_count: ">2"
-      input.model: ["gpt-4", "claude-3-opus"]
+      metadata.fallback_count: ">2"
+      model: "in:[gpt-4,claude-3-opus,gpt-4-turbo,claude-3-opus-20240229]"
     action: fail
     severity: critical
-    suggestion: "Excessive fallbacks to expensive models detected. Review primary model reliability."
+    suggestion: |
+      Excessive fallbacks to expensive models detected. Review primary model reliability.
+      
+      Actions:
+      - Implement circuit breakers to prevent fallback storms
+      - Use cheaper fallback models (gpt-3.5-turbo, claude-haiku)
+      - Add retry logic with exponential backoff
+      - Monitor primary model error rates
     
   - id: fallback_storm_detection
     description: "Detect fallback storms indicating system issues"
     match:
-      fallback_count: ">5"
+      metadata.fallback_count: ">5"
     action: fail
     severity: critical
-    suggestion: "Fallback storm detected - investigate primary model availability and error handling"
+    suggestion: |
+      Fallback storm detected - investigate primary model availability.
+      
+      Immediate Actions:
+      - Check model API status
+      - Review error logs for patterns
+      - Implement rate limiting on fallbacks
+      - Add monitoring alerts for fallback rate
+      - Consider temporary circuit breaker activation
     
   - id: reverse_fallback_pattern
     description: "Flag inappropriate fallback patterns (cheap to expensive)"
     match:
-      metadata.primary_model: ["gpt-3.5-turbo", "gpt-4o-mini"]
-      input.model: ["gpt-4", "claude-3-opus"]
-      fallback_count: ">0"
+      metadata.primary_model: "in:[gpt-3.5-turbo,gpt-4o-mini,claude-haiku]"
+      model: "in:[gpt-4,claude-3-opus,gpt-4-turbo,claude-3-opus-20240229]"
+      metadata.fallback_count: ">0"
     action: warn
     severity: high
-    suggestion: "Fallback from cheap to expensive model detected - review fallback logic"
+    suggestion: |
+      Fallback from cheap to expensive model detected - this is backwards!
+      
+      Correct Fallback Direction:
+      - Primary: gpt-4 → Fallback: gpt-3.5-turbo ✅
+      - Primary: claude-opus → Fallback: claude-haiku ✅
+      - Primary: gpt-3.5-turbo → Fallback: gpt-4 ❌ (WRONG)
+      
+      Fix:
+      - Review fallback configuration
+      - Ensure fallbacks go to cheaper models
+      - Consider fallback chains: expensive → medium → cheap
     
   - id: high_cost_fallback_chain
     description: "Monitor cost impact of fallback chains"
     match:
-      fallback_count: ">1"
+      metadata.fallback_count: ">1"
       cost: ">0.10"
     action: warn
     severity: high
-    suggestion: "High-cost fallback chain detected - consider fallback to cheaper models"
+    suggestion: |
+      High-cost fallback chain detected ($0.10+).
+      
+      Optimization Strategies:
+      - Use cheaper models in fallback chain
+      - Limit fallback depth to 2-3 models max
+      - Cache successful fallback patterns
+      - Consider fallback to structured prompts (cheaper tokens)
+      
+      Example Chain:
+      1. gpt-4-turbo (primary)
+      2. gpt-4 (first fallback)
+      3. gpt-3.5-turbo (second fallback) ← Stop here
     
   - id: frequent_fallback_user
     description: "Flag users/sessions with frequent fallback usage"
     match:
-      fallback_count: ">3"
+      metadata.fallback_count: ">3"
       metadata.user_id: "not_empty"
     action: warn
     severity: medium
-    suggestion: "User experiencing frequent fallbacks - may need support or different model configuration"
+    suggestion: |
+      User experiencing frequent fallbacks - investigate root cause.
+      
+      Possible Issues:
+      - User's input causing model failures
+      - User needs different model configuration
+      - Input contains problematic content (rate limits, safety filters)
+      
+      Actions:
+      - Contact user for feedback
+      - Review user's input patterns
+      - Offer alternative model recommendations
+      - Check if user is hitting rate limits
 
 global:
   max_violations_per_rule: 15

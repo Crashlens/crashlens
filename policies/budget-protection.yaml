@@ -1,5 +1,6 @@
 # CrashLens Policy: Budget Protection
 # Enforce spending limits and prevent budget overruns
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: Varies (prevents catastrophic overspend)
 
 metadata:
@@ -15,6 +16,8 @@ metadata:
     - spending-limits
     - governance
   documentation: "https://crashlens.dev/docs/policies/budget-protection"
+
+version: 1
 
 # Configuration variables (customize per environment)
 variables:

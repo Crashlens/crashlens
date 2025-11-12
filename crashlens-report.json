@@ -1,0 +1,56 @@
+{
+  "summary": {
+    "total_rules": 2,
+    "violations": 2,
+    "skipped_lines": 0,
+    "total_cost": null,
+    "cost_cap": null,
+    "cost_cap_exceeded": false
+  },
+  "rules": {
+    "high_cost_test": {
+      "count": 2,
+      "severity": "error",
+      "description": "Test rule for high cost",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 0,
+          "retry_count": 1,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "test",
+          "reason": "cost_usd=0.05 (rule: >0.01)"
+        },
+        {
+          "timestamp": null,
+          "model": "gpt-4",
+          "tokens": 0,
+          "retry_count": null,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "test",
+          "reason": "cost_usd=0.02 (rule: >0.01)"
+        }
+      ]
+    },
+    "retry_test": {
+      "count": 1,
+      "severity": "warn",
+      "description": "Test rule for retries",
+      "examples": [
+        {
+          "timestamp": null,
+          "model": "gpt-3.5-turbo",
+          "tokens": 0,
+          "retry_count": 5,
+          "fallback_triggered": null,
+          "endpoint": null,
+          "prompt": "test",
+          "reason": "retry_count=5 (rule: >2)"
+        }
+      ]
+    }
+  }
+}

@@ -1,5 +1,6 @@
 # CrashLens Policy: CI Sample - Lightweight checks for continuous integration
 # Quick validation suitable for CI/CD pipelines
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 #
 # Usage:
 #   crashlens guard logs.jsonl --policy-file policies/ci-sample.yaml --fail-on-violations
@@ -17,6 +18,8 @@
 #   - budget-protection
 #   - rate-limit-management
 
+version: 1
+
 rules:
   - id: ci_cost_check
     description: "Enforce cost limits in CI environment"
@@ -29,7 +32,7 @@ rules:
   - id: ci_model_allowlist
     description: "Restrict to approved models in CI"
     match:
-      input.model: "not_in:[gpt-4o-mini, gpt-3.5-turbo, claude-3-haiku]"
+      model: "not_in:[gpt-4o-mini,gpt-3.5-turbo,claude-3-haiku]"
     action: fail
     severity: critical
     suggestion: "Unauthorized model in CI - use approved models: gpt-4o-mini, gpt-3.5-turbo, claude-3-haiku"
@@ -37,7 +40,7 @@ rules:
   - id: ci_token_limit
     description: "Prevent large token usage in CI"
     match:
-      output.token_count: ">500"
+      usage.completion_tokens: ">500"
     action: warn
     severity: medium
     suggestion: "High token count in CI - consider shorter test prompts"
@@ -45,7 +48,7 @@ rules:
   - id: ci_response_time
     description: "Monitor response times in CI"
     match:
-      duration: ">5000"  # 5 seconds
+      metadata.duration: ">5000"
     action: warn
     severity: low
     suggestion: "Slow response in CI - may impact build times"
@@ -53,7 +56,7 @@ rules:
   - id: ci_error_detection
     description: "Catch API errors in CI"
     match:
-      status: "error"
+      level: "ERROR"
     action: fail
     severity: critical
     suggestion: "API error in CI - check model availability and API keys"

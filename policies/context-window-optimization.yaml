@@ -1,5 +1,6 @@
 # CrashLens Policy: Context Window Optimization
 # Efficient context window usage and token management
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: 10-25% through better context management
 
 metadata:

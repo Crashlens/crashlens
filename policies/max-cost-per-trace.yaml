@@ -1,6 +1,6 @@
 # CrashLens Policy: Maximum Cost Per Trace
 # Prevents individual traces from exceeding cost limits
-# yaml-language-server: $schema=../../crashlens/config/policy-schema.json
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 #
 # Usage:
 #   crashlens guard logs.jsonl --policy-file policies/max-cost-per-trace.yaml --fail-on-violations
@@ -23,6 +23,8 @@
 #   - model-overkill-detection
 #   - token-efficiency
 
+version: 1
+
 rules:
   - id: trace_cost_hard_limit
     description: "Block traces exceeding maximum cost threshold"
@@ -43,7 +45,7 @@ rules:
   - id: development_cost_limit
     description: "Stricter limits for development environment"
     match:
-      metadata.env: ["development", "dev", "staging"]
+      metadata.env: "in:[development,dev,staging]"
       cost: ">0.10"
     action: fail
     severity: high

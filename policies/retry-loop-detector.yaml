@@ -1,6 +1,6 @@
 # CrashLens Policy: Retry Loop Detector
 # Designed for Langfuse traces - detects expensive retry patterns
-# yaml-language-server: $schema=../../crashlens/config/policy-schema.json
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 #
 # Usage:
 #   crashlens guard logs.jsonl --policy-file policies/retry-loop-detector.yaml --fail-on-violations
@@ -17,12 +17,17 @@
 #   - retry-loop-prevention
 #   - error-storm-detection
 #   - budget-protection
+#
+# NOTE: This policy requires metadata.retry_count and metadata.fallback_count to be present in your logs.
+#       Add these fields when tracking retry attempts and fallback usage.
+
+version: 1
 
 rules:
   - id: excessive_retry_pattern
     description: "Block traces with excessive retry attempts"
     match:
-      retry_count: ">3"
+      metadata.retry_count: ">3"
     action: fail
     severity: critical
     suggestion: "Implement exponential backoff and circuit breaker patterns. >3 retries indicates poor error handling."
@@ -30,8 +35,8 @@ rules:
   - id: expensive_model_retries
     description: "Warn when expensive models are used in retry scenarios"
     match:
-      input.model: ["gpt-4", "gpt-4-turbo", "claude-3-opus"]
-      retry_count: ">1"
+      model: "in:[gpt-4,gpt-4-turbo,claude-3-opus]"
+      metadata.retry_count: ">1"
     action: warn
     severity: high
     suggestion: "Use cheaper fallback models (gpt-3.5-turbo) for retry scenarios to minimize cost impact"
@@ -40,7 +45,7 @@ rules:
     description: "Detect retry cascades that are burning budget"
     match:
       cost: ">0.05"
-      retry_count: ">0"
+      metadata.retry_count: ">0"
     action: warn
     severity: high
     suggestion: "High-cost retry detected - review error handling and consider model downgrade for retries"
@@ -48,7 +53,7 @@ rules:
   - id: rapid_retry_detection
     description: "Flag rapid successive retries within short timeframes"
     match:
-      retry_count: ">2"
+      metadata.retry_count: ">2"
       usage.total_tokens: "<200"
     action: warn
     severity: medium
@@ -57,7 +62,7 @@ rules:
   - id: fallback_chain_monitoring
     description: "Monitor fallback model usage patterns"
     match:
-      fallback_count: ">0"
+      metadata.fallback_count: ">0"
     action: warn
     severity: low
     suggestion: "Fallback model used - monitor if primary model issues are frequent"
@@ -75,3 +80,4 @@ budget_limits:
   daily_retry_budget: 5.00     # Maximum $5/day on retry costs
   monthly_retry_budget: 100.00  # Maximum $100/month on retry costs
   max_retry_cost_per_trace: 0.20  # Maximum $0.20 per trace including retries
+

@@ -1,5 +1,6 @@
 # CrashLens Policy: Prompt Optimization
 # Optimize prompt efficiency and reduce wasted tokens
+# yaml-language-server: $schema=../crashlens/config/policy-schema.json
 # Estimated Savings: 15-30% through better prompt engineering
 
 metadata:
