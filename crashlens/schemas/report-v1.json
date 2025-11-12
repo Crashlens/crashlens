@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://crashlens.io/schemas/report-v1.json",
+  "title": "CrashLens Detection Report Schema",
+  "description": "JSON schema for CrashLens token waste detection reports",
+  "type": "object",
+  "required": ["metadata", "summary", "detections"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["timestamp", "version", "report_type"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Report generation timestamp (ISO 8601)"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "CrashLens version (semver)"
+        },
+        "report_type": {
+          "type": "string",
+          "enum": ["scan", "guard", "policy-check"],
+          "description": "Type of report generated"
+        },
+        "config": {
+          "type": "object",
+          "properties": {
+            "policy_file": {"type": ["string", "null"]},
+            "policy_template": {"type": ["string", "null"]},
+            "log_format": {
+              "type": "string",
+              "enum": ["langfuse-v1", "langfuse-v2", "openai-v1", "anthropic-v1", "helicone-v1"]
+            },
+            "metrics_enabled": {"type": "boolean"},
+            "sampling_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_detections",
+        "total_waste_cost",
+        "total_waste_tokens",
+        "traces_processed"
+      ],
+      "properties": {
+        "total_detections": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of waste patterns detected"
+        },
+        "total_waste_cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total estimated waste cost in USD"
+        },
+        "total_waste_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total tokens wasted (prompt + completion)"
+        },
+        "traces_processed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of traces analyzed"
+        },
+        "detections_by_type": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z0-9_-]+$": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Count of detections by detector type"
+        },
+        "detections_by_severity": {
+          "type": "object",
+          "properties": {
+            "critical": {"type": "integer", "minimum": 0},
+            "high": {"type": "integer", "minimum": 0},
+            "medium": {"type": "integer", "minimum": 0},
+            "low": {"type": "integer", "minimum": 0},
+            "info": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "detections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "trace_id",
+          "detector",
+          "severity",
+          "waste_cost",
+          "waste_tokens",
+          "description",
+          "suggestion"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique trace identifier"
+          },
+          "detector": {
+            "type": "string",
+            "enum": [
+              "Retry Loop Detector",
+              "Fallback Storm Detector",
+              "Overkill Model Detector",
+              "Fallback Failure Detector",
+              "Policy Violation"
+            ],
+            "description": "Detector that identified this waste pattern"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"],
+            "description": "Severity level of the detection"
+          },
+          "waste_cost": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Estimated waste cost for this detection (USD)"
+          },
+          "waste_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tokens wasted in this detection"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable description of the issue"
+          },
+          "suggestion": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Actionable suggestion to fix the issue"
+          },
+          "records": {
+            "type": "array",
+            "items": {"type": "object"},
+            "description": "Raw log records associated with this detection"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Detector-specific metadata"
+          }
+        }
+      }
+    },
+    "policy_violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "severity", "line_number", "description"],
+        "properties": {
+          "rule_id": {"type": "string"},
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "line_number": {"type": "integer", "minimum": 1},
+          "description": {"type": "string"},
+          "suggestion": {"type": "string"},
+          "matched_values": {"type": "object"}
+        }
+      },
+      "description": "Policy violations (if guard mode used)"
+    }
+  }
+}

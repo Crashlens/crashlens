@@ -4373,6 +4373,207 @@ def smtp_example(output: Path):
         sys.exit(1)
 
 
+# ============================
+# JSON Schema Validation Commands
+# ============================
+
+@click.command(name="validate")
+@click.argument('report_file', type=click.Path(exists=True, path_type=Path))
+@click.option('--schema-version', default='v1', help='Schema version to validate against')
+@click.option('--strict', is_flag=True, help='Strict validation mode (warnings as errors)')
+def validate_report(report_file: Path, schema_version: str, strict: bool):
+    """Validate JSON report against schema."""
+    from .formatters.schema_validator import validate_file
+    
+    click.echo(f"🔍 Validating {report_file}...")
+    
+    is_valid, errors = validate_file(report_file)
+    
+    if is_valid:
+        click.echo(click.style(f"✅ Report is valid ({schema_version})", fg="green"))
+    else:
+        click.echo(click.style(f"❌ Validation failed:", fg="red"), err=True)
+        for error in errors:
+            click.echo(f"  • {error}", err=True)
+        sys.exit(1)
+
+
+@click.command(name="list-schemas")
+def list_report_schemas():
+    """List available report schema versions."""
+    schemas_dir = Path(__file__).parent / "schemas"
+    
+    if not schemas_dir.exists():
+        click.echo("No schemas directory found.")
+        return
+    
+    schemas = sorted(schemas_dir.glob("report-*.json"))
+    
+    if not schemas:
+        click.echo("No report schemas found.")
+        return
+    
+    click.echo("\n📋 Available Report Schemas")
+    click.echo("=" * 40)
+    
+    for schema_file in schemas:
+        version = schema_file.stem.replace("report-", "")
+        click.echo(f"  • {version} ({schema_file.name})")
+    
+    click.echo("\n💡 Usage:")
+    click.echo("  crashlens validate report.json --schema-version v1")
+    click.echo()
+
+
+# ============================
+# Schema Versioning Commands
+# ============================
+
+@click.command(name="list-schemas")
+@click.option('--stable-only', is_flag=True, help='Only show stable/production-ready schemas')
+def list_schemas(stable_only: bool):
+    """List all supported log schema formats."""
+    from .parsers.registry import list_supported_formats
+    
+    formats = list_supported_formats(stable_only=stable_only)
+    
+    if not formats:
+        click.echo("No schemas found.")
+        return
+    
+    click.echo("\n📋 Supported Log Formats")
+    click.echo("=" * 60)
+    
+    for fmt in formats:
+        status = "✅ STABLE" if fmt["stable"] else "⚠️  EXPERIMENTAL"
+        click.echo(f"\n{status} {fmt['schema_id']} (v{fmt['version']})")
+        click.echo(f"  {fmt['description']}")
+    
+    click.echo("\n💡 Usage:")
+    click.echo("  crashlens scan logs.jsonl --log-format langfuse-v1")
+    click.echo()
+
+
+@click.command(name="detect-schema")
+@click.argument('logfile', type=click.Path(exists=True, path_type=Path))
+@click.option('--sample-size', type=int, default=10, help='Number of lines to sample')
+def detect_schema(logfile: Path, sample_size: int):
+    """Auto-detect log schema format (experimental)."""
+    from .parsers.registry import auto_detect_schema
+    
+    schema_id = auto_detect_schema(logfile, sample_size=sample_size)
+    
+    if schema_id:
+        click.echo(click.style(f"✅ Detected schema: {schema_id}", fg="green"))
+        click.echo(f"\n💡 Use this with: crashlens scan {logfile} --log-format {schema_id}")
+    else:
+        click.echo(click.style("❌ Could not auto-detect schema format.", fg="red"), err=True)
+        click.echo("\n💡 Tip: Use 'crashlens list-schemas' to see supported formats.")
+        sys.exit(1)
+
+
+# ============================
+# Report Management Commands
+# ============================
+
+@click.group()
+def reports():
+    """Manage CrashLens reports and archives."""
+    pass
+
+
+@reports.command(name="archive")
+@click.option('--days', type=int, default=30, help='Archive reports older than N days')
+@click.option('--base-dir', type=click.Path(path_type=Path), 
+              default=Path('policy-violations'),
+              help='Base directory for reports')
+def archive_reports(days: int, base_dir: Path):
+    """Archive old reports to archives/ subdirectory."""
+    from .reporters.file_organizer import FileOrganizer
+    
+    organizer = FileOrganizer(base_dir=base_dir, auto_readme=True)
+    archived = organizer.archive_old_reports(days=days)
+    
+    if archived:
+        click.echo(click.style(f"✅ Archived {len(archived)} reports:", fg="green"))
+        for path in archived:
+            click.echo(f"  - {path.relative_to(base_dir)}")
+    else:
+        click.echo(click.style(f"ℹ️  No reports older than {days} days found.", fg="blue"))
+
+
+@reports.command(name="prune")
+@click.option('--days', type=int, default=90, help='Delete archives older than N days')
+@click.option('--base-dir', type=click.Path(path_type=Path), 
+              default=Path('policy-violations'),
+              help='Base directory for reports')
+@click.option('--confirm', is_flag=True, help='Skip confirmation prompt')
+def prune_archives(days: int, base_dir: Path, confirm: bool):
+    """Delete archived reports older than specified days."""
+    from .reporters.file_organizer import FileOrganizer
+    
+    organizer = FileOrganizer(base_dir=base_dir, auto_readme=False)
+    
+    # Count files to prune
+    from datetime import datetime, timedelta
+    cutoff_date = datetime.now() - timedelta(days=days)
+    to_prune = [
+        f for f in organizer.archives_dir.rglob("*")
+        if f.is_file() and datetime.fromtimestamp(f.stat().st_mtime) < cutoff_date
+    ]
+    
+    if not to_prune:
+        click.echo(click.style(f"ℹ️  No archives older than {days} days found.", fg="blue"))
+        return
+    
+    # Confirm deletion
+    if not confirm:
+        click.echo(f"⚠️  This will permanently delete {len(to_prune)} archived reports.")
+        if not click.confirm("Continue?"):
+            click.echo("Cancelled.")
+            return
+    
+    pruned = organizer.prune_archives(days=days)
+    click.echo(click.style(f"✅ Pruned {len(pruned)} archived reports.", fg="green"))
+
+
+@reports.command(name="readme")
+@click.option('--base-dir', type=click.Path(path_type=Path), 
+              default=Path('policy-violations'),
+              help='Base directory for reports')
+def generate_readme(base_dir: Path):
+    """Regenerate README.md for reports directory."""
+    from .reporters.file_organizer import FileOrganizer
+    
+    organizer = FileOrganizer(base_dir=base_dir, auto_readme=False)
+    readme_path = organizer.generate_readme()
+    
+    click.echo(click.style(f"✅ Generated README: {readme_path}", fg="green"))
+
+
+@reports.command(name="stats")
+@click.option('--base-dir', type=click.Path(path_type=Path), 
+              default=Path('policy-violations'),
+              help='Base directory for reports')
+def show_stats(base_dir: Path):
+    """Show statistics about reports."""
+    from .reporters.file_organizer import FileOrganizer
+    
+    if not base_dir.exists():
+        click.echo(click.style(f"❌ Directory not found: {base_dir}", fg="red"), err=True)
+        sys.exit(1)
+    
+    organizer = FileOrganizer(base_dir=base_dir, auto_readme=False)
+    stats = organizer._calculate_statistics()
+    
+    click.echo("\n📊 Report Statistics")
+    click.echo("=" * 40)
+    click.echo(f"Total Reports:  {stats['total_reports']}")
+    click.echo(f"Total Traces:   {stats['total_traces']}")
+    click.echo(f"Total Archives: {stats['total_archives']}")
+    click.echo()
+
+
 # Add commands to CLI
 cli.add_command(list_policy_templates)
 cli.add_command(init)
@@ -4385,6 +4586,11 @@ cli.add_command(validate_metrics_config)
 cli.add_command(show_metrics_config)
 cli.add_command(guard)
 cli.add_command(run_report)
+cli.add_command(reports)
+cli.add_command(list_schemas)
+cli.add_command(detect_schema)
+cli.add_command(validate_report)
+cli.add_command(list_report_schemas)
 
 
 if __name__ == "__main__":

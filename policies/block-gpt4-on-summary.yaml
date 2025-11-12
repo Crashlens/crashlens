@@ -33,7 +33,8 @@ rules:
     match:
       usage.prompt_tokens: "<100"
     action: warn
-    severity: low
+    severity: low=
+    
     suggestion: "Short prompt detected - ensure you're using cost-effective models"
 
 global:
