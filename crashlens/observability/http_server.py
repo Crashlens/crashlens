@@ -120,46 +120,6 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
         except Exception as e:
             _http_logger.error(f"Error sending 401: {e}")
     
-    def _check_auth(self) -> bool:
-        """
-        Check HTTP Basic Authentication credentials.
-        
-        Returns:
-            True if auth passes or not required, False otherwise
-        """
-        if not self.auth_required:
-            return True
-        
-        auth_header = self.headers.get('Authorization', '')
-        if not auth_header.startswith('Basic '):
-            return False
-        
-        try:
-            # Decode base64 credentials
-            encoded_creds = auth_header[6:]  # Remove 'Basic ' prefix
-            decoded = base64.b64decode(encoded_creds).decode('utf-8')
-            username, password = decoded.split(':', 1)
-            
-            # Check credentials
-            return (username == self.auth_username and 
-                    password == self.auth_password)
-        except Exception as e:
-            _http_logger.warning(f"Auth check failed: {e}")
-            return False
-    
-    def _send_auth_required(self):
-        """Send 401 Unauthorized response"""
-        try:
-            message = b"401 Unauthorized\n\nBasic authentication required.\n"
-            self.send_response(401)
-            self.send_header('WWW-Authenticate', 'Basic realm="CrashLens Metrics"')
-            self.send_header('Content-Type', 'text/plain')
-            self.send_header('Content-Length', str(len(message)))
-            self.end_headers()
-            self.wfile.write(message)
-        except Exception as e:
-            _http_logger.error(f"Error sending 401: {e}")
-    
     def do_GET(self):
         """Handle GET requests"""
         try:
@@ -168,13 +128,8 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
                 if not self._check_auth():
                     self._send_auth_required()
                     return
-                # Auth required for metrics endpoint
-                if not self._check_auth():
-                    self._send_auth_required()
-                    return
                 self._handle_metrics()
             elif self.path == '/health':
-                # No auth for health check
                 # No auth for health check
                 self._handle_health()
             else:
@@ -326,10 +281,9 @@ class MetricsHTTPServer:
         self.running = False
         self.actual_port: Optional[int] = None
         self.skip_tty_check = skip_tty_check
-        
-        # Determine if auth is required
+        # Determine if auth is required (non-localhost should provide credentials)
         is_localhost = host in ('127.0.0.1', 'localhost', '::1')
-        
+
         if not is_localhost:
             # Non-localhost requires auth
             if not auth_username or not auth_password:
@@ -338,28 +292,13 @@ class MetricsHTTPServer:
                     "Provide auth_username and auth_password, or bind to 127.0.0.1.\n"
                     "See docs/HTTP_SERVER_SECURITY.md for details."
                 )
-        
-        # Set registry and auth config for handler
-        self.skip_tty_check = skip_tty_check
-        
-        # Determine if auth is required
-        is_localhost = host in ('127.0.0.1', 'localhost', '::1')
-        
-        if not is_localhost:
-            # Non-localhost requires auth
-            if not auth_username or not auth_password:
-                raise ValueError(
-                    f"Authentication required for non-localhost binding ({host}).\n"
-                    "Provide auth_username and auth_password, or bind to 127.0.0.1.\n"
-                    "See docs/HTTP_SERVER_SECURITY.md for details."
-                )
-        
+
         # Set registry and auth config for handler
         if hasattr(metrics, 'registry'):
             MetricsHTTPHandler.registry = metrics.registry
         else:
             MetricsHTTPHandler.registry = None
-        
+
         # Configure authentication
         if auth_username and auth_password:
             MetricsHTTPHandler.auth_required = True
@@ -377,12 +316,12 @@ class MetricsHTTPServer:
         """
         if self.skip_tty_check:
             return True
-        
+
         # Only check for non-localhost bindings
         is_localhost = self.host in ('127.0.0.1', 'localhost', '::1')
         if is_localhost:
             return True
-        
+
         # Check if stdin is a TTY
         if not sys.stdin.isatty():
             _http_logger.error(
@@ -390,55 +329,12 @@ class MetricsHTTPServer:
                 "Use --skip-tty-check flag if intentional."
             )
             return False
-        
+
         # Interactive approval
         print(f"\n⚠️  WARNING: You are about to expose metrics on {self.host}:{self.port}", file=sys.stderr)
         print("   This will be accessible from other machines on the network.", file=sys.stderr)
         print("   Authentication is enabled. Credentials required for access.", file=sys.stderr)
-        
-        try:
-            response = input("\nProceed? (yes/no): ").strip().lower()
-            return response in ('yes', 'y')
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.", file=sys.stderr)
-            return False
-        
-        # Configure authentication
-        if auth_username and auth_password:
-            MetricsHTTPHandler.auth_required = True
-            MetricsHTTPHandler.auth_username = auth_username
-            MetricsHTTPHandler.auth_password = auth_password
-        else:
-            MetricsHTTPHandler.auth_required = False
-    
-    def _check_tty_approval(self) -> bool:
-        """
-        Check if running in interactive TTY and get user approval for non-localhost.
-        
-        Returns:
-            True if approved or check skipped, False otherwise
-        """
-        if self.skip_tty_check:
-            return True
-        
-        # Only check for non-localhost bindings
-        is_localhost = self.host in ('127.0.0.1', 'localhost', '::1')
-        if is_localhost:
-            return True
-        
-        # Check if stdin is a TTY
-        if not sys.stdin.isatty():
-            _http_logger.error(
-                f"Cannot bind to {self.host} in non-interactive environment. "
-                "Use --skip-tty-check flag if intentional."
-            )
-            return False
-        
-        # Interactive approval
-        print(f"\n⚠️  WARNING: You are about to expose metrics on {self.host}:{self.port}", file=sys.stderr)
-        print("   This will be accessible from other machines on the network.", file=sys.stderr)
-        print("   Authentication is enabled. Credentials required for access.", file=sys.stderr)
-        
+
         try:
             response = input("\nProceed? (yes/no): ").strip().lower()
             return response in ('yes', 'y')
@@ -473,14 +369,6 @@ class MetricsHTTPServer:
         6. Print security audit banner to stderr
         7. Return server URL
         """
-        # Check TTY approval first
-        if not self._check_tty_approval():
-            raise RuntimeError(
-                f"TTY approval required for non-localhost binding to {self.host}. "
-                "User declined or non-interactive environment detected. "
-                "Use --skip-tty-check flag to bypass (NOT recommended for production)."
-            )
-        
         # Check TTY approval first
         if not self._check_tty_approval():
             raise RuntimeError(
