@@ -13,7 +13,7 @@ import pytest
 from click.testing import CliRunner
 
 # Import CLI commands
-from crashlens.cli import validate_metrics_config, show_metrics_config
+from crashlens.cli import validate_metrics_config_legacy as validate_metrics_config, show_metrics_config
 
 
 class TestValidateMetricsConfigCommand:

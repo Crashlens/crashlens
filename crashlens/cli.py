@@ -3630,199 +3630,23 @@ def pii_remove(
         sys.exit(1)
 
 
-# Alternative implementation using FileSanitizer (with progress tracking)
-@click.command('pii-clean')
-@click.argument('logfile', type=click.Path(exists=True))
-@click.option(
-    '--output', '-o',
-    type=click.Path(),
-    help='Output file path (default: <input>_sanitized.jsonl)'
-)
-@click.option(
-    '--types',
-    type=str,
-    help='Comma-separated PII types to remove (default: all). Available: email,phone_us,ssn,credit_card,ip_address,api_key,street_address,date'
-)
-@click.option(
-    '--dry-run',
-    is_flag=True,
-    help='Analyze PII without creating output file (preview mode)'
-)
-def pii_clean_command(logfile, output, types, dry_run):
-    """
-    Remove personally identifiable information (PII) from JSONL log files.
-    
-    Creates a sanitized version of your logs suitable for cloud upload while
-    maintaining GDPR, HIPAA, and SOC 2 compliance.
-    
-    Examples:
-    
-        # Remove all PII types
-        crashlens pii-clean logs.jsonl
-    
-        # Remove only emails and phone numbers
-        crashlens pii-clean logs.jsonl --types email,phone_us
-    
-        # Preview what would be removed (dry run)
-        crashlens pii-clean logs.jsonl --dry-run
-    
-        # Custom output file
-        crashlens pii-clean logs.jsonl --output clean-logs.jsonl
-    """
-    from .pii.sanitizer import FileSanitizer
-    
-    # Parse PII types if specified
-    pii_types = None
-    if types:
-        pii_types = [t.strip() for t in types.split(',')]
-        
-        # Validate PII types
-        invalid_types = [t for t in pii_types if t not in PII_PATTERNS]
-        if invalid_types:
-            click.echo(f"❌ Error: Invalid PII types: {', '.join(invalid_types)}")
-            click.echo(f"   Available types: {', '.join(PII_PATTERNS.keys())}")
-            sys.exit(1)
-    
-    # Show mode
-    if dry_run:
-        click.echo("🔍 DRY RUN MODE - Analyzing PII without creating output file\n")
-    else:
-        click.echo("🔒 PII REMOVAL MODE - Creating sanitized output file\n")
-    
-    # Create sanitizer
-    sanitizer = FileSanitizer(pii_types)
-    
-    try:
-        # Process file
-        result = sanitizer.sanitize_jsonl_file(
-            input_file=logfile,
-            output_file=output,
-            dry_run=dry_run
-        )
-        
-        # Display results
-        click.echo("\n" + "=" * 60)
-        click.echo("📊 PII REMOVAL SUMMARY")
-        click.echo("=" * 60)
-        click.echo(f"📁 Input file:        {result['input_file']}")
-        
-        if not dry_run:
-            click.echo(f"📁 Output file:       {result['output_file']}")
-        
-        click.echo(f"📋 Records processed: {result['records_processed']}")
-        click.echo(f"🔒 Total PII removed: {result['total_pii_removed']}")
-        
-        # Show breakdown by type
-        if result['total_pii_removed'] > 0:
-            click.echo("\n🔍 PII Removal Breakdown:")
-            for pii_type, count in result['pii_stats'].items():
-                if count > 0:
-                    click.echo(f"   • {pii_type}: {count}")
-        else:
-            click.echo("\n✅ No PII detected in log file")
-        
-        # Show next steps
-        if not dry_run and result['total_pii_removed'] > 0:
-            click.echo("\n✨ Success! Your sanitized logs are ready for cloud upload.")
-            click.echo(f"   Upload: {result['output_file']}")
-        elif dry_run and result['total_pii_removed'] > 0:
-            click.echo("\n💡 Run without --dry-run to create sanitized output file:")
-            click.echo(f"   crashlens pii-clean {logfile}")
-        
-        click.echo("=" * 60)
-        
-    except FileNotFoundError as e:
-        click.echo(f"❌ Error: {e}", err=True)
-        sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Unexpected error: {e}", err=True)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-
-
-@click.command('validate-metrics-config')
+# Legacy alias for backward compatibility (deprecated)
+@click.command('validate-metrics-config', hidden=True)
 @click.argument('config_file', type=click.Path(exists=True, path_type=Path), required=True)
 @click.option('--verbose', '-v', is_flag=True, help='Show detailed validation output')
-def validate_metrics_config(config_file: Path, verbose: bool):
-    """
-    Validate a metrics configuration file for syntax and semantic correctness.
-    
-    This command validates:
-    - YAML syntax
-    - pydantic schema compliance  
-    - Field value ranges (sampling rates 0.0-1.0, ports 1024-65535)
-    - HTTP server opt-in requirements
-    - Per-rule rate validation
-    
-    Example:
-        crashlens validate-metrics-config metrics.yaml
-        crashlens validate-metrics-config metrics.yaml --verbose
-    """
-    from crashlens.config.loader import validate_config_file, load_metrics_config, get_config_summary
-    
-    click.echo(f"🔍 Validating metrics config: {config_file}")
-    click.echo("=" * 60)
-    
-    # Validate the file
-    is_valid, error_message = validate_config_file(config_file)
-    
-    if not is_valid:
-        click.echo(f"\n❌ VALIDATION FAILED\n", err=True)
-        click.echo(error_message, err=True)
-        click.echo("\n" + "=" * 60)
-        sys.exit(1)
-    
-    # If valid, load and display config summary
-    click.echo("\n✅ VALIDATION PASSED\n")
-    
-    if verbose:
-        try:
-            config = load_metrics_config(config_file)
-            summary = get_config_summary(config)
-            
-            click.echo("📊 Configuration Summary:")
-            click.echo("-" * 60)
-            click.echo(summary)
-            click.echo("-" * 60)
-            
-            # Show per-rule sampling details if present
-            if config.sampling.per_rule:
-                click.echo(f"\n📋 Per-Rule Sampling ({len(config.sampling.per_rule)} rules):")
-                click.echo("-" * 60)
-                
-                # Sort by rate (lowest to highest) for better visibility
-                sorted_rules = sorted(config.sampling.per_rule.items(), key=lambda x: x[1])
-                
-                for rule_name, rate in sorted_rules:
-                    rate_pct = rate * 100
-                    if rate == 0.0:
-                        emoji = "🔇"
-                        label = "DISABLED"
-                    elif rate < 0.05:
-                        emoji = "🔉"
-                        label = "LOW"
-                    elif rate < 0.5:
-                        emoji = "🔊"
-                        label = "MEDIUM"
-                    elif rate < 1.0:
-                        emoji = "📢"
-                        label = "HIGH"
-                    else:
-                        emoji = "🚨"
-                        label = "ALWAYS"
-                    
-                    click.echo(f"  {emoji} {rule_name:40} {rate_pct:6.2f}% [{label}]")
-            
-            click.echo()
-            
-        except Exception as e:
-            click.echo(f"\n⚠️  Warning: Could not load config for detailed summary: {e}")
-    
-    click.echo("=" * 60)
-    click.echo("✨ Config file is valid and ready to use!")
-    click.echo(f"\n💡 Use with:")
-    click.echo(f"   crashlens scan logs.jsonl --push-metrics --metrics-config {config_file}")
+@click.pass_context
+def validate_metrics_config_legacy(ctx, config_file: Path, verbose: bool):
+    """[DEPRECATED] Use 'crashlens config validate' instead."""
+    click.echo(
+        click.style(
+            "⚠️  WARNING: 'validate-metrics-config' is deprecated. Use 'crashlens config validate' instead.",
+            fg="yellow",
+            bold=True
+        ),
+        err=True
+    )
+    click.echo()
+    ctx.invoke(validate_config_command, config_file=config_file, verbose=verbose, config_type='metrics')
 
 
 @click.command('show-metrics-config')
@@ -4336,13 +4160,100 @@ Fallbacks: {fallback_count}
 # Config Commands
 # ========================================
 
-@click.group()
+@click.group(name="config")
 def config():
-    """Configuration management commands"""
+    """Configuration management and validation commands."""
     pass
 
 
-@config.command('smtp-example')
+@config.command(name="validate")
+@click.argument('config_file', type=click.Path(exists=True, path_type=Path), required=True)
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed validation output')
+@click.option('--type', '-t', 'config_type', 
+              type=click.Choice(['metrics', 'policy', 'smtp'], case_sensitive=False),
+              default='metrics',
+              help='Type of configuration to validate (default: metrics)')
+def validate_config_command(config_file: Path, verbose: bool, config_type: str):
+    """
+    Validate a configuration file for syntax and semantic correctness.
+    
+    Supports validation of:
+    - metrics: Prometheus/observability configuration
+    - policy: Policy YAML files
+    - smtp: Email notification configuration
+    
+    This command validates:
+    - YAML syntax
+    - Schema compliance  
+    - Field value ranges
+    - Required fields and dependencies
+    
+    Examples:
+        crashlens config validate metrics.yaml
+        crashlens config validate metrics.yaml --type metrics --verbose
+        crashlens config validate my-policy.yaml --type policy
+    """
+    if config_type == 'metrics':
+        from crashlens.config.loader import validate_config_file, load_metrics_config, get_config_summary
+        
+        click.echo(f"🔍 Validating metrics config: {config_file}")
+        click.echo("=" * 60)
+        
+        # Validate the file
+        is_valid, error_message = validate_config_file(config_file)
+        
+        if not is_valid:
+            click.echo(f"\n❌ VALIDATION FAILED\n", err=True)
+            click.echo(error_message, err=True)
+            click.echo("\n" + "=" * 60)
+            sys.exit(1)
+        
+        # If valid, load and display config summary
+        click.echo("\n✅ VALIDATION PASSED\n")
+        
+        if verbose:
+            try:
+                config = load_metrics_config(config_file)
+                summary = get_config_summary(config)
+                
+                click.echo("📊 Configuration Summary:")
+                click.echo("-" * 60)
+                click.echo(summary)
+                click.echo("-" * 60)
+            except Exception as e:
+                click.echo(f"⚠️  Warning: Could not load config details: {e}", err=True)
+        
+        click.echo("\n✅ Config is ready to use!")
+        click.echo(f"   Usage: crashlens scan logs.jsonl --metrics-config {config_file}")
+        
+    elif config_type == 'policy':
+        from crashlens.policy.engine import PolicyEngine
+        
+        click.echo(f"🔍 Validating policy config: {config_file}")
+        click.echo("=" * 60)
+        
+        try:
+            engine = PolicyEngine(policy_file=config_file)
+            click.echo(f"\n✅ VALIDATION PASSED\n")
+            click.echo(f"📋 Loaded {len(engine.rules)} policy rules")
+            
+            if verbose:
+                click.echo("\n📊 Policy Rules:")
+                for idx, rule in enumerate(engine.rules, 1):
+                    click.echo(f"  {idx}. {rule.id}: {rule.description}")
+                  
+        except Exception as e:
+            click.echo(f"\n❌ VALIDATION FAILED\n", err=True)
+            click.echo(str(e), err=True)
+            sys.exit(1)
+            
+    elif config_type == 'smtp':
+        click.echo(f"🔍 Validating SMTP config: {config_file}")
+        click.echo("⚠️  SMTP validation not yet implemented")
+        click.echo("💡 Tip: Use 'crashlens config smtp-example' to generate a template")
+
+
+@config.command(name='smtp-example')
 @click.option('--output', type=click.Path(path_type=Path), 
               default=Path('.crashlens/smtp.yaml'),
               help='Output path for example config (default: .crashlens/smtp.yaml)')
@@ -4426,10 +4337,16 @@ def list_report_schemas():
 
 
 # ============================
-# Schema Versioning Commands
+# Schema Detection Commands
 # ============================
 
-@click.command(name="list-schemas")
+@click.group(name="schema")
+def schema_commands():
+    """Schema detection and parser registry tools."""
+    pass
+
+
+@schema_commands.command(name="list")
 @click.option('--stable-only', is_flag=True, help='Only show stable/production-ready schemas')
 def list_schemas(stable_only: bool):
     """List all supported log schema formats."""
@@ -4454,7 +4371,7 @@ def list_schemas(stable_only: bool):
     click.echo()
 
 
-@click.command(name="detect-schema")
+@schema_commands.command(name="detect")
 @click.argument('logfile', type=click.Path(exists=True, path_type=Path))
 @click.option('--sample-size', type=int, default=10, help='Number of lines to sample')
 def detect_schema(logfile: Path, sample_size: int):
@@ -4468,8 +4385,44 @@ def detect_schema(logfile: Path, sample_size: int):
         click.echo(f"\n💡 Use this with: crashlens scan {logfile} --log-format {schema_id}")
     else:
         click.echo(click.style("❌ Could not auto-detect schema format.", fg="red"), err=True)
-        click.echo("\n💡 Tip: Use 'crashlens list-schemas' to see supported formats.")
+        click.echo("\n💡 Tip: Use 'crashlens schema list' to see supported formats.")
         sys.exit(1)
+
+
+# Legacy aliases for backward compatibility (deprecated)
+@click.command(name="list-schemas", hidden=True)
+@click.option('--stable-only', is_flag=True, help='Only show stable/production-ready schemas')
+@click.pass_context
+def list_schemas_legacy(ctx, stable_only: bool):
+    """[DEPRECATED] Use 'crashlens schema list' instead."""
+    click.echo(
+        click.style(
+            "⚠️  WARNING: 'list-schemas' is deprecated. Use 'crashlens schema list' instead.",
+            fg="yellow",
+            bold=True
+        ),
+        err=True
+    )
+    click.echo()
+    ctx.invoke(list_schemas, stable_only=stable_only)
+
+
+@click.command(name="detect-schema", hidden=True)
+@click.argument('logfile', type=click.Path(exists=True, path_type=Path))
+@click.option('--sample-size', type=int, default=10, help='Number of lines to sample')
+@click.pass_context
+def detect_schema_legacy(ctx, logfile: Path, sample_size: int):
+    """[DEPRECATED] Use 'crashlens schema detect' instead."""
+    click.echo(
+        click.style(
+            "⚠️  WARNING: 'detect-schema' is deprecated. Use 'crashlens schema detect' instead.",
+            fg="yellow",
+            bold=True
+        ),
+        err=True
+    )
+    click.echo()
+    ctx.invoke(detect_schema, logfile=logfile, sample_size=sample_size)
 
 
 # ============================
@@ -4579,18 +4532,20 @@ cli.add_command(list_policy_templates)
 cli.add_command(init)
 cli.add_command(simulate)
 cli.add_command(slack)
-cli.add_command(config)
+cli.add_command(config)  # Command group
+cli.add_command(schema_commands)  # Command group (new)
 cli.add_command(pii_remove)
-cli.add_command(pii_clean_command)
-cli.add_command(validate_metrics_config)
 cli.add_command(show_metrics_config)
 cli.add_command(guard)
 cli.add_command(run_report)
-cli.add_command(reports)
-cli.add_command(list_schemas)
-cli.add_command(detect_schema)
+cli.add_command(reports)  # Command group
 cli.add_command(validate_report)
 cli.add_command(list_report_schemas)
+
+# Legacy deprecated commands (hidden from --help)
+cli.add_command(validate_metrics_config_legacy)
+cli.add_command(list_schemas_legacy)
+cli.add_command(detect_schema_legacy)
 
 
 if __name__ == "__main__":
