@@ -13,7 +13,9 @@
 
 ![demo gif](docs/demo.gif)  
 
-# Watch demo video -> demo-video.mp4
+<video src="demo%20video/Video%20Project.mp4" controls width="600"></video>
+
+🎬 **Full demo video:** [📁 Open demo video folder](demo%20video/)
 
 **Core features:** Runtime enforcement · CI guardrails (fail-on-violation) · Prometheus metrics & Grafana
 
