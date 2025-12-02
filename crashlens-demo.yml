@@ -1,0 +1,155 @@
+# The configurations that used for the recording, feel free to edit them
+config:
+
+  # Specify a command to be executed
+  # like `/bin/bash -l`, `ls`, or any other commands
+  # the default is bash for Linux
+  # or powershell.exe for Windows
+  command: powershell.exe
+  
+  # Specify the current working directory path
+  # the default is the current working directory path
+  cwd: C:\Users\LawLight\Desktop\crashlens
+  
+  # Export additional ENV variables
+  env:
+    recording: true
+  
+  # Explicitly set the number of columns
+  # or use `auto` to take the current
+  # number of columns of your shell
+  cols: 132
+  
+  # Explicitly set the number of rows
+  # or use `auto` to take the current
+  # number of rows of your shell
+  rows: 58
+  
+  # Amount of times to repeat GIF
+  # If value is -1, play once
+  # If value is 0, loop indefinitely
+  # If value is a positive number, loop n times
+  repeat: 0
+  
+  # Quality
+  # 1 - 100
+  quality: 80
+  
+  # Delay between frames in ms
+  # If the value is `auto` use the actual recording delays
+  frameDelay: 90
+  
+  # Maximum delay between frames in ms
+  # Ignored if the `frameDelay` isn't set to `auto`
+  # Set to `auto` to prevent limiting the max idle time
+  maxIdleTime: 1200
+  
+  # The surrounding frame box
+  # The `type` can be null, window, floating, or solid`
+  # To hide the title use the value null
+  # Don't forget to add a backgroundColor style with a null as type
+  frameBox:
+    type: floating
+    title: CrashLens Demo
+    style:
+      border: 0px black solid
+      # boxShadow: none
+      # margin: 0px
+  
+  # Add a watermark image to the rendered gif
+  # You need to specify an absolute path for
+  # the image on your machine or a URL, and you can also
+  # add your own CSS styles
+  watermark:
+    imagePath: null
+  
+  # Cursor style can be one of
+  # `block`, `underline`, or `bar`
+  cursorStyle: block
+  
+  # Font family
+  # You can use any font that is installed on your machine
+  # in CSS-like syntax
+  fontFamily: "Monaco, Lucida Console, Ubuntu Mono, Monospace"
+  
+  # The size of the font
+  fontSize: 14
+  
+  # The height of lines
+  lineHeight: 1.2
+  
+  # The spacing between letters
+  letterSpacing: 0
+  
+  # Theme
+  theme:
+    background: "#080808"
+    foreground: "#f7f7f7"
+    cursor: "#f0ad4e"
+    black: "#1c1c1c"
+    red: "#ff5f5f"
+    green: "#b3e33b"
+    yellow: "#ffd75f"
+    blue: "#5fd7ff"
+    magenta: "#af87ff"
+    cyan: "#5fd7af"
+    white: "#eeeeee"
+    brightBlack: "#626566"
+    brightRed: "#ff7fac"
+    brightGreen: "#c8ed71"
+    brightYellow: "#ebdf86"
+    brightBlue: "#75dff2"
+    brightMagenta: "#ae89fe"
+    brightCyan: "#b1c6ca"
+    brightWhite: "#f9f9f4"
+  
+# Records, feel free to edit them
+records:
+  - delay: 295
+    content: "\e[?25l"
+  - delay: 10
+    content: "\e[93mterminalizer \e[37mplay crashlens-demo  \e[6;73H\e[?25h"
+  - delay: 279
+    content: "\e[m\e[?25l"
+  - delay: 16
+    content: "\e[93m\e[6;41H^D\e[30X\e[?25h"
+  - delay: 428
+    content: "\e[m\e[?25l"
+  - delay: 25
+    content: "\e[93m\e[6;41Hcrashlens \e[37mscan \e[90m--demo\e[?25h"
+  - delay: 226
+    content: "\e[m\e[?25l"
+  - delay: 21
+    content: "\e[93m\e[6;41Hclear\e[16X\e[?25h"
+  - delay: 400
+    content: "\e[m\e[?25l"
+  - delay: 14
+    content: "\e[93m\e[6;41Hcrashlens \e[37mscan \e[90m--demo\e[?25h"
+  - delay: 287
+    content: "\e[m"
+  - delay: 9
+    content: "\r\n"
+  - delay: 2201
+    content: "\e[?25l\U0001F3AC Running CrashLens in demo mode — generating sample reports for all formats...\e[9;1H\e[?25h"
+  - delay: 31
+    content: "\e[?25l[OK] Demo Slack report written to C:\\Users\\LawLight\\Desktop\\crashlens\\demo\\demo_report_slack.txt\r\n\U0001F6A8 *CrashLens Token Waste Report* \U0001F6A8\r\n\U0001F4CA *Analysis Date:* 2025-12-02 10:10:36\e[13;1H\U0001F4CB *Report Summary:*\r\n• \U0001F4B0 *Total AI Spend:* $0.0000\r\n• \U0001F525 *Potential Savings:* $0.0000\r\n• \U0001F3AF *Wasted Tokens:* 435\r\n• ⚠️ *Issues Found:* 2\r\n• \U0001F4C8 *Traces Analyzed:* 2\e[20;1H❓ *Overkill Model* • 1 traces • $0.79 wasted\r\n   \U0001F4A1 *Fix:* optimize usage\r\n   \U0001F3AF *Wasted tokens:* 275\r\n   \U0001F517 *Traces (1):* `trace456`\e[25;1H\U0001F504 *Retry Loop* • 1 traces • $0.45 wasted\r\n   \U0001F4A1 *Fix:* exponential backoff\r\n   \U0001F3AF *Wasted tokens:* 160\r\n   \U0001F517 *Traces (1):* `trace123`\e[31;1H\U0001F916 *Cost by Model:*\r\n• gpt-4 → $0.0000 (0%)\r\n• gpt-3.5-turbo → $0.0000 (0%)\e[35;1H\U0001F4A1 *Next Steps:*\r\n• Run `crashlens --detailed` for grouped JSON reports\r\n• Review trace patterns to optimize model routing\r\n• Implement suggested fixes to reduce token waste\e[41;1H\U0001F4C2 All demo reports saved inside the 'demo/' directory.\r\n\e[?25h"
+  - delay: 242
+    content: 'PS C:\Users\LawLight\Desktop\crashlens> '
+  - delay: 2557
+    content: "\e[?25l"
+  - delay: 20
+    content: "\e[93mex\e[?25h"
+  - delay: 387
+    content: "\e[m\e[?25l"
+  - delay: 19
+    content: "\e[93m\e[42;41Hexi\e[?25h"
+  - delay: 152
+    content: "\e[m\e[?25l"
+  - delay: 21
+    content: "\e[92m\e[42;41Hexit\e[?25h"
+  - delay: 365
+    content: "\e[m"
+  - delay: 10
+    content: "\r\n"
+  - delay: 3000
+    content: ""

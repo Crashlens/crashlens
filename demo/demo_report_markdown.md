@@ -2,7 +2,7 @@
 
 # CrashLens Token Waste Report
 
-**Analysis Date:** 2025-10-29 22:15:11  
+**Analysis Date:** 2025-12-02 10:10:36  
 
 **Traces Analyzed:** 2  
 
