@@ -7,7 +7,7 @@
       "waste_cost": 0.45,
       "waste_tokens": 160,
       "severity": "medium",
-      "timestamp": "2025-10-29T22:15:11.026808"
+      "timestamp": "2025-12-02T10:10:36.572702"
     },
     {
       "trace_id": "trace456",
@@ -16,7 +16,7 @@
       "waste_cost": 0.79,
       "waste_tokens": 275,
       "severity": "low",
-      "timestamp": "2025-10-29T22:15:11.026868"
+      "timestamp": "2025-12-02T10:10:36.572702"
     }
   ],
   "summary": {

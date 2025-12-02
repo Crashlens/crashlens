@@ -3,12 +3,11 @@
 **CrashLens** is a CLI-first FinOps tool that detects token waste, retry storms and model overuse from LLM logs and fails CI on high-cost patterns.  
 **One-liner:** Enforce token, retry and model policies in CI and runtime analysis. (PoC: 18–35% token/cost reduction; see `/docs/bench/results.md`.)
 
-![demo gif](docs/demo.gif)  [![Watch demo](docs/demo-thumbnail.png)](docs/demo.mp4)
+![demo gif](assets/Video Project.mp4)  [![Watch demo](docs/demo-thumbnail.png)](assets/demo video.mp4)
 
 ## Quickstart (30s)
 ```bash
 pip install crashlens
-crashlens init
 crashlens scan --demo            # runs example logs and writes report.md
 ```
 
@@ -33,6 +32,21 @@ graph LR
 	B --> F[Prometheus Pushgateway]
 ```
 
+![CrashLens architecture diagram](docs/architecture.png)
+
 Core features: Runtime enforcement · CI guardrails (fail-on-violation) · Prometheus metrics & Grafana.
+
+## Metrics (examples)
+
+`crashlens_tokens_total`, `crashlens_policy_violations_total`, `crashlens_request_latency_ms`
+Median added overhead: **≈ 15ms** (repro instructions in `/bench/`)
+
+![Grafana dashboard placeholder](docs/grafana/dashboard-screenshot.png)
+
+## CI/CD + Slack alerts
+
+![GitHub Action violation blocked](docs/ci-violation.png)
+![Slack violation notification](docs/slack.png)
+
 Full docs, policy language, dashboards, and benchmark scripts → `docs/`
 
