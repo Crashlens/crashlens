@@ -1,0 +1,12 @@
+{
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Policy Violations",
+      "targets": [{"expr": "crashlens_policy_violations_total"}],
+      "id": 1
+    }
+  ],
+  "title": "CrashLens Dashboard"
+}

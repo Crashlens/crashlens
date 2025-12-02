@@ -1,0 +1,16 @@
+name: CrashLens CI check
+on: [pull_request]
+jobs:
+  crashlens-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install CrashLens
+        run: pip install crashlens || true
+      - name: Policy Check
+        run: |
+          crashlens guard examples/demo-logs.jsonl --rules examples/crashlens.yaml --fail-on-violations || ( echo "CrashLens policy violation detected" && exit 1 )
