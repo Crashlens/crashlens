@@ -3,7 +3,7 @@
 **CrashLens** is a CLI-first FinOps tool that detects token waste, retry storms and model overuse from LLM logs and fails CI on high-cost patterns.  
 **One-liner:** Enforce token, retry and model policies in CI and runtime analysis. (PoC: 18–35% token/cost reduction; see `/docs/bench/results.md`.)
 
-![demo gif](docs/demo.gif)  [![Watch demo](docs/demo-thumbnail.png)](assets/demo video.mp4)
+![demo gif](docs/demo.gif)  [![Watch demo](docs/demo-thumbnail.png)](assets/demo-video.mp4)
 
 ## Quickstart (30s)
 ```bash
