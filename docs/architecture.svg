@@ -1,0 +1,9 @@
+<!-- Placeholder: architecture diagram (mermaid). Render mermaid->SVG offline and replace this file. -->
+<!-- mermaid
+graph LR
+  A[App] --> B(CrashLens)
+  B --> C{Policy Engine}
+  C -->|pass| D[LLM API]
+  C -->|block| E[Policy Block (exit 1)]
+  B --> F[Prometheus Pushgateway]
+-->

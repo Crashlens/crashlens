@@ -1,0 +1,4 @@
+{"traceId":"demo_ok_1","input":{"model":"gpt-3.5-turbo"},"usage":{"total_tokens":312},"cost":0.001}
+{"traceId":"demo_ok_2","input":{"model":"gpt-3.5-turbo"},"usage":{"total_tokens":120},"cost":0.0004}
+{"traceId":"demo_retry_1","input":{"model":"gpt-4"},"usage":{"total_tokens":64230},"cost":0.5}
+{"traceId":"demo_retry_1","input":{"model":"gpt-4"},"usage":{"total_tokens":64230},"cost":0.5}
