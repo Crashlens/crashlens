@@ -54,6 +54,9 @@ coverage.xml
 bench/results/
 *.dat
 *.png
+!docs/**/*.png
+!assets/**/*.png
+!docs/**/*.gif
 
 # Jupyter Notebook
 .ipynb_checkpoints
