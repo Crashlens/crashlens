@@ -13,9 +13,8 @@
 
 ![demo gif](docs/demo.gif)  
 
-[![▶️ Watch short Demo Video](docs/demo-thumbnail.png)](demo%20video/Video%20Project.mp4)
 
-🎬 [📁 Open demo video folder](demo%20video/)
+#🎬 [📁 Open demo video folder](demo%20video/)
 
 **Core features:** Runtime enforcement · CI guardrails (fail-on-violation) · Prometheus metrics & Grafana
 
