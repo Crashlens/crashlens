@@ -11,7 +11,9 @@
 
 *Detect hidden token waste • Prevent budget overruns • Optimize LLM usage*
 
-![demo gif](docs/demo.gif)  [![Watch demo video](docs/demo-thumbnail.png)](assets/demo-video.mp4)
+![demo gif](docs/demo.gif)  
+
+# Watch demo video -> demo-video.mp4
 
 **Core features:** Runtime enforcement · CI guardrails (fail-on-violation) · Prometheus metrics & Grafana
 
