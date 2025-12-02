@@ -10,11 +10,11 @@
 **The Ultimate AI Cost Optimization Tool**
 
 *Detect hidden token waste • Prevent budget overruns • Optimize LLM usage*
+# 🎬 [📁 Open demo video folder](demo%20video/)
 
 ![demo gif](docs/demo.gif)  
 
 
-# 🎬 [📁 Open demo video folder](demo%20video/)
 
 **Core features:** Runtime enforcement · CI guardrails (fail-on-violation) · Prometheus metrics & Grafana
 
